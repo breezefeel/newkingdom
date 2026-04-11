@@ -979,7 +979,7 @@ function spawnRefugee(){
 // ══════════════════════════════════════════════════════
 function toggleBattle(){
   if(isPlacing&&allies.filter(a=>!a.dead&&!a.garrisoned).some(a=>!a.isDeployed)){alog('❌ 배치 완료 후 시작');return;}
-  const party=allies.filter(a=>!a.dead&&!a.garrisoned&&a.isDeployed);
+  const party=allies.filter(a=>!a.dead&&!a.garrisoned&&!a.inStandby&&a.isDeployed);
   // 파티 초과 시: 초과 인원은 대기 처리 후 시작
   if(party.length>PARTY_LIMIT){
     const excess=party.slice(PARTY_LIMIT); // 초과 인원
@@ -1660,8 +1660,8 @@ function drawUnit(u){
 // UI 패널
 // ══════════════════════════════════════════════════════
 function renderAllyPanel(){
-  // 왼쪽 패널: 주둔 중이 아닌 통솔 유닛만 표시
-  const activeAllies=allies.filter(a=>!a.garrisoned);
+  // 왼쪽 패널: 대기(inStandby)나 주둔(garrisoned) 아닌 통솔 유닛만 표시
+  const activeAllies=allies.filter(a=>!a.garrisoned&&!a.inStandby);
   const canChange=!isBattle||isPaused;
   document.getElementById('al').innerHTML=activeAllies.map(a=>{
     const role=a.classKey||a.baseRole;
@@ -1768,7 +1768,7 @@ function renderGarrisonBar(){
   const container=document.getElementById('garrison-zones-container');
 
   // ① 대기 인원 프레임 (미배치 or 파티 초과 유닛)
-  const standby=allies.filter(a=>!a.dead&&!a.permanentlyDead&&!a.garrisoned&&!a.isDeployed);
+  const standby=allies.filter(a=>!a.dead&&!a.permanentlyDead&&!a.garrisoned&&a.inStandby);
   const standbyHtml=`<div class="gz" ondragover="event.preventDefault()" ondrop="standbyFrameDrop(event)">
     <div class="gz-title" style="color:#a855f7">⏳ 대기 인원 (${standby.length}명)</div>
     <div class="gz-units" style="min-height:24px">
@@ -1855,6 +1855,8 @@ window.addToGarrison=function(zid,uid){
   const rec=zoneRecords[zid];if(!rec||!rec.cleared)return;
   const u=allies.find(a=>a.id===uid);if(!u)return;
   u.garrisoned=zid;
+  u.inStandby=false;    // 대기 상태 해제
+  u.isDeployed=false; u.x=-300; u.y=-300; // 지도에서 제거
   if(!rec.garrison)rec.garrison=[];
   rec.garrison.push({id:u.id,name:u.name,lv:u.lv,classKey:u.classKey,baseRole:u.baseRole});
   rec.lastTick=Date.now();
@@ -1908,7 +1910,8 @@ window.allyDropToStandby=function(e){
   const u=allies.find(a=>a.id===id);
   if(!u)return;
   u.isDeployed=false; u.x=-300; u.y=-300;
-  u.garrisoned=null; // 통솔에서는 빠지지만 주둔도 아닌 대기
+  u.garrisoned=null;
+  u.inStandby=true; // ← 대기 상태 명확히 표시
   alog(`⏳ ${u.name} 대기로 이동`);
   markDirty(); renderGarrisonBar();
 };
@@ -1938,6 +1941,7 @@ function moveGarrisonUnit(fromZid,unitId,toZid){
       alog(`🔀 ${u.name} → ${ZONES[toZid].name} 이동`);
     }else{
       u.garrisoned=null;
+      u.inStandby=false; // 통솔로 복귀 시 대기 해제
       alog(`↩️ ${u.name} 통솔로 복귀`);
     }
   }
@@ -1964,7 +1968,7 @@ window.allyPanelDrop=function(e){
   const sid=parseInt(e.dataTransfer.getData('standby-uid'));
   if(sid){
     const u=allies.find(a=>a.id===sid);
-    if(u){u.garrisoned=null;markDirty();renderGarrisonBar();}
+    if(u){u.garrisoned=null;u.inStandby=false;markDirty();renderGarrisonBar();}
   }
 };
 
