@@ -1,0 +1,1783 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>왕국 연대기 v6.0</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #ccc; display: flex; flex-direction: column; align-items: center; padding: 6px; user-select: none; }
+#top { width:100%; max-width:1380px; background:#0f1923; border:1px solid #1e3a5f; border-radius:7px; padding:7px 14px; display:flex; gap:14px; align-items:center; margin-bottom:5px; flex-wrap:wrap; }
+.logo { color:#f1c40f; font-weight:bold; font-size:0.95em; }
+.rv { font-size:0.82em; } .rv span { color:#f1c40f; font-weight:bold; }
+.rv span.g { color:#2ecc71; } .rv span.r { color:#e74c3c; } .rv span.fo { color:#e67e22; }
+.hint { margin-left:auto; font-size:9px; color:#374151; }
+#ctrl { width:100%; max-width:1380px; display:flex; gap:5px; align-items:center; margin-bottom:5px; flex-wrap:wrap; }
+.badge { padding:4px 12px; border-radius:4px; font-weight:bold; font-size:0.75em; min-width:80px; text-align:center; }
+.b-pl{background:#5b2d82} .b-ba{background:#7b1d1d} .b-pa{background:#7d5a00} .b-re{background:#1a3d5c}
+.cb { padding:5px 10px; border:none; border-radius:4px; color:#fff; font-weight:bold; cursor:pointer; font-size:0.75em; transition:filter 0.12s; }
+.cb:hover { filter:brightness(1.3); }
+.cb-go{background:#7b1d1d} .cb-pa{background:#7d5a00} .cb-hi{background:#1a5c32} .cb-zo{background:#1a3d5c} .cb-fo{background:#5a3010}
+#lay { width:100%; max-width:1380px; display:flex; gap:6px; align-items:flex-start; }
+.sp { width:270px; flex-shrink:0; background:#0f1923; border:1px solid #1e2d3d; border-radius:7px; padding:9px; max-height:700px; overflow-y:auto; }
+.pt { font-size:0.82em; font-weight:bold; color:#f1c40f; margin-bottom:7px; border-bottom:1px solid #1e2d3d; padding-bottom:4px; }
+.uc { background:#111d2b; border:1px solid #1e2d3d; border-radius:5px; padding:7px; margin-bottom:6px; font-size:11px; cursor:pointer; transition:border-color 0.15s; }
+.uc:hover { border-color:#374151; } .uc.hold { border-color:#7b2f9e !important; background:#120b1e; }
+.uch { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+.un { font-weight:bold; font-size:11px; } .ulv { font-size:9px; color:#f1c40f; }
+.bw { width:100%; height:4px; background:#1e2d3d; border-radius:2px; margin:2px 0; overflow:hidden; }
+.bf { height:100%; border-radius:2px; transition:width 0.3s; }
+.hf{background:#27ae60} .ef{background:#2980b9}
+.bl { font-size:9px; color:#374151; }
+.sk-row { display:flex; gap:3px; flex-wrap:wrap; margin:3px 0; }
+.skb { padding:2px 5px; border-radius:3px; border:1px solid #1e2d3d; background:#0f1923; color:#6b7280; font-size:9px; cursor:pointer; transition:all 0.1s; }
+.skb:hover { border-color:#f1c40f; color:#f1c40f; } .skb.act { background:#f1c40f; color:#000; border-color:#f1c40f; font-weight:bold; }
+.sl { font-size:9px; color:#374151; margin-bottom:2px; }
+.ur { display:flex; gap:2px; margin-top:4px; flex-wrap:wrap; }
+.ub { flex:1; min-width:calc(33% - 3px); padding:3px 1px; border-radius:3px; border:1px solid #1e2d3d; background:#0f1923; color:#6b7280; font-size:8px; cursor:pointer; text-align:center; transition:all 0.12s; }
+.ub:hover { background:#f1c40f; color:#000; border-color:#f1c40f; }
+.ub.dimmed { opacity:0.45; cursor:not-allowed; }
+.ub.dimmed:hover { background:#0f1923; color:#6b7280; border-color:#1e2d3d; }
+.ec { background:#120808; border:1px solid #3d1010; border-radius:4px; padding:5px; margin-bottom:5px; font-size:10px; }
+.etb { font-size:8px; padding:1px 4px; border-radius:2px; color:#fff; margin-left:3px; }
+.log { height:75px; overflow-y:auto; background:#080c10; border:1px solid #1e2d3d; border-radius:3px; padding:4px; font-size:9px; color:#4ade80; margin-top:5px; }
+.log.el { color:#f87171; } .ll { padding:1px 0; }
+#mw { flex:1; position:relative; border:1px solid #1e2d3d; border-radius:7px; overflow:hidden; background:#060a0d; }
+canvas { display:block; }
+#pg { position:absolute; top:7px; left:50%; transform:translateX(-50%); background:rgba(91,45,130,0.93); color:#fff; padding:4px 13px; border-radius:14px; font-size:10px; font-weight:bold; z-index:10; pointer-events:none; display:none; white-space:nowrap; }
+/* 모달 공통 */
+.overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.87); z-index:100; align-items:center; justify-content:center; }
+.overlay.show { display:flex; }
+.modal-box { background:#0f1923; border:1px solid #f1c40f44; border-radius:10px; padding:20px; max-width:540px; width:90%; }
+.modal-title { color:#f1c40f; font-size:1.1em; font-weight:bold; margin-bottom:10px; text-align:center; }
+.modal-sub { color:#9ca3af; font-size:0.82em; margin-bottom:14px; text-align:center; }
+.class-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.class-btn { background:#111d2b; border:1px solid #1e2d3d; border-radius:7px; padding:12px; cursor:pointer; transition:all 0.15s; text-align:left; }
+.class-btn:hover { border-color:#f1c40f; background:#1a2a3d; }
+.class-btn .cn { font-weight:bold; color:#f1c40f; font-size:0.9em; margin-bottom:4px; }
+.class-btn .cd { font-size:0.75em; color:#9ca3af; line-height:1.4; }
+.class-btn .cs { font-size:0.72em; color:#60a5fa; margin-top:5px; }
+/* 전투지 모달 */
+.zone-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.zone-btn { background:#111d2b; border:2px solid #1e2d3d; border-radius:9px; padding:14px; cursor:pointer; transition:all 0.15s; text-align:center; }
+.zone-btn:hover { border-color:#f1c40f; transform:translateY(-2px); }
+.zone-btn .zn { font-size:1em; font-weight:bold; margin-bottom:5px; }
+.zone-btn .zd { font-size:0.75em; color:#9ca3af; line-height:1.4; margin-bottom:6px; }
+.zone-btn .zr { font-size:0.72em; padding:2px 7px; border-radius:3px; display:inline-block; }
+.zr-hunt{background:#1a3d20;color:#2ecc71} .zr-bandit{background:#3d1010;color:#e74c3c}
+.zone-cur { font-size:9px; color:#f1c40f; margin-top:5px; }
+::-webkit-scrollbar { width:3px; } ::-webkit-scrollbar-thumb { background:#1e2d3d; border-radius:2px; }
+/* 하단 주둔 패널 */
+#garrison-bar { width:100%; max-width:1380px; background:#0a1520; border:1px solid #1e3a5f; border-radius:7px; margin-top:5px; overflow:hidden; }
+#garrison-bar-header { display:flex; align-items:center; gap:10px; padding:6px 12px; cursor:pointer; background:#0f1923; }
+#garrison-bar-header:hover { background:#111d2b; }
+#garrison-bar-body { display:none; padding:8px 12px; }
+#garrison-bar-body.open { display:flex; gap:8px; flex-wrap:wrap; align-items:flex-start; }
+.gz { background:#111d2b; border:1px solid #1e2d3d; border-radius:6px; padding:8px; min-width:200px; flex:1; }
+.gz-title { font-size:10px; font-weight:bold; margin-bottom:5px; }
+.gz-units { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:5px; }
+.gz-unit { padding:3px 7px; border-radius:3px; font-size:9px; border:1px solid #1e2d3d; background:#0f1923; cursor:pointer; }
+.gz-unit:hover { border-color:#f1c40f; }
+.gz-income { font-size:9px; color:#2ecc71; margin-bottom:4px; }
+.gz-add { font-size:9px; color:#f1c40f; cursor:pointer; padding:2px 6px; border:1px dashed #374151; border-radius:3px; }
+.gz-add:hover { border-color:#f1c40f; }
+/* 터치 최적화 */
+button, .cb, .skb, .ub, .class-btn, .zone-btn, .gz-unit, .gz-add { touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+canvas { touch-action:none; }
+.sp { -webkit-overflow-scrolling:touch; }
+</style>
+</head>
+<body>
+
+<div id="top">
+  <span class="logo">⚔️ 왕국 연대기 v5.0</span>
+  <span class="rv">💰 <span id="gd">100</span>G</span>
+  <span class="rv">🍖 식량 <span class="fo" id="fd">0</span></span>
+  <span class="rv">Stage <span class="g" id="sd">1</span></span>
+  <span class="rv">적 <span class="r" id="ed">0</span>명</span>
+  <span class="rv" id="area-label" style="color:#a855f7;font-weight:bold"></span>
+  <span class="hint">[Space] 시작/정지 | 드래그→이동목표 | 더블클릭→홀드 토글 | 전투지 선택으로 자원 전략 결정</span>
+</div>
+
+<div id="ctrl">
+  <div class="badge b-pl" id="sb">배치 단계</div>
+  <button class="cb cb-go" id="btn-go" onclick="toggleBattle()">▶ 전투 시작</button>
+  <button class="cb cb-pa" id="btn-pa" onclick="togglePause()" style="display:none">⏸ 정지</button>
+  <button class="cb cb-zo" onclick="showZoneModal()">🗺 전투지 선택</button>
+  <button class="cb cb-fo" onclick="showRefugeeModal()">🍖 식량으로 영입</button>
+  <button class="cb cb-hi" onclick="hireGold()">💰 금화로 영입 (100G)</button>
+  <button class="cb" id="btn-auto" onclick="toggleAutoStart()" style="background:#1a4030">🔁 자동시작: OFF</button>
+</div>
+
+<div id="lay">
+  <div class="sp"><div class="pt">🛡 통솔 유닛</div><div id="al"></div><div class="log" id="alog"></div></div>
+  <div id="mw"><canvas id="gc"></canvas><div id="pg">배치 중</div></div>
+  <div class="sp"><div class="pt">💀 적군</div><div id="el"></div><div class="log el" id="elog"></div></div>
+</div>
+
+<!-- 하단 주둔 패널 -->
+<div id="garrison-bar">
+  <div id="garrison-bar-header" onclick="toggleGarrisonBar()">
+    <span style="color:#f1c40f;font-weight:bold;font-size:0.85em">🏰 주둔지 현황</span>
+    <span id="garrison-bar-income" style="font-size:0.78em;color:#2ecc71"></span>
+    <span style="margin-left:auto;font-size:0.75em;color:#374151">▼ 펼치기</span>
+  </div>
+  <div id="garrison-bar-body">
+    <div id="garrison-zones-container"></div>
+  </div>
+</div>
+
+<!-- 전직 모달 -->
+<div id="modal" class="overlay">
+  <div class="modal-box">
+    <div class="modal-title" id="modal-title">전직 선택</div>
+    <div class="modal-sub" id="modal-sub"></div>
+    <div class="class-grid" id="modal-grid"></div>
+  </div>
+</div>
+
+<!-- 이름 부여 모달 (전직 후) -->
+<div id="rename-modal" class="overlay">
+  <div class="modal-box" style="max-width:380px">
+    <div class="modal-title">✨ 이름 부여</div>
+    <div class="modal-sub" id="rename-sub">전직을 축하합니다! 이 영웅에게 이름을 부여하세요.</div>
+    <div id="rename-suggestions" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>
+    <input id="rename-input" type="text" maxlength="10" placeholder="이름을 입력하세요"
+      style="width:100%;padding:9px;border-radius:5px;border:1px solid #1e2d3d;background:#111d2b;color:#fff;font-size:1em;margin-bottom:10px;outline:none">
+    <div style="display:flex;gap:8px">
+      <button class="cb" style="background:#1a5c32;flex:1;padding:10px" onclick="confirmRename()">✅ 확정</button>
+      <button class="cb" style="background:#374151;flex:1;padding:10px" onclick="skipRename()">건너뛰기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 전투지 선택 모달 -->
+<div id="zone-modal" class="overlay">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-title">🗺 전투 장소 선택</div>
+    <div class="modal-sub">전투지에 따라 적 유형과 획득 자원 비율이 달라집니다</div>
+    <div class="zone-grid" id="zone-grid"></div>
+    <button class="cb" style="background:#374151;width:100%;margin-top:12px;padding:8px" onclick="closeZoneModal()">닫기</button>
+  </div>
+</div>
+
+<!-- 주둔 모달 -->
+<div id="garrison-modal" class="overlay">
+  <div class="modal-box" style="max-width:560px">
+    <div class="modal-title" id="garrison-title">🏰 주둔 설정</div>
+    <div class="modal-sub" id="garrison-sub"></div>
+    <div id="garrison-body" style="margin-bottom:12px"></div>
+    <div style="display:flex;gap:8px">
+      <button class="cb" style="background:#1a5c32;flex:1;padding:10px" onclick="confirmGarrison()">✅ 주둔 배치</button>
+      <button class="cb" style="background:#374151;flex:1;padding:10px" onclick="closeGarrisonModal()">나중에</button>
+    </div>
+  </div>
+</div>
+<div id="refugee-modal" class="overlay">
+  <div class="modal-box" style="max-width:360px">
+    <div class="modal-title">🍖 식량으로 피난민 영입</div>
+    <div class="modal-sub" id="ref-sub">식량 30을 소모하여 새로운 피난민을 영입합니다.</div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="cb" style="background:#e67e22;flex:1;padding:10px" onclick="hireFood()">🍖 영입 (-30 식량)</button>
+      <button class="cb" style="background:#374151;flex:1;padding:10px" onclick="closeRefugeeModal()">취소</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// 상수 & 정의
+// ══════════════════════════════════════════════════════
+const COLS=20,ROWS=12,HR=21;
+const HW=Math.sqrt(3)*HR;
+const CW=Math.ceil(COLS*HW+HW*0.5+10);
+const CH=Math.ceil(ROWS*HR*1.5+HR+10);
+
+const TERRAIN={
+  plain:   {label:'평지',color:'#0d1f30',border:'#1a3a55',spd:1.0, blockLOS:false,sym:'',  bonus:{}},
+  forest:  {label:'숲',  color:'#0a1f14',border:'#1a4028',spd:0.65,blockLOS:false,sym:'🌲',bonus:{Melee:1.6,Rogue:1.8}},
+  mountain:{label:'산',  color:'#1c1c1c',border:'#333',   spd:0.2, blockLOS:true, sym:'⛰',bonus:{Ranged:1.5,Sniper:1.7}},
+  river:   {label:'강',  color:'#08163a',border:'#1435a0',spd:0.2, blockLOS:false,sym:'〰',bonus:{Ranged:-0.3}},
+  hill:    {label:'언덕',color:'#1a1208',border:'#3d2c0a',spd:0.75,blockLOS:false,sym:'🏕',bonus:{Ranged:1.3,Tank:1.2}},
+};
+
+const BASE_SKILLS={
+  Guard: {name:'방어막',  desc:'자신 방어+30%, 인근 동료 방어+10%',type:'passive_def',range:80},
+  Strike:{name:'강타',    desc:'근접 추가 피해+15, 숲에서+25',     type:'active_melee',range:65},
+  Arrow: {name:'화살',    desc:'원거리 공격, 산 위에서+40%',        type:'active_ranged',range:230},
+  Mend:  {name:'응급처치',desc:'가장 체력 낮은 아군 치료',          type:'active_heal',range:210},
+};
+const CLASS5_SKILLS={
+  Fortress:{name:'요새화',  desc:'이동불가, 방어+60%, 인근 방어+25%',type:'passive_def'},
+  Taunt:   {name:'도발',    desc:'적의 공격을 자신에게 집중',         type:'active_taunt',range:120},
+  Ambush:  {name:'매복',    desc:'숲에서 공격력 2배, 이동속도+20%',  type:'passive_forest'},
+  Cleave:  {name:'회전베기',desc:'주변 적 모두 공격',                 type:'active_aoe',range:75},
+  Volley:  {name:'연사',    desc:'3회 연속 공격',                      type:'active_multi',range:220},
+  Highland:{name:'고지전술',desc:'언덕/산에서 사거리+50, 피해+40%',  type:'passive_high'},
+  Barrier: {name:'방어막진',desc:'대상에게 피해 감소 쉴드 부여',     type:'active_shield',range:200},
+  Revive:  {name:'소생',    desc:'사망한 아군을 30% HP로 소생',      type:'active_revive',range:180},
+};
+const CLASS10={
+  Paladin:  {name:'성기사',base:'Tank',  skills:['Guard','Fortress','Taunt','Barrier'],  desc:'전장의 방패.'},
+  Berserker:{name:'광전사',base:'Tank',  skills:['Strike','Cleave','Ambush','Fortress'], desc:'무모한 돌격.'},
+  Rogue:    {name:'도적',  base:'Melee', skills:['Strike','Ambush','Cleave','Arrow'],    desc:'숲에서 치명적.'},
+  Gladiator:{name:'검투사',base:'Melee', skills:['Strike','Cleave','Guard','Taunt'],     desc:'군중 제압.'},
+  Sniper:   {name:'저격수',base:'Ranged',skills:['Arrow','Volley','Highland','Ambush'],  desc:'압도적 사거리.'},
+  Artillery:{name:'포격수',base:'Ranged',skills:['Volley','Arrow','Highland','Cleave'],  desc:'광역 포격.'},
+  Cleric:   {name:'성직자',base:'Heal',  skills:['Mend','Barrier','Revive','Guard'],     desc:'완벽한 회복.'},
+  Shaman:   {name:'무당',  base:'Heal',  skills:['Mend','Ambush','Revive','Taunt'],      desc:'야전 힐러.'},
+};
+const BASE_ROLES={
+  Tank:    {name:'탱커',   mark:'T', color:'#3498db', range:55,  atk:18, spd:1.2, def:0.3,  atkSpd:0.55},
+  Melee:   {name:'전사',   mark:'M', color:'#e67e22', range:65,  atk:48, spd:1.8, def:0.0,  atkSpd:1.2 },
+  Ranged:  {name:'궁수',   mark:'R', color:'#27ae60', range:230, atk:30, spd:1.5, def:0.0,  atkSpd:0.7 },
+  Heal:    {name:'힐러',   mark:'H', color:'#a855f7', range:210, atk:20, spd:1.3, def:0.0,  atkSpd:0.6 },
+  Refugee: {name:'피난민', mark:'P', color:'#7f8c8d', range:100, atk:22, spd:1.5, def:0.05, atkSpd:0.8 },
+};
+
+// ── 전투 장소 ──
+const ZONES={
+  hunt:   {id:'hunt',   name:'🌿 사냥터',   desc:'동물 위주. 식량을 풍부하게 얻음.',        tier:'hunt',   color:'#2d7a3a', rFood:3,rGold:1, rClass:'hunt',   finalStage:15},
+  wilds:  {id:'wilds',  name:'🦁 포식지대', desc:'강한 포식자들. 균형 잡힌 자원.',           tier:'pred',   color:'#a05a00', rFood:2,rGold:2, rClass:'hunt',   finalStage:30},
+  bandit: {id:'bandit', name:'⚔️ 악당 소굴',desc:'악당 집단. 금화를 많이 획득.',             tier:'bandit', color:'#7b1d1d', rFood:1,rGold:3, rClass:'bandit', finalStage:45},
+  king:   {id:'king',   name:'👑 왕의 군대',desc:'정예 군대. 위험하지만 금화 보상 최대.',    tier:'king',   color:'#6c2899', rFood:1,rGold:4, rClass:'bandit', finalStage:60},
+};
+
+// 강화 항목
+const UPGRADES={
+  atk:  {label:'⚔️ 공격',   cost:lv=>20+lv*8,  apply:u=>{u.bonusAtk+=8;},                              tip:u=>`공격력+8 (현재 ${(BASE_ROLES[u.classKey||u.baseRole]?.atk||30)+u.bonusAtk})`},
+  def:  {label:'🛡 방어',   cost:lv=>22+lv*9,  apply:u=>{u.bonusDef=Math.min(u.bonusDef+0.05,0.6);},   tip:u=>`방어+5% (현재 ${Math.floor(u.bonusDef*100)}%)`},
+  spd:  {label:'💨 속도',   cost:lv=>18+lv*7,  apply:u=>{u.bonusSpd+=0.1;},                             tip:u=>`속도+0.1 (현재 ${(u.baseSpd+u.bonusSpd).toFixed(1)})`},
+  cdr:  {label:'⏱ 쿨감',   cost:lv=>25+lv*10, apply:u=>{u.bonusCDR=Math.min(u.bonusCDR+0.05,0.5);},   tip:u=>`쿨타임-5% (누적 ${Math.floor(u.bonusCDR*100)}%)`},
+  mana: {label:'💧 마나',   cost:lv=>20+lv*8,  apply:u=>{u.bonusMana+=50;u.maxHp+=30;u.hp=Math.min(u.hp+30,u.maxHp);}, tip:u=>`마나+50, HP+30`},
+  magic:{label:'✨ 마법',   cost:lv=>28+lv*11, apply:u=>{u.bonusMagic+=10;},                            tip:u=>`마법력+10 (힐/스킬 위력)`},
+};
+
+// ══════════════════════════════════════════════════════
+// 상태
+// ══════════════════════════════════════════════════════
+let canvas,ctx,hexMap=[];
+let allies=[],enemies=[],floats=[];
+let gold=100,food=0,stage=1;
+let currentZone=ZONES.hunt;
+let isBattle=false,isPaused=false,isPlacing=false;
+let autoStart=false;
+let dragUnit=null,isDragging=false,dragSX=0,dragSY=0,mouseX=0,mouseY=0;
+const DRAG_T=7;
+let uid=1,pendingClass=null;
+let savedPositions={};
+let initialPositions={};
+
+// 파이널 스테이지 클리어 기록 & 주둔 시스템
+// zoneId → { cleared:bool, clearTime:ms, totalReward:{food,gold}, garrison:[unitSnapshot], lastTick:timestamp }
+let zoneRecords={};
+let garrisonInterval=null; // 주둔 자원 tick 인터벌
+
+// ══════════════════════════════════════════════════════
+// 초기화
+// ══════════════════════════════════════════════════════
+function init(){
+  canvas=document.getElementById('gc');
+  ctx=canvas.getContext('2d');
+  canvas.width=CW; canvas.height=CH;
+  document.getElementById('mw').style.width=CW+'px';
+  document.getElementById('mw').style.height=CH+'px';
+  currentZone=ZONES.hunt;
+  buildMap(); spawnAllies(); spawnEnemies(); enterPlacement();
+  canvas.addEventListener('mousedown',onDown);
+  window.addEventListener('mousemove',onMove);
+  window.addEventListener('mouseup',onUp);
+  // 터치 이벤트 (iPad/모바일)
+  canvas.addEventListener('touchstart',e=>{e.preventDefault();onDown(e.touches[0]);},{passive:false});
+  window.addEventListener('touchmove',e=>{e.preventDefault();onMove(e.touches[0]);},{passive:false});
+  window.addEventListener('touchend',e=>{e.preventDefault();onUp(e.changedTouches[0]);},{passive:false});
+  window.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();isBattle?togglePause():toggleBattle();}});
+  requestAnimationFrame(loop);
+  enableAllyPanelDrop();
+  renderGarrisonBar();
+}
+
+// ══════════════════════════════════════════════════════
+// 전투지 선택
+// ══════════════════════════════════════════════════════
+function showZoneModal(){
+  if(isBattle&&!isPaused){alog('❌ 전투 중 변경 불가');return;}
+  document.getElementById('zone-grid').innerHTML=Object.values(ZONES).map(z=>{
+    const rec=zoneRecords[z.id]||{};
+    const cleared=rec.cleared?'<span style="color:#2ecc71;font-size:9px">✅ 클리어</span>':'';
+    const garr=rec.garrison&&rec.garrison.length>0?`<span style="color:#f1c40f;font-size:9px">🏰 주둔 ${rec.garrison.length}명</span>`:'';
+    return `
+    <div class="zone-btn" onclick="selectZone('${z.id}')" style="border-color:${currentZone.id===z.id?z.color:'#1e2d3d'}">
+      <div class="zn" style="color:${z.color}">${z.name}</div>
+      <div class="zd">${z.desc}</div>
+      <div class="zr zr-${z.rClass}">식량×${z.rFood} 금화×${z.rGold}</div>
+      <div style="font-size:9px;margin-top:4px;color:#6b7280">파이널: Stage ${z.finalStage} ${cleared} ${garr}</div>
+      ${currentZone.id===z.id?'<div class="zone-cur">✅ 현재 선택</div>':''}
+    </div>`;
+  }).join('');
+  document.getElementById('zone-modal').classList.add('show');
+}
+function closeZoneModal(){document.getElementById('zone-modal').classList.remove('show');}
+window.selectZone=function(id){
+  currentZone=ZONES[id];
+  buildMap(); spawnEnemies();
+  document.getElementById('area-label').innerText=currentZone.name;
+  document.getElementById('area-label').style.color=currentZone.color;
+  closeZoneModal();
+  alog(`🗺 전투지: ${currentZone.name} (식량×${currentZone.rFood} 금화×${currentZone.rGold})`);
+};
+
+// ══════════════════════════════════════════════════════
+// 맵 생성
+// ══════════════════════════════════════════════════════
+function hexCenter(r,c){return{x:c*HW+(r%2)*HW*0.5+HR+5,y:r*HR*1.5+HR+5};}
+
+function buildMap(){
+  hexMap=[];
+  const tier=currentZone.tier;
+  for(let r=0;r<ROWS;r++){
+    hexMap[r]=[];
+    for(let c=0;c<COLS;c++){
+      let type='plain';
+      const {x,y}=hexCenter(r,c);
+      const rnd=Math.random();
+      if(tier==='hunt'){if(c>4&&c<16){if(rnd>0.75)type='forest';else if(rnd>0.92)type='hill';}}
+      else if(tier==='pred'){if(c>3&&c<17){if(rnd>0.82)type='forest';else if(rnd>0.68)type='hill';else if(rnd>0.92)type='mountain';}}
+      else if(tier==='bandit'){if(c>4&&c<16){if(rnd>0.80)type='mountain';else if(rnd>0.66)type='hill';else if((c===8||c===9||c===10)&&rnd>0.55)type='river';}}
+      else{if(c>4&&c<16){if(rnd>0.83)type='mountain';else if(rnd>0.70)type='forest';else if(rnd>0.60)type='hill';else if((c===9||c===10)&&rnd>0.55)type='river';}}
+      if(c>=16)type=(rnd>0.85)?'hill':'plain';
+      hexMap[r][c]={type,x,y};
+    }
+  }
+}
+
+function nearestCell(x,y){
+  let best=null,bd=Infinity;
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const h=hexMap[r][c],d=(h.x-x)**2+(h.y-y)**2;if(d<bd){bd=d;best=h;}}
+  return best;
+}
+function hasLOS(ax,ay,bx,by){
+  for(let i=1;i<12;i++){const t=i/12,mx=ax+(bx-ax)*t,my=ay+(by-ay)*t;const cell=nearestCell(mx,my);if(cell&&TERRAIN[cell.type].blockLOS)return false;}
+  return true;
+}
+function terrainAtkBonus(unit,cell){
+  if(!cell)return 1.0;
+  const role=unit.classKey||unit.baseRole||'Melee';
+  const bonus=TERRAIN[cell.type].bonus[role];
+  return(typeof bonus==='number'&&bonus>0)?bonus:1.0;
+}
+function bestAdjacentCell(unit,targetX,targetY){
+  const candidates=[];
+  const baseAngle=Math.atan2(targetY-unit.y,targetX-unit.x);
+  for(let a=-1;a<=1;a++){const ang=baseAngle+a*(Math.PI/5);const nx=unit.x+Math.cos(ang)*HW,ny=unit.y+Math.sin(ang)*HR*1.5;const cell=nearestCell(nx,ny);if(cell)candidates.push({x:nx,y:ny,cell});}
+  if(!candidates.length)return null;
+  candidates.sort((a,b)=>terrainAtkBonus(unit,b.cell)*TERRAIN[b.cell.type].spd-terrainAtkBonus(unit,a.cell)*TERRAIN[a.cell.type].spd);
+  return candidates[0];
+}
+
+// ══════════════════════════════════════════════════════
+// 유닛 생성
+// ══════════════════════════════════════════════════════
+// ── 유닛 특성 정의 ──
+// trait: 강조 스탯 + 레벨업 성장 가중치
+const TRAITS={
+  tough:   {name:'강인',    desc:'체력 높음',      growAtk:1,growHp:3,growDef:1,growSpd:0,growMagic:0},
+  swift:   {name:'민첩',    desc:'이동속도 높음',   growAtk:1,growHp:1,growDef:0,growSpd:3,growMagic:0},
+  strong:  {name:'강력',    desc:'공격력 높음',     growAtk:3,growHp:1,growDef:0,growSpd:1,growMagic:0},
+  wise:    {name:'현명',    desc:'마법·힐 강함',    growAtk:0,growHp:1,growDef:1,growSpd:0,growMagic:3},
+  steadfast:{name:'견고',   desc:'방어력 높음',     growAtk:0,growHp:2,growDef:3,growSpd:0,growMagic:0},
+  balanced:{name:'균형',    desc:'균형 잡힌 성장',  growAtk:1,growHp:1,growDef:1,growSpd:1,growMagic:1},
+};
+const TRAIT_KEYS=Object.keys(TRAITS);
+
+function rnd(min,max){return min+Math.floor(Math.random()*(max-min+1));}
+function rndF(min,max){return +(min+Math.random()*(max-min)).toFixed(2);}
+
+function mkAlly(name){
+  // 랜덤 특성
+  const traitKey=TRAIT_KEYS[Math.floor(Math.random()*TRAIT_KEYS.length)];
+  const trait=TRAITS[traitKey];
+
+  // 특성에 따라 기본 스탯 랜덤 설정
+  const baseHp =rnd(420,580)+(trait.growHp >1?rnd(40,80):0);
+  const baseAtk=rnd(16,28)  +(trait.growAtk>1?rnd(4,10):0);
+  const baseDef=rndF(0.02,0.08)+(trait.growDef>1?rndF(0.02,0.06):0);
+  const baseSpd=rndF(1.3,1.7)  +(trait.growSpd>1?rndF(0.1,0.3):0);
+  const baseMag=trait.growMagic>1?rnd(5,15):0;
+
+  return{
+    id:uid++,name,x:-300,y:-300,wx:null,wy:null,
+    spd:+baseSpd.toFixed(2),baseSpd:+baseSpd.toFixed(2),
+    lv:1,exp:0,maxExp:100,
+    hp:baseHp,maxHp:baseHp,
+    def:+baseDef.toFixed(3),
+    baseRole:'Refugee',classKey:null,class10Key:null,
+    activeSkills:['Arrow'],
+    availableSkills:['Guard','Arrow','Mend'],
+    maxSkillSlots:1,
+    type:'ally',isDeployed:false,onHold:false,dead:false,
+    // 특성
+    traitKey,
+    // 누적 보너스 (강화·레벨업 합산)
+    bonusAtk:baseAtk-22, // 기본 atk와의 차이를 bonusAtk에 흡수
+    bonusDef:+Math.max(0,baseDef-0.05).toFixed(3),
+    bonusSpd:0,bonusCDR:0,
+    bonusMana:0,bonusMagic:baseMag,bonusMaxHp:baseHp-500,
+    totalHeal:0,totalAbsorb:0,
+    atkCd:0,atkSpd:1.0,
+    // 사거리 보너스 (전직 시)
+    bonusRange:0,
+  };
+}
+
+function spawnAllies(){
+  allies=[mkAlly('피난민A'),mkAlly('피난민B'),mkAlly('피난민C')];
+  allies[0].activeSkills=['Guard'];
+  allies[1].activeSkills=['Arrow'];
+  allies[2].activeSkills=['Mend'];
+}
+
+// ★ 전투 후: 최초 배치 위치로 복귀
+function resetDeployment(){
+  allies.forEach(a=>{
+    a.dead=false; a.hp=a.maxHp;
+    a.wx=null; a.wy=null; a.onHold=false;
+    a.totalHeal=0; a.totalAbsorb=0;
+    a.atkCd=0;
+    const init=initialPositions[a.id];
+    if(init){
+      // 최초 배치 위치로 복귀
+      a.x=init.x; a.y=init.y; a.isDeployed=true;
+      savedPositions[a.id]=init; // savedPositions도 초기값으로 리셋
+    }else{
+      a.isDeployed=false; a.x=-300; a.y=-300;
+    }
+  });
+  markDirty();
+}
+
+function spawnEnemies(){
+  enemies=[];
+  const tier=currentZone.tier;
+  getEnemyFormation(stage,tier).forEach(f=>enemies.push(mkEnemy(f)));
+}
+function mkEnemy(f){
+  const hp=f.hp||200;
+  // 역할별 기본 공격속도: 근접 빠름, 원거리 느림, 힐러 중간
+  const baseAtkSpd={Tank:0.6,Melee:1.1,Ranged:0.55,Heal:0.5}[f.role||'Melee']||0.8;
+  return{
+    id:uid++,name:f.name,etype:f.etype||'basic',mark:f.mark||'?',color:f.color||'#e74c3c',
+    x:f.x,y:f.y,hp,maxHp:hp,
+    atk:f.atk||15,range:f.range||60,spd:f.spd||0.7,def:f.def||0,
+    role:f.role||null,
+    flees:f.flees||false,
+    aggressive:f.aggressive||false,
+    ambushReady:f.ambushReady||false,
+    ambushDone:false,
+    elite:f.elite||false,
+    type:'enemy',dead:false,
+    atkCd:Math.floor(Math.random()*30), // 초기 쿨 분산 (동시 공격 방지)
+    atkSpd:f.flees?0.3:baseAtkSpd,     // 초식동물은 공격속도 낮음
+    wanderAngle:Math.random()*Math.PI*2,// 배회 방향 (초식용)
+    wanderTimer:0,
+  };
+}
+
+function getEnemyFormation(s,tier){
+  const H=CH,bx=CW-60;
+
+  // ══ 사냥터: 초식=빠르고 도망, 육식=느리고 강함 ══
+  if(tier==='hunt'){
+    const cnt=2+Math.min(s,4);
+    return Array.from({length:cnt},(_,i)=>{
+      const isPrey=s<=2||i<cnt-1;
+      if(isPrey){
+        // 초식동물: 공격력 낮음, 이동속도 빠름, HP 낮음, 도망 행동
+        const preyNames=['🐰토끼','🦌사슴','🦌사슴','🐑양'];
+        return{
+          name:preyNames[Math.min(i,preyNames.length-1)],
+          etype:'prey',mark:'🐾',color:'#5d8a3c',
+          x:bx-(i%2)*40,y:H*(0.15+i*(0.7/cnt)),
+          hp:60+s*30,                // HP 낮음
+          atk:3+s*1,                 // 공격력 매우 낮음
+          range:50,
+          spd:2.0+s*0.1,             // 이동속도 빠름
+          def:0,
+          flees:true,                // 도망 행동
+          role:null,
+        };
+      }else{
+        // 육식동물: 공격력 중간, 이동속도 보통
+        const predNames=['🐗멧돼지','🐻곰','🐺늑대'];
+        return{
+          name:predNames[Math.min(i-Math.floor(cnt*0.7),predNames.length-1)]||'🐻곰',
+          etype:'predator',mark:'⚡',color:'#c0392b',
+          x:bx-(i%2)*30,y:H*(0.2+i*(0.6/cnt)),
+          hp:150+s*70,
+          atk:10+s*3,
+          range:60,spd:1.1,def:0,
+          role:null,flees:false,
+        };
+      }
+    });
+  }
+
+  // ══ 포식지대: 체력 높음, 공격력 낮음, 느림 — 포메이션으로 수월하게 ══
+  if(tier==='pred'){
+    const cnt=Math.min(2+Math.max(0,s-4),5);
+    const tmpl=[
+      // HP 두꺼운 대신 ATK 낮음, 느림
+      {name:'🦁알파',  mark:'T',color:'#e67e22',role:'Tank',
+        atk:12+s*2,  range:60, spd:0.55,hp:500+s*120,def:0.15,  // HP 높음, ATK 낮음
+        aggressive:true},
+      {name:'🐆표범',  mark:'M',color:'#e74c3c',role:'Melee',
+        atk:18+s*2,  range:65, spd:1.0, hp:300+s*80, def:0.0,
+        aggressive:true},
+      {name:'🦅독수리',mark:'R',color:'#8e44ad',role:'Ranged',
+        atk:14+s*2,  range:200,spd:0.5, hp:200+s*50, def:0.0},
+      {name:'🦊여우',  mark:'H',color:'#27ae60',role:'Heal',
+        atk:5,        range:180,spd:0.7, hp:160+s*40, def:0.0},
+      {name:'🐻회색곰',mark:'G',color:'#795548',role:'Tank',
+        atk:15+s*2,  range:60, spd:0.45,hp:700+s*150,def:0.2,
+        aggressive:true},
+    ];
+    return tmpl.slice(0,cnt).map((t,i)=>({
+      ...t,x:bx-(i%2)*35,y:H*(0.15+i*(0.7/cnt)),etype:'predator',
+    }));
+  }
+
+  // ══ 악당 소굴: 데미지 높음, 매복·함정, 탱커 보호 필요 ══
+  if(tier==='bandit'){
+    const rank=Math.max(1,s-9);
+    const f=[
+      // 전열 탱크: 방어력 높고 데미지도 있음
+      {name:'악당대장',  mark:'T', color:'#c0392b',role:'Tank',
+        x:bx,   y:H*0.5,
+        hp:500+rank*180,atk:30+rank*8,range:60, spd:0.65,def:0.3,etype:'bandit'},
+      // 측면 기습병: 매복 대기 후 갑자기 돌진
+      {name:'기습병A',   mark:'!', color:'#d35400',role:'Melee',
+        x:bx+30,y:H*0.1,
+        hp:250+rank*80, atk:45+rank*10,range:65, spd:1.6,def:0.0,etype:'bandit',
+        ambushReady:true},
+      {name:'기습병B',   mark:'!', color:'#d35400',role:'Melee',
+        x:bx+30,y:H*0.9,
+        hp:250+rank*80, atk:45+rank*10,range:65, spd:1.6,def:0.0,etype:'bandit',
+        ambushReady:true},
+      // 원거리: 후방에서 높은 피해
+      {name:'악당궁수',  mark:'B', color:'#8e44ad',role:'Ranged',
+        x:bx+70,y:H*0.35,
+        hp:200+rank*70, atk:35+rank*8, range:220,spd:0.5,def:0.0,etype:'bandit'},
+      {name:'악당궁수2', mark:'B', color:'#8e44ad',role:'Ranged',
+        x:bx+70,y:H*0.65,
+        hp:200+rank*70, atk:35+rank*8, range:220,spd:0.5,def:0.0,etype:'bandit'},
+      // 치료사: 후방 깊숙이
+      {name:'악당치료사',mark:'W', color:'#1e8449',role:'Heal',
+        x:bx+110,y:H*0.5,
+        hp:180+rank*60, atk:5,         range:180,spd:0.4,def:0.0,etype:'bandit'},
+    ];
+    return f.slice(0,Math.min(3+rank,f.length));
+  }
+
+  // ══ 왕의 군대: 체계적 포메이션, 전략 필요, 엘리트 유닛 ══
+  if(tier==='king'){
+    const rank=Math.max(1,s-19);
+    const f=[
+      // 최전방: 방패병 — 높은 방어
+      {name:'왕군방패병1',mark:'S',color:'#1a5276',role:'Tank',
+        x:bx,   y:H*0.25,hp:700+rank*200,atk:20+rank*5,range:58,spd:0.55,def:0.4,etype:'king',elite:true},
+      {name:'왕군방패병2',mark:'S',color:'#1a5276',role:'Tank',
+        x:bx,   y:H*0.5, hp:700+rank*200,atk:20+rank*5,range:58,spd:0.55,def:0.4,etype:'king',elite:true},
+      {name:'왕군방패병3',mark:'S',color:'#1a5276',role:'Tank',
+        x:bx,   y:H*0.75,hp:700+rank*200,atk:20+rank*5,range:58,spd:0.55,def:0.4,etype:'king',elite:true},
+      // 중간: 기사 — 균형형 강공격
+      {name:'왕군기사1', mark:'K',color:'#6c2899',role:'Melee',
+        x:bx+45,y:H*0.3, hp:450+rank*130,atk:40+rank*10,range:65,spd:0.9,def:0.15,etype:'king',elite:true},
+      {name:'왕군기사2', mark:'K',color:'#6c2899',role:'Melee',
+        x:bx+45,y:H*0.7, hp:450+rank*130,atk:40+rank*10,range:65,spd:0.9,def:0.15,etype:'king',elite:true},
+      // 후방: 마법사 — 원거리 강공격
+      {name:'왕군마법사',mark:'M',color:'#8e44ad',role:'Ranged',
+        x:bx+90,y:H*0.35,hp:300+rank*90, atk:50+rank*12,range:240,spd:0.4,def:0.05,etype:'king',elite:true},
+      {name:'왕군마법사2',mark:'M',color:'#8e44ad',role:'Ranged',
+        x:bx+90,y:H*0.65,hp:300+rank*90, atk:50+rank*12,range:240,spd:0.4,def:0.05,etype:'king',elite:true},
+      // 성직자: 아군 치료
+      {name:'왕군성직자',mark:'P',color:'#27ae60',role:'Heal',
+        x:bx+120,y:H*0.5,hp:250+rank*80, atk:5,          range:200,spd:0.35,def:0.1,etype:'king',elite:true},
+    ];
+    return f.slice(0,Math.min(4+rank,f.length));
+  }
+  return[];
+}
+
+// ══════════════════════════════════════════════════════
+// 배치
+// ══════════════════════════════════════════════════════
+function enterPlacement(){
+  isPlacing=true;isBattle=false;isPaused=false;
+  setBadge('배치 단계','b-pl');
+  document.getElementById('btn-go').style.display='inline-block';
+  document.getElementById('btn-pa').style.display='none';
+  document.getElementById('area-label').innerText=currentZone.name;
+  document.getElementById('area-label').style.color=currentZone.color;
+  alog(`📍 Stage ${stage} — ${currentZone.name}`);
+  // 미배치 유닛이 없으면 바로 배치 완료 표시
+  const ud=allies.filter(a=>!a.isDeployed&&!a.dead);
+  if(ud.length===0){
+    document.getElementById('pg').style.display='none';
+    setBadge('배치 완료','b-re');
+    alog('✅ 이전 배치 위치로 복귀 완료 — 스킬·강화 확인 후 시작!');
+  }else{
+    document.getElementById('pg').style.display='block';
+    updatePG();
+  }
+  markDirty();
+}
+function updatePG(){
+  const ud=allies.filter(a=>!a.isDeployed&&!a.dead);
+  const pg=document.getElementById('pg');
+  if(ud.length===0){pg.innerText='✅ 배치 완료! 스킬·강화 설정 후 전투 시작';pg.style.background='rgba(20,100,45,0.93)';}
+  else{pg.innerText=`📍 [${ud[0].name}] 배치 (${ud.length}명 남음) — 좌측 클릭`;pg.style.background='rgba(91,45,130,0.93)';}
+}
+
+// ══════════════════════════════════════════════════════
+// 마우스
+// ══════════════════════════════════════════════════════
+let lastClickTime=0, lastClickUnit=null;
+const DBL_CLICK_MS=300;
+
+function getPos(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
+
+function onDown(e){
+  const {x,y}=getPos(e);dragSX=x;dragSY=y;isDragging=false;
+  if(isPlacing){
+    // 미배치 유닛 배치: 좌측 절반 클릭
+    const ud=allies.filter(a=>!a.isDeployed&&!a.dead);
+    if(ud.length>0&&x<CW*0.45&&!allies.find(a=>a.isDeployed&&!a.dead&&dist(a,{x,y})<20)){
+      const u=ud[0];u.x=x;u.y=y;u.isDeployed=true;u.wx=null;u.wy=null;
+      savedPositions[u.id]={x,y};
+      if(!initialPositions[u.id])initialPositions[u.id]={x,y}; // 최초 배치 위치만 저장
+      alog(`✅ ${u.name} 배치`);addFloat(x,y,u.name,'#a855f7');updatePG();
+      if(allies.filter(a=>!a.dead).every(a=>a.isDeployed))
+        setTimeout(()=>{document.getElementById('pg').style.display='none';setBadge('배치 완료','b-re');},600);
+      markDirty();return;
+    }
+  }
+  // 이미 배치된 유닛 드래그 (전투 전/후 모두 가능)
+  dragUnit=allies.find(a=>a.isDeployed&&a.hp>0&&!a.dead&&dist(a,{x,y})<20)||null;
+}
+
+function onMove(e){
+  const{x,y}=getPos(e);mouseX=x;mouseY=y;
+  if(dragUnit&&!isDragging&&Math.hypot(x-dragSX,y-dragSY)>DRAG_T)isDragging=true;
+}
+
+function onUp(e){
+  const{x,y}=getPos(e);
+  if(dragUnit){
+    if(isDragging){
+      if(!isBattle){
+        // 전투 전 드래그: 유닛을 즉시 해당 위치로 이동
+        const cx=Math.max(MAP_PAD,Math.min(CW-MAP_PAD,x));
+        const cy=Math.max(MAP_PAD,Math.min(CH-MAP_PAD,y));
+        dragUnit.x=cx; dragUnit.y=cy;
+        dragUnit.wx=null; dragUnit.wy=null;
+        savedPositions[dragUnit.id]={x:cx,y:cy};
+        alog(`📍 ${dragUnit.name} 이동`);addFloat(cx,cy,dragUnit.name,'#a855f7');
+      } else {
+        // 전투 중 드래그: 이동 목표(waypoint) 설정
+        dragUnit.wx=x; dragUnit.wy=y;
+        savedPositions[dragUnit.id]={x,y};
+        alog(`🎯 ${dragUnit.name} 이동 명령`);addFloat(x,y,'🎯','#f1c40f');
+      }
+    } else {
+      // 단순 클릭: 더블클릭 감지 → 홀드 토글
+      const now=Date.now();
+      if(lastClickUnit===dragUnit&&now-lastClickTime<DBL_CLICK_MS){
+        dragUnit.onHold=!dragUnit.onHold;
+        if(dragUnit.onHold){dragUnit.wx=null;dragUnit.wy=null;}
+        alog(dragUnit.onHold?`⚑ ${dragUnit.name} 홀드 ON`:`▶ ${dragUnit.name} 홀드 OFF`);
+        lastClickUnit=null;lastClickTime=0;
+      } else {
+        lastClickUnit=dragUnit;lastClickTime=now;
+      }
+    }
+    markDirty();
+  }
+  dragUnit=null;isDragging=false;
+}
+
+// ══════════════════════════════════════════════════════
+// 전직 모달
+// ══════════════════════════════════════════════════════
+function showClassModal(unit){
+  pendingClass=unit;
+  let title,sub,options;
+  if(unit.lv===5){
+    title=`${unit.name} — 5레벨 전직`;sub='클래스 선택 시 해당 스킬 2개 사용 가능.';
+    options=[
+      {key:'Tank',  name:'⚔ 탱커',  desc:'높은 방어, 아군 보호 특화',   skills:'요새화+도발'},
+      {key:'Melee', name:'🗡 근거리',desc:'숲에서 강력한 근접 전투',      skills:'매복+회전베기'},
+      {key:'Ranged',name:'🏹 원거리',desc:'산/언덕에서 압도적 사거리',    skills:'연사+고지전술'},
+      {key:'Heal',  name:'✨ 힐러',  desc:'아군 보호와 소생 능력',        skills:'방어막진+소생'},
+    ];
+  }else if(unit.lv===10){
+    title=`${unit.name} — 10레벨 세부 전직`;sub='전문화 클래스 선택. 스킬 3개 사용 가능.';
+    const cls10=Object.entries(CLASS10).filter(([,v])=>v.base===unit.classKey);
+    options=cls10.map(([k,v])=>({key:k,name:v.name,desc:v.desc,skills:v.skills.map(s=>(BASE_SKILLS[s]||CLASS5_SKILLS[s]||{name:s}).name).join('/')}));
+    if(!options.length)options=[{key:'__skip__',name:'현재 클래스 유지',desc:'변경 없음',skills:'—'}];
+  }else{return;}
+  document.getElementById('modal-title').innerText=title;
+  document.getElementById('modal-sub').innerText=sub;
+  document.getElementById('modal-grid').innerHTML=options.map(o=>`<div class="class-btn" onclick="selectClass('${o.key}')"><div class="cn">${o.name}</div><div class="cd">${o.desc}</div><div class="cs">스킬: ${o.skills}</div></div>`).join('');
+  document.getElementById('modal').classList.add('show');
+}
+window.selectClass=function(key){
+  const u=pendingClass;if(!u)return;
+  if(key==='__skip__'){document.getElementById('modal').classList.remove('show');pendingClass=null;return;}
+  if(u.lv===5){
+    u.classKey=key;u.maxSkillSlots=2;
+    const ns=key==='Tank'?['Fortress','Taunt']:key==='Melee'?['Ambush','Cleave']:key==='Ranged'?['Volley','Highland']:['Barrier','Revive'];
+    u.availableSkills=[...new Set([...u.availableSkills,...ns])];u.activeSkills=ns.slice(0,2);
+    applyClassBonus(u, key, 1);
+    alog(`🌟 ${u.name} → ${key} 전직!`);
+  }else if(u.lv===10){
+    u.class10Key=key;u.maxSkillSlots=3;
+    const cls=CLASS10[key];
+    u.availableSkills=[...new Set([...u.availableSkills,...cls.skills])];u.activeSkills=cls.skills.slice(0,3);
+    applyClassBonus(u, u.classKey, 2);
+    alog(`👑 ${u.name} → ${CLASS10[key]?.name||key} 세부 전직!`);
+  }
+  document.getElementById('modal').classList.remove('show');
+  // 이름 부여 모달
+  setTimeout(()=>showRenameModal(u),200);
+  markDirty();
+};
+
+// ── 이름 부여 모달 ──
+let _renameUnit=null;
+const NAME_POOL={
+  Tank:  ['철벽','반석','요새','수호','든든'],
+  Melee: ['폭풍','번개','화염','질풍','강철'],
+  Ranged:['예리','매의눈','조준','바람','섬광'],
+  Heal:  ['온기','치유','여명','빛','온화'],
+  Refugee:['희망','새벽','용기','의지','기적'],
+};
+function showRenameModal(u){
+  _renameUnit=u;
+  const cls=u.classKey||u.baseRole||'Refugee';
+  const pool=NAME_POOL[cls]||NAME_POOL.Refugee;
+  const clsName=u.class10Key?CLASS10[u.class10Key]?.name:u.classKey||'피난민';
+  document.getElementById('rename-sub').innerText=`${clsName} 전직을 축하합니다! 이 영웅의 이름을 정해주세요.`;
+  document.getElementById('rename-input').value=u.name;
+  document.getElementById('rename-suggestions').innerHTML=
+    pool.map(n=>`<span onclick="document.getElementById('rename-input').value='${n}'" style="cursor:pointer;padding:4px 10px;border-radius:4px;border:1px solid #1e2d3d;background:#111d2b;font-size:10px;color:#f1c40f">${n}</span>`).join('');
+  document.getElementById('rename-modal').classList.add('show');
+}
+function confirmRename(){
+  if(!_renameUnit)return;
+  const v=document.getElementById('rename-input').value.trim();
+  if(v) _renameUnit.name=v;
+  document.getElementById('rename-modal').classList.remove('show');
+  _renameUnit=null;
+  markDirty();
+}
+function skipRename(){
+  document.getElementById('rename-modal').classList.remove('show');
+  _renameUnit=null;
+}
+
+// 클래스별 전직 보너스
+function applyClassBonus(u, cls, tier){
+  const t=tier===1?1:1.8; // 10레벨은 더 큰 보너스
+  switch(cls){
+    case 'Tank':
+      // 탱커: 방어력 대폭 증가
+      u.bonusDef=Math.min(+(u.bonusDef+0.08*t).toFixed(3),0.75);
+      u.maxHp+=Math.floor(120*t); u.hp=Math.min(u.hp+Math.floor(120*t),u.maxHp);
+      alog(`🛡 ${u.name} 방어+${Math.floor(8*t)}% HP+${Math.floor(120*t)}`);
+      break;
+    case 'Melee':
+      // 근딜: 공속 증가
+      u.bonusCDR=Math.min(+(u.bonusCDR+0.12*t).toFixed(3),0.5);
+      u.bonusAtk+=Math.floor(10*t);
+      alog(`⚔️ ${u.name} 공속+${Math.floor(12*t)}% 공격+${Math.floor(10*t)}`);
+      break;
+    case 'Ranged':
+      // 원딜: 사정거리 증가
+      u.bonusRange=(u.bonusRange||0)+Math.floor(40*t);
+      u.bonusAtk+=Math.floor(5*t);
+      alog(`🏹 ${u.name} 사정거리+${Math.floor(40*t)} 공격+${Math.floor(5*t)}`);
+      break;
+    case 'Heal':
+      // 힐러: 힐 사정거리·마법력 증가
+      u.bonusRange=(u.bonusRange||0)+Math.floor(30*t);
+      u.bonusMagic+=Math.floor(15*t);
+      alog(`✨ ${u.name} 사정거리+${Math.floor(30*t)} 마법+${Math.floor(15*t)}`);
+      break;
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// 스킬 토글 (전투 전/일시정지 중 가능)
+// ══════════════════════════════════════════════════════
+window.toggleSkill=function(id,sk){
+  const u=allies.find(a=>a.id===id);if(!u)return;
+  // 스킬 변경은 전투 중에도 항상 가능
+  if(u.activeSkills.includes(sk)){
+    if(u.activeSkills.length>1)u.activeSkills=u.activeSkills.filter(s=>s!==sk);
+    else{alog('⚠️ 최소 1개 스킬 유지');return;}
+  }else{
+    if(u.activeSkills.length<u.maxSkillSlots)u.activeSkills.push(sk);
+    else u.activeSkills=[...u.activeSkills.slice(1),sk];
+  }
+  const names=u.activeSkills.map(s=>(BASE_SKILLS[s]||CLASS5_SKILLS[s]||{name:s}).name);
+  alog(`🔄 ${u.name} 스킬: ${names.join(', ')}`);
+  markDirty();
+};
+
+// ══════════════════════════════════════════════════════
+// 강화 (전투 전/일시정지 중 가능, 실제 골드 소모)
+// ══════════════════════════════════════════════════════
+window.upgradeUnit=function(id,stat){
+  const u=allies.find(a=>a.id===id);if(!u){alog('❌ 유닛 없음');return;}
+  const upg=UPGRADES[stat];if(!upg)return;
+  const cost=upg.cost(u.lv);
+  if(gold<cost){alog(`❌ 금화 부족 (필요:${cost}G 보유:${gold}G)`);return;}
+  gold-=cost;
+  upg.apply(u);
+  if(stat==='spd')u.spd=u.baseSpd+u.bonusSpd;
+  alog(`${upg.label} ${u.name} 강화! (−${cost}G) → ${upg.tip(u)}`);
+  addFloat(u.x>0?u.x:200,u.y>0?u.y:200,`${upg.label}↑`,'#f1c40f');
+  markDirty();
+};
+
+// ══════════════════════════════════════════════════════
+// 영입
+// ══════════════════════════════════════════════════════
+function showRefugeeModal(){
+  document.getElementById('ref-sub').innerText=`보유 식량: 🍖${food} / 영입 비용: 식량 30`;
+  document.getElementById('refugee-modal').classList.add('show');
+}
+function closeRefugeeModal(){document.getElementById('refugee-modal').classList.remove('show');}
+function hireFood(){
+  if(food<30){alog('❌ 식량 부족 (필요: 30)');closeRefugeeModal();return;}
+  food-=30;spawnRefugee();closeRefugeeModal();alog('👤 식량으로 피난민 영입 (−30🍖)');
+}
+function hireGold(){
+  if(gold<100){alog('❌ 금화 부족 (필요: 100G)');return;}
+  gold-=100;
+  const names=['용병','병사','전사','궁사','성자','기사'];
+  const u=mkAlly(names[Math.floor(Math.random()*names.length)]+(allies.length+1));
+  // 5레벨 설정
+  u.lv=5; u.maxExp=Math.floor(100*1.55**4); u.exp=0;
+  u.maxSkillSlots=2;
+  u.availableSkills=['Guard','Arrow','Mend'];
+  u.activeSkills=['Arrow'];
+  // 피난민 5레벨 평균 대비 1.2배 스탯
+  // 레벨업 4번 진행하여 성장분 반영
+  for(let i=0;i<4;i++){
+    const trait=TRAITS[u.traitKey||'balanced'];
+    u.maxHp   += Math.floor(trait.growHp *25*1.2);
+    u.bonusAtk+= Math.floor(trait.growAtk*3 *1.2);
+    u.bonusDef = Math.min(+(u.bonusDef+trait.growDef*0.01*1.2).toFixed(3),0.7);
+    u.bonusSpd = +(u.bonusSpd+trait.growSpd*0.02*1.2).toFixed(3);
+    u.bonusMagic+=Math.floor(trait.growMagic*2*1.2);
+  }
+  u.hp=u.maxHp;
+  u.spd=+(u.baseSpd+u.bonusSpd).toFixed(2);
+  allies.push(u);
+  isPlacing=true;document.getElementById('pg').style.display='block';updatePG();markDirty();
+  alog(`💰 ${u.name}[${TRAITS[u.traitKey].name}] 영입 (−100G) — 전직 선택!`);
+  setTimeout(()=>showClassModal(u),200);
+}
+function spawnRefugee(){
+  const u=mkAlly('피난민'+(allies.length+1));
+  u.activeSkills=['Arrow'];allies.push(u);
+  isPlacing=true;document.getElementById('pg').style.display='block';updatePG();markDirty();
+}
+
+// ══════════════════════════════════════════════════════
+// 전투 제어
+// ══════════════════════════════════════════════════════
+let _battleStartTime=0;
+function toggleBattle(){
+  if(isPlacing&&allies.filter(a=>!a.dead).some(a=>!a.isDeployed)){alog('❌ 배치 완료 후 시작');return;}
+  isPlacing=false;document.getElementById('pg').style.display='none';
+  if(!isBattle){
+    isBattle=true;isPaused=false;
+    _battleStartTime=Date.now();
+    document.getElementById('btn-go').style.display='none';
+    document.getElementById('btn-pa').style.display='inline-block';
+    setBadge('전투 중','b-ba');alog('⚔️ 전투 시작!');
+  }
+}
+function togglePause(){
+  isPaused=!isPaused;
+  setBadge(isPaused?'일시 정지':'전투 중',isPaused?'b-pa':'b-ba');
+  document.getElementById('btn-pa').innerText=isPaused?'▶ 재개':'⏸ 정지';
+  if(isPaused)alog('⏸ 일시정지 — 스킬·강화 변경 가능');
+}
+function toggleAutoStart(){
+  autoStart=!autoStart;
+  const btn=document.getElementById('btn-auto');
+  btn.innerText=`🔁 자동시작: ${autoStart?'ON':'OFF'}`;
+  btn.style.background=autoStart?'#1a5c32':'#1a4030';
+  alog(autoStart?'🔁 자동 전투 시작 ON':'🔁 자동 전투 시작 OFF');
+  // ON으로 켜는 순간 전투 중이 아니면 즉시 시작
+  if(autoStart&&!isBattle){
+    setTimeout(()=>{if(autoStart&&!isBattle){alog('🔁 자동 전투 시작!');toggleBattle();}},500);
+  }
+}
+function setBadge(t,cls){const b=document.getElementById('sb');b.innerText=t;b.className='badge '+cls;}
+
+// ══════════════════════════════════════════════════════
+// 전투 틱
+// ══════════════════════════════════════════════════════
+function battleTick(){
+  const ae=enemies.filter(e=>e.hp>0&&!e.dead);
+  const aa=allies.filter(a=>a.isDeployed&&a.hp>0&&!a.dead);
+
+  aa.forEach(a=>{
+    const cell=nearestCell(a.x,a.y);
+    const terrSpd=cell?TERRAIN[cell.type].spd:1.0;
+
+    // 방어 패시브
+    let defBonus=0;
+    if(a.activeSkills.includes('Guard')||a.activeSkills.includes('Fortress'))defBonus=0.3;
+    if(a.activeSkills.includes('Fortress'))defBonus=0.6;
+    a.def=Math.min(a.bonusDef+defBonus,0.75);
+
+    // Guard: 인근 아군 방어 버프
+    if((a.activeSkills.includes('Guard')||a.activeSkills.includes('Fortress'))&&Math.random()>0.97){
+      aa.filter(x=>x!==a&&dist(a,x)<80).forEach(x=>x.def=Math.max(x.def,0.1));
+    }
+
+    // ── 공속 쿨다운 시스템 ──
+    const role=a.classKey||a.baseRole;
+    const baseAtkSpd=(BASE_ROLES[role]?.atkSpd||0.8)*(1+(a.bonusCDR||0));
+    const cooldownFrames=Math.max(6, Math.floor(60/baseAtkSpd));
+    if(a.atkCd===undefined)a.atkCd=Math.floor(Math.random()*cooldownFrames);
+    if(a.atkCd>0){a.atkCd--;}
+    else{
+      a.atkCd=cooldownFrames;
+      a.activeSkills.forEach(sk=>{
+        const skData=BASE_SKILLS[sk]||CLASS5_SKILLS[sk];if(!skData)return;
+        if(sk==='Mend'||sk==='Barrier'||sk==='Revive'){
+          if(sk==='Revive'){
+            const dead=allies.find(x=>x.dead&&x.isDeployed);
+            if(dead&&dist(a,dead)<210){dead.hp=Math.floor(dead.maxHp*0.3);dead.dead=false;alog(`✨ ${a.name} → ${dead.name} 소생!`);addFloat(dead.x,dead.y,'부활!','#a855f7');}
+          }else{
+            const tgt=aa.filter(x=>x!==a&&x.hp<x.maxHp).sort((x,y)=>x.hp-y.hp)[0];
+            if(tgt){
+              const range=(skData.range||210)+(a.bonusRange||0);
+              if(dist(a,tgt)<range&&hasLOS(a.x,a.y,tgt.x,tgt.y)){
+                const val=Math.floor((22+a.bonusAtk)*(1+(a.bonusMagic||0)*0.025));
+                const shield=sk==='Barrier'?Math.floor(val*0.5):0;
+                const actualHeal=Math.min(tgt.maxHp-tgt.hp,val);
+                tgt.hp=Math.min(tgt.maxHp,tgt.hp+val);
+                if(shield){tgt.def=Math.min(tgt.def+0.15,0.75);a.totalAbsorb+=shield;}
+                a.totalHeal+=actualHeal;
+                addFloat(tgt.x,tgt.y-15,`+${val}`,'#a855f7');
+                if(actualHeal>0)gainExp(a,Math.floor(actualHeal/4));
+              }
+            }
+          }
+        }else{
+          if(sk==='Cleave'){ae.filter(e=>dist(a,e)<(skData.range||75)).forEach(tgt=>{if(hasLOS(a.x,a.y,tgt.x,tgt.y))applyDmg(a,tgt,cell,sk);});return;}
+          if(sk==='Volley'){const tgt=closest(a,ae,(skData.range||220)+(a.bonusRange||0));if(tgt&&hasLOS(a.x,a.y,tgt.x,tgt.y))for(let i=0;i<3;i++)applyDmg(a,tgt,cell,sk,0.5);return;}
+          const tgt=closest(a,ae,(skData.range||65)+(a.bonusRange||0));
+          if(tgt){
+            const needLOS=(sk==='Arrow'||sk==='Highland'||sk==='Volley');
+            if(!needLOS||hasLOS(a.x,a.y,tgt.x,tgt.y))applyDmg(a,tgt,cell,sk);
+          }
+        }
+      });
+    }
+
+    // 이동 (홀드 아닐 때)
+    if(!a.onHold) moveAlly(a,ae,aa,terrSpd);
+    // 아군도 경계 클램프
+    clampToMap(a);
+  });
+
+  // 적 행동
+  ae.forEach(e=>{
+    // 공속 쿨다운
+    if(e.atkCd===undefined)e.atkCd=0;
+    if(e.atkCd>0)e.atkCd--;
+    const canAtk=e.atkCd<=0;
+    const atkCooldown=Math.max(6, Math.floor(60/(e.atkSpd||0.7)));
+
+    // ── 힐러: 아군 치료 + 후방 유지 ──
+    if(e.role==='Heal'){
+      if(canAtk){
+        e.atkCd=atkCooldown;
+        const healAmt=20+stage*3+(e.elite?15:0);
+        const wounded=ae.filter(x=>x!==e&&x.hp<x.maxHp&&dist(e,x)<e.range).sort((a,b)=>a.hp-b.hp)[0];
+        if(wounded){wounded.hp=Math.min(wounded.maxHp,wounded.hp+healAmt);addFloat(wounded.x,wounded.y-12,`+${healAmt}`,'#27ae60');}
+      }
+      const nearAlly=ae.filter(x=>x!==e&&x.hp>0&&!x.dead).sort((a,b)=>dist(e,a)-dist(e,b))[0];
+      if(nearAlly){const d2=dist(e,nearAlly);if(d2<80){const dx=e.x-nearAlly.x,dy=e.y-nearAlly.y,dn=Math.hypot(dx,dy);if(dn>0){e.x+=dx/dn*e.spd*0.5;e.y+=dy/dn*e.spd*0.5;}}}
+      e.x=Math.max(MAP_PAD,Math.min(CW-MAP_PAD,e.x));e.y=Math.max(MAP_PAD,Math.min(CH-MAP_PAD,e.y));
+      return;
+    }
+
+    // ── 사냥터 초식: 배회 + 아군 인지 시 도망 ──
+    if(e.flees){
+      const nearest=closest(e,aa,Infinity);
+      const d=nearest?dist(e,nearest):Infinity;
+      if(d<180){
+        // 아군 인지 → 도망 (구석 막혀도 최선의 방향으로 이동)
+        const dx=e.x-nearest.x,dy=e.y-nearest.y,dn=Math.hypot(dx,dy);
+        const baseAngle=dn>0?Math.atan2(dy,dx):Math.random()*Math.PI*2;
+        // 8방향 중 맵 안으로 가장 멀리 갈 수 있는 방향 선택
+        let bestAngle=baseAngle,bestScore=-Infinity;
+        for(let i=0;i<8;i++){
+          const ang=baseAngle+(i*Math.PI/4);
+          const nx=e.x+Math.cos(ang)*e.spd*5;
+          const ny=e.y+Math.sin(ang)*e.spd*5;
+          const inBounds=nx>MAP_PAD&&nx<CW-MAP_PAD&&ny>MAP_PAD&&ny<CH-MAP_PAD;
+          const score=(inBounds?10:0)+Math.cos(ang-baseAngle)*5;
+          if(score>bestScore){bestScore=score;bestAngle=ang;}
+        }
+        e.x+=Math.cos(bestAngle)*e.spd;
+        e.y+=Math.sin(bestAngle)*e.spd;
+        // 맵 우측 끝까지 도망하면 사망 처리
+        if(e.x>=CW-MAP_PAD&&d<60){e.hp=0;e.dead=true;elog(`🏃 ${e.name} 도망침!`);return;}
+        // 간혹 반격
+        if(d<55&&canAtk){e.atkCd=atkCooldown;const r=Math.floor(e.atk*(1-Math.min(nearest.def,0.75)));nearest.hp-=r;addFloat(nearest.x,nearest.y-12,`-${r}`,'#ff6b6b');if(nearest.hp<=0)nearest.dead=true;}
+      }else{
+        // 아군 미인지 → 랜덤 배회
+        e.wanderTimer=(e.wanderTimer||0)-1;
+        if(e.wanderTimer<=0){
+          e.wanderAngle=(e.wanderAngle||0)+(Math.random()-0.5)*1.2;
+          e.wanderTimer=30+Math.floor(Math.random()*40);
+        }
+        e.x+=Math.cos(e.wanderAngle)*e.spd*0.6;
+        e.y+=Math.sin(e.wanderAngle)*e.spd*0.6;
+      }
+      // 4방향 모두 경계 막기
+      e.x=Math.max(MAP_PAD,Math.min(CW-MAP_PAD,e.x));
+      e.y=Math.max(MAP_PAD,Math.min(CH-MAP_PAD,e.y));
+      return;
+    }
+
+    // ── 악당 기습병: 매복 대기 → 접근하면 갑자기 돌격 ──
+    if(e.ambushReady&&!e.ambushDone){
+      const nearest=closest(e,aa,Infinity);
+      if(!nearest||dist(e,nearest)>180){
+        e.x=Math.max(MAP_PAD,Math.min(CW-MAP_PAD,e.x));
+        e.y=Math.max(MAP_PAD,Math.min(CH-MAP_PAD,e.y));
+        return;
+      }
+      e.ambushDone=true;
+      addFloat(e.x,e.y,'⚡기습!','#e74c3c');
+      alog(`⚡ ${e.name} 기습 발동!`);
+      e.ambushTarget=aa.find(a=>(a.baseRole==='Heal'||a.baseRole==='Ranged')&&a.hp>0&&!a.dead)||nearest;
+    }
+
+    // 도발 체크
+    const taunter=aa.find(a=>a.activeSkills.includes('Taunt')&&dist(a,e)<120);
+    let tgt=taunter||null;
+    if(!tgt&&e.ambushDone&&e.ambushTarget&&!e.ambushTarget.dead&&e.ambushTarget.hp>0)tgt=e.ambushTarget;
+    if(!tgt){
+      if(e.role==='Ranged')tgt=aa.find(a=>(a.baseRole==='Heal'||a.baseRole==='Ranged')&&a.hp>0&&!a.dead)||closest(e,aa,Infinity);
+      else tgt=closest(e,aa,Infinity);
+    }
+    if(!tgt){
+      e.x=Math.max(MAP_PAD,Math.min(CW-MAP_PAD,e.x));
+      e.y=Math.max(MAP_PAD,Math.min(CH-MAP_PAD,e.y));
+      return;
+    }
+
+    const d=dist(e,tgt);
+    if(d<e.range){
+      if(canAtk){
+        e.atkCd=atkCooldown;
+        const los=e.role==='Ranged'?hasLOS(e.x,e.y,tgt.x,tgt.y):true;
+        if(los){
+          const raw=e.atk;
+          const reduced=Math.floor(raw*(1-Math.min(tgt.def,0.75)));
+          if(tgt.def>0.1){const absorbed=raw-reduced;tgt.totalAbsorb=(tgt.totalAbsorb||0)+absorbed;if(absorbed>0)gainExp(tgt,Math.floor(absorbed/5));}
+          tgt.hp-=reduced;
+          addFloat(tgt.x,tgt.y-12,`-${reduced}`,'#ff6b6b');
+          if(tgt.hp<=0){tgt.dead=true;alog(`💀 ${tgt.name} 전사`);}
+        }else{addFloat(e.x,e.y,'시야차단','#888');}
+      }
+    }else{
+      e.x+=(tgt.x-e.x)/d*e.spd;
+      e.y+=(tgt.y-e.y)/d*e.spd;
+    }
+    // 경계 클램프 (모든 적)
+    e.x=Math.max(MAP_PAD,Math.min(CW-MAP_PAD,e.x));
+    e.y=Math.max(MAP_PAD,Math.min(CH-MAP_PAD,e.y));
+  });
+
+  // ── 종료 처리 ──
+  if(ae.every(e=>e.hp<=0||e.dead)){
+    const base=50+stage*18;
+    const total=currentZone.rFood+currentZone.rGold;
+    const goldReward=Math.floor(base*(currentZone.rGold/total));
+    const foodReward=Math.floor(base*0.6*(currentZone.rFood/total));
+    gold+=goldReward; food+=foodReward;
+    alog(`🏆 Stage ${stage} 클리어! 💰+${goldReward}G  🍖+${foodReward}`);
+    if(food>=30)alog(`💡 식량이 충분합니다! 🍖 피난민 영입 가능`);
+
+    // ★ 파이널 스테이지 체크
+    const zid=currentZone.id;
+    if(stage===currentZone.finalStage){
+      const rec=zoneRecords[zid]||{cleared:false,clearTime:0,totalReward:{food:0,gold:0},garrison:[],lastTick:Date.now()};
+      if(!rec.cleared){
+        // 최초 클리어: 기록 저장
+        rec.cleared=true;
+        rec.clearTime=Date.now()-(_battleStartTime||Date.now());
+        rec.totalReward={food:foodReward,gold:goldReward};
+        zoneRecords[zid]=rec;
+        alog(`🎉 ${currentZone.name} 파이널 스테이지 클리어!`);
+        alog(`📌 유닛을 배치하면 자동 자원 수급 시작!`);
+        setTimeout(()=>showGarrisonModal(zid),600);
+      }else{
+        alog(`🏆 ${currentZone.name} 재클리어!`);
+        setTimeout(()=>showGarrisonModal(zid),600);
+      }
+    }
+
+    stage++;isBattle=false;
+    resetDeployment();
+    buildMap();spawnEnemies();
+    document.getElementById('btn-go').style.display='inline-block';
+    document.getElementById('btn-pa').style.display='none';
+    alog(`⬆️ Stage ${stage} — 난이도 상승! 전투지를 선택하세요.`);
+    setTimeout(()=>{
+      enterPlacement();
+      renderGarrisonBar();
+      if(!autoStart) showZoneModal();
+      if(autoStart){
+        setTimeout(()=>{if(!isBattle&&autoStart){alog('🔁 자동 전투 시작!');toggleBattle();}},2000);
+      }
+    },400);
+  }else if(aa.every(a=>a.hp<=0||a.dead)){
+    alog('☠️ 전멸!');isBattle=false;
+    setTimeout(()=>{if(confirm('전멸! 재시작?'))location.reload();},200);
+  }
+}
+
+function applyDmg(a,tgt,cell,sk,mult=1){
+  const role=a.classKey||a.baseRole;
+  let dmg=(BASE_ROLES[role]?.atk||30)+a.bonusAtk+(a.bonusMagic||0)*0.5;
+  const tb=TERRAIN[cell?.type||'plain'].bonus[role]||1.0;
+  if(tb>1)dmg=Math.floor(dmg*tb);
+  if(sk==='Ambush'&&cell?.type==='forest')dmg=Math.floor(dmg*1.8);
+  if(sk==='Highland'&&(cell?.type==='mountain'||cell?.type==='hill'))dmg=Math.floor(dmg*1.6);
+  dmg=Math.floor(dmg*mult);
+  const reduced=Math.floor(dmg*(1-Math.min(tgt.def,0.75)));
+  tgt.hp-=reduced;
+  addFloat(tgt.x,tgt.y-12,`-${reduced}`,'#f1c40f');
+  if(tgt.hp<=0){tgt.dead=true;gainExp(a,40);elog(`☠️ ${tgt.name} 처치`);}
+}
+
+// 맵 경계 클램프 (유닛이 맵 밖으로 나가지 않게)
+const MAP_PAD=18; // 유닛 반지름 정도의 여백
+function clampToMap(u){
+  u.x=Math.max(MAP_PAD, Math.min(CW-MAP_PAD, u.x));
+  u.y=Math.max(MAP_PAD, Math.min(CH-MAP_PAD, u.y));
+}
+
+function moveAlly(a,ae,aa,baseTerrSpd){
+  const role=a.classKey||a.baseRole;
+
+  // 웨이포인트 이동 (전투 중 명령)
+  if(a.wx!==null&&a.wy!==null){
+    const dx=a.wx-a.x,dy=a.wy-a.y,d=Math.hypot(dx,dy);
+    if(d<8){
+      a.wx=null;a.wy=null;
+      // 도착 후 홀드 X — 자동 AI로 복귀
+    }else{
+      const cell=nearestCell(a.x,a.y);
+      const spd=a.spd*(cell?TERRAIN[cell.type].spd:1.0);
+      a.x+=dx/d*spd; a.y+=dy/d*spd;
+      clampToMap(a);
+    }
+    return;
+  }
+
+  // 힐러 스킬 보유 여부
+  const isHealer=role==='Heal'||
+    (role==='Refugee'&&a.activeSkills.some(s=>['Mend','Barrier','Revive'].includes(s)));
+
+  let moveTgt=null, stopRange=55;
+
+  if(isHealer){
+    const healRange=210;
+    const wounded=aa.filter(x=>x!==a&&x.hp<x.maxHp).sort((x,y)=>x.hp-y.hp);
+    // 힐 가능한 대상이 사거리 안에 있으면 제자리
+    const inRange=wounded.find(x=>hasLOS(a.x,a.y,x.x,x.y)&&dist(a,x)<healRange);
+    if(inRange)return;
+    // 가장 HP 낮은 아군 따라가기
+    moveTgt=wounded[0]||aa.find(x=>x!==a&&x.hp>0);
+    stopRange=healRange*0.65;
+  } else {
+    // 공격/방어 역할: 가장 가까운 적에게 적극적으로 이동
+    const enemyTgt=closest(a,ae,Infinity);
+    if(enemyTgt){
+      const attackRange=(BASE_ROLES[role]?.range||65)-15;
+      const d=dist(a,enemyTgt);
+      if(d>attackRange){
+        // 적에게 다가가기
+        const best=bestAdjacentCell(a,enemyTgt.x,enemyTgt.y);
+        if(best){
+          const cell=nearestCell(a.x,a.y);
+          const spd=a.spd*(cell?TERRAIN[cell.type].spd:1.0);
+          const dx=best.x-a.x,dy=best.y-a.y,dn=Math.hypot(dx,dy);
+          if(dn>1){a.x+=dx/dn*spd;a.y+=dy/dn*spd;clampToMap(a);}
+        }
+      } else if(role==='Tank'||a.activeSkills.includes('Guard')||a.activeSkills.includes('Fortress')){
+        // 탱커: 사거리 안이어도 적쪽으로 붙어서 막기
+        const d2=dist(a,enemyTgt);
+        if(d2>30){
+          const dx=enemyTgt.x-a.x,dy=enemyTgt.y-a.y,dn=Math.hypot(dx,dy);
+          const cell=nearestCell(a.x,a.y);
+          const spd=a.spd*(cell?TERRAIN[cell.type].spd:1.0)*0.5;
+          if(dn>1){a.x+=dx/dn*spd;a.y+=dy/dn*spd;clampToMap(a);}
+        }
+      }
+      // 원거리/피난민: 최적 공격 위치 유지 (약간 측면)
+      else if(role==='Ranged'||(role==='Refugee'&&a.activeSkills.includes('Arrow'))){
+        // 너무 가까우면 살짝 후퇴
+        if(d<80){
+          const cell=nearestCell(a.x,a.y);
+          const spd=a.spd*(cell?TERRAIN[cell.type].spd:1.0)*0.4;
+          const dx=a.x-enemyTgt.x,dy=a.y-enemyTgt.y,dn=Math.hypot(dx,dy);
+          if(dn>1){a.x+=dx/dn*spd;a.y+=dy/dn*spd;clampToMap(a);}
+        }
+      }
+      return;
+    }
+    // 적이 없으면 맵 중앙쪽으로 이동
+    moveTgt=null;
+  }
+
+  if(!moveTgt)return;
+  const d=dist(a,moveTgt);
+  if(d<=stopRange)return;
+  const best=bestAdjacentCell(a,moveTgt.x,moveTgt.y);
+  if(!best)return;
+  const cell=nearestCell(a.x,a.y);
+  const spd=a.spd*(cell?TERRAIN[cell.type].spd:1.0);
+  const dx=best.x-a.x,dy=best.y-a.y,dn=Math.hypot(dx,dy);
+  if(dn<1)return;
+  a.x+=dx/dn*spd;a.y+=dy/dn*spd;
+  clampToMap(a);
+}
+
+// ══════════════════════════════════════════════════════
+// 파이널 스테이지 & 주둔 시스템
+// ══════════════════════════════════════════════════════
+let _garrisonZoneId=null;
+
+function showGarrisonModal(zid){
+  _garrisonZoneId=zid;
+  const zone=ZONES[zid];
+  const rec=zoneRecords[zid]||{};
+  const secs=rec.clearTime?Math.floor(rec.clearTime/1000):0;
+  const hasGarrison=rec.garrison&&rec.garrison.length>0;
+
+  document.getElementById('garrison-title').innerText=`🏰 ${zone.name} — 주둔 설정`;
+  document.getElementById('garrison-sub').innerText=
+    `파이널 스테이지(${zone.finalStage}) 클리어! 유닛을 배치하면 자동으로 자원을 수집합니다.`;
+
+  // 배치 가능한 유닛 목록 (현재 파티 외 여분 유닛 — 여기서는 현재 아군 중 선택)
+  const deployable=allies.filter(a=>!a.dead);
+  let body=`<div style="font-size:10px;color:#9ca3af;margin-bottom:8px">
+    클리어 시간: ${secs}초 | 현재 주둔: ${hasGarrison?rec.garrison.length+'명':'없음'}
+  </div>`;
+  if(hasGarrison){
+    const r=garrisonIncomePerMin(rec);
+    body+=`<div style="font-size:10px;color:#2ecc71;margin-bottom:8px">
+      현재 수익: 🍖${r.food}/분 💰${r.gold}/분 (매 30초 자동 수령)
+    </div>`;
+    body+=`<div style="font-size:10px;color:#9ca3af;margin-bottom:8px">주둔 유닛: ${rec.garrison.map(g=>g.name+' Lv.'+g.lv).join(', ')}</div>`;
+  }
+  body+=`<div style="font-size:10px;color:#f1c40f;margin-bottom:6px">배치할 유닛 선택 (현재 파티에서):</div>
+  <div id="garrison-unit-list" style="display:flex;flex-wrap:wrap;gap:6px">
+    ${deployable.map(a=>{
+      const sel=rec.garrison&&rec.garrison.some(g=>g.id===a.id);
+      return `<div onclick="toggleGarrisonUnit(${a.id})" id="gu-${a.id}" style="
+        cursor:pointer;padding:6px 10px;border-radius:5px;font-size:10px;
+        border:2px solid ${sel?'#f1c40f':'#1e2d3d'};
+        background:${sel?'#2d2600':'#111d2b'};color:${sel?'#f1c40f':'#9ca3af'}">
+        ${a.name} Lv.${a.lv} ${a.classKey||a.baseRole}
+      </div>`;
+    }).join('')}
+  </div>`;
+  document.getElementById('garrison-body').innerHTML=body;
+  document.getElementById('garrison-modal').classList.add('show');
+}
+
+let _garrisonSelected=new Set();
+window.toggleGarrisonUnit=function(id){
+  if(_garrisonSelected.has(id))_garrisonSelected.delete(id);
+  else _garrisonSelected.add(id);
+  // 선택 상태 시각 업데이트
+  const zid=_garrisonZoneId;
+  const rec=zoneRecords[zid]||{};
+  allies.forEach(a=>{
+    const el=document.getElementById('gu-'+a.id);
+    if(!el)return;
+    const sel=_garrisonSelected.has(a.id);
+    el.style.border=`2px solid ${sel?'#f1c40f':'#1e2d3d'}`;
+    el.style.background=sel?'#2d2600':'#111d2b';
+    el.style.color=sel?'#f1c40f':'#9ca3af';
+  });
+};
+
+function confirmGarrison(){
+  const zid=_garrisonZoneId; if(!zid)return;
+  const rec=zoneRecords[zid]||{};
+  // 선택된 유닛 스냅샷 저장
+  rec.garrison=allies.filter(a=>_garrisonSelected.has(a.id)).map(a=>({
+    id:a.id, name:a.name, lv:a.lv, classKey:a.classKey, baseRole:a.baseRole,
+  }));
+  rec.lastTick=Date.now();
+  zoneRecords[zid]=rec;
+  _garrisonSelected=new Set();
+  startGarrisonTick();
+  const r=garrisonIncomePerMin(rec);
+  alog(`🏰 ${ZONES[zid].name} 주둔 완료! 🍖${r.food}/분 💰${r.gold}/분`);
+  closeGarrisonModal();
+  markDirty();
+}
+
+function closeGarrisonModal(){
+  document.getElementById('garrison-modal').classList.remove('show');
+  _garrisonSelected=new Set();
+}
+
+// 주둔 수익 계산: 클리어 시간 기준, 유닛 수·레벨에 비례, 절반 수익
+function garrisonIncomePerMin(rec){
+  if(!rec.cleared||!rec.garrison||rec.garrison.length===0)return{food:0,gold:0};
+  const zone=ZONES[_garrisonZoneId]||Object.values(ZONES).find(z=>zoneRecords[z.id]===rec)||ZONES.hunt;
+  // 클리어 시간(분) 동안 얻은 총 보상의 절반을 같은 시간으로 나눔 → 분당 수익
+  const clearMins=Math.max(0.5,(rec.clearTime||30000)/60000);
+  const baseFoodPM=(rec.totalReward?.food||10)/clearMins*0.5;
+  const baseGoldPM=(rec.totalReward?.gold||10)/clearMins*0.5;
+  // 유닛 수(최대3배)와 평균 레벨 보너스 적용
+  const unitCount=rec.garrison.length;
+  const avgLv=unitCount>0?rec.garrison.reduce((s,u)=>s+u.lv,0)/unitCount:1;
+  const unitMult=Math.min(unitCount/3,1.0); // 유닛 3명 = 100%
+  const lvMult=Math.min(1+avgLv*0.05,2.0);  // 레벨당 5% 보너스, 최대2배
+  return{
+    food:Math.max(1,Math.floor(baseFoodPM*unitMult*lvMult)),
+    gold:Math.max(1,Math.floor(baseGoldPM*unitMult*lvMult)),
+  };
+}
+
+// 30초마다 주둔 자원 지급
+function startGarrisonTick(){
+  if(garrisonInterval)clearInterval(garrisonInterval);
+  garrisonInterval=setInterval(()=>{
+    let gotFood=0,gotGold=0;
+    Object.entries(zoneRecords).forEach(([zid,rec])=>{
+      if(!rec.cleared||!rec.garrison||rec.garrison.length===0)return;
+      const saved=_garrisonZoneId; _garrisonZoneId=zid;
+      const r=garrisonIncomePerMin(rec);
+      _garrisonZoneId=saved;
+      const f=Math.floor(r.food/2), g=Math.floor(r.gold/2);
+      food+=f; gold+=g; gotFood+=f; gotGold+=g;
+    });
+    // 주둔 경험치
+    garrisonExpTick();
+    if(gotFood>0||gotGold>0){
+      alog(`🏰 주둔 수익 🍖+${gotFood} 💰+${gotGold}`);
+    }
+    renderGarrisonBar();
+    markDirty();
+  },30000);
+}
+
+function gainExp(u,amount){
+  if(!amount||amount<=0)return;
+  const role=u.classKey||u.baseRole;
+  const mult=(role==='Tank'||role==='Heal')?0.67:1.0;
+  const actual=Math.max(1,Math.round(amount*mult));
+  u.exp+=actual;
+  while(u.exp>=u.maxExp){
+    u.exp-=u.maxExp; u.lv++;
+    u.maxExp=Math.floor(u.maxExp*1.55);
+
+    // ── 레벨업 스탯 성장 ──
+    const trait=TRAITS[u.traitKey||'balanced'];
+    const cls=u.classKey||'Refugee';
+
+    // 클래스별 성장 가중치
+    const clsGrow={
+      Tank:    {hp:3,atk:0.5,def:2,  spd:0,  magic:0},
+      Melee:   {hp:1,atk:2,  def:0.5,spd:1,  magic:0},
+      Ranged:  {hp:1,atk:1,  def:0,  spd:1,  magic:0},
+      Heal:    {hp:1,atk:0,  def:0.5,spd:0.5,magic:2},
+      Refugee: {hp:1,atk:1,  def:0.5,spd:0.5,magic:0.5},
+    }[cls]||{hp:1,atk:1,def:0.5,spd:0.5,magic:0.5};
+
+    // 특성 + 클래스 가중치 합산
+    const hpGrow  = Math.floor((trait.growHp   * clsGrow.hp)  * rnd(18,30));
+    const atkGrow = Math.floor((trait.growAtk  * clsGrow.atk) * rnd(2,5));
+    const defGrow = +(trait.growDef  * clsGrow.def  * rndF(0.005,0.015)).toFixed(3);
+    const spdGrow = +(trait.growSpd  * clsGrow.spd  * rndF(0.01,0.04)).toFixed(3);
+    const magGrow = Math.floor((trait.growMagic* clsGrow.magic)* rnd(1,4));
+
+    // 기본 소량 성장 (모든 스탯)
+    u.maxHp   += hpGrow  + rnd(8,15);
+    u.hp       = Math.min(u.hp + hpGrow + rnd(8,15), u.maxHp);
+    u.bonusAtk += atkGrow + rnd(1,2);
+    u.bonusDef  = Math.min(+(u.bonusDef+defGrow+0.003).toFixed(3), 0.7);
+    u.bonusSpd  = +(u.bonusSpd+spdGrow+0.005).toFixed(3);
+    u.bonusMagic+= magGrow;
+    u.spd = +(u.baseSpd+u.bonusSpd).toFixed(2);
+
+    const growSummary=`HP+${hpGrow+10} ATK+${atkGrow+1}${defGrow>0.005?` DEF+${Math.floor(defGrow*100)}%`:''}${spdGrow>0.01?` SPD+${spdGrow.toFixed(2)}`:''}`;
+    alog(`🎊 ${u.name} Lv.${u.lv}! (${TRAITS[u.traitKey||'balanced'].name}) ${growSummary}`);
+
+    if(u.lv===5){u.maxSkillSlots=2;setTimeout(()=>showClassModal(u),300);}
+    if(u.lv===10){u.maxSkillSlots=3;setTimeout(()=>showClassModal(u),300);}
+    if(u.lv===20){u.maxSkillSlots=4;alog(`👑 ${u.name} Lv.20 — 스킬 슬롯 4개!`);}
+  }
+  addFloat(u.x>0?u.x:200,u.y>0?u.y:200,`+${actual}EXP`,'#3498db');
+}
+
+function closest(from,targets,maxR){
+  let best=null,bd=maxR;
+  targets.forEach(t=>{if(!t.dead&&t.hp>0){const d=dist(from,t);if(d<bd){bd=d;best=t;}}});
+  return best;
+}
+function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
+
+// ══════════════════════════════════════════════════════
+// 렌더링
+// ══════════════════════════════════════════════════════
+function drawHexPath(x,y,r){
+  ctx.beginPath();
+  for(let i=0;i<6;i++){const a=(Math.PI/3)*i-Math.PI/6;ctx.lineTo(x+r*Math.cos(a),y+r*Math.sin(a));}
+  ctx.closePath();
+}
+function draw(){
+  ctx.clearRect(0,0,CW,CH);
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const h=hexMap[r][c],t=TERRAIN[h.type];
+    drawHexPath(h.x,h.y,HR);ctx.fillStyle=t.color;ctx.fill();
+    ctx.strokeStyle=t.border;ctx.lineWidth=0.7;ctx.stroke();
+    if(t.sym){ctx.font='9px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='rgba(255,255,255,0.3)';ctx.fillText(t.sym,h.x,h.y);}
+  }
+  if(isPlacing){
+    for(let r=0;r<ROWS;r++)for(let c=0;c<7;c++){
+      const h=hexMap[r][c];drawHexPath(h.x,h.y,HR);
+      ctx.fillStyle='rgba(91,45,130,0.15)';ctx.fill();ctx.strokeStyle='#5b2d82';ctx.lineWidth=0.6;ctx.stroke();
+    }
+  }
+  allies.forEach(a=>{
+    if(!a.isDeployed||a.hp<=0||a.dead)return;
+    const role=a.classKey||a.baseRole,rd=BASE_ROLES[role];
+    // 사거리 점선 — 항상 표시 (전투 중엔 반투명하게)
+    if(rd){
+      const alpha=isBattle&&!isPaused?0.15:0.25;
+      ctx.save();
+      ctx.beginPath();ctx.arc(a.x,a.y,(rd.range||65)+(a.bonusRange||0),0,Math.PI*2);
+      ctx.strokeStyle=rd.color+(isBattle?'26':'44');
+      ctx.lineWidth=isBattle?0.7:1;
+      ctx.setLineDash([3,3]);ctx.stroke();
+      ctx.restore();
+    }
+    if(a.wx!==null){ctx.save();ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(a.wx,a.wy);ctx.strokeStyle='#f1c40f77';ctx.lineWidth=1.2;ctx.setLineDash([4,3]);ctx.stroke();ctx.beginPath();ctx.arc(a.wx,a.wy,5,0,Math.PI*2);ctx.strokeStyle='#f1c40f';ctx.lineWidth=1.5;ctx.setLineDash([]);ctx.stroke();ctx.restore();}
+  });
+  if(dragUnit&&isDragging){ctx.save();ctx.beginPath();ctx.moveTo(dragUnit.x,dragUnit.y);ctx.lineTo(mouseX,mouseY);ctx.strokeStyle='#f1c40faa';ctx.lineWidth=1.5;ctx.setLineDash([5,3]);ctx.stroke();ctx.beginPath();ctx.arc(mouseX,mouseY,6,0,Math.PI*2);ctx.strokeStyle='#f1c40f';ctx.lineWidth=2;ctx.setLineDash([]);ctx.stroke();ctx.restore();}
+  [...allies,...enemies].forEach(u=>{if(u.dead)return;if(u.type==='ally'&&!u.isDeployed)return;drawUnit(u);});
+  floats=floats.filter(f=>f.life-->0);
+  floats.forEach(f=>{ctx.save();ctx.globalAlpha=Math.min(1,f.life/18);ctx.font='bold 11px Arial';ctx.textAlign='center';ctx.fillStyle=f.color;ctx.fillText(f.text,f.x,f.y-=0.6);ctx.restore();});
+  ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(4,4,220,17);
+  ctx.fillStyle='#f1c40f';ctx.font='10px Arial';ctx.textAlign='left';
+  ctx.fillText(`💰${gold}G  🍖${food}  Stage${stage}  적${enemies.filter(e=>!e.dead&&e.hp>0).length}`,8,16);
+}
+function drawUnit(u){
+  const isAlly=u.type==='ally',R=13;
+  const role=u.classKey||u.baseRole||'Melee';
+  const rd=BASE_ROLES[role];
+  ctx.save();
+  if(isAlly&&u.onHold){ctx.beginPath();ctx.arc(u.x,u.y,R+5,0,Math.PI*2);ctx.strokeStyle='#a855f7';ctx.lineWidth=1.5;ctx.setLineDash([2,2]);ctx.stroke();ctx.setLineDash([]);}
+  if(isAlly&&u.wx!==null){ctx.beginPath();ctx.arc(u.x,u.y,R+4,0,Math.PI*2);ctx.strokeStyle='#f1c40f66';ctx.lineWidth=1;ctx.stroke();}
+  ctx.beginPath();ctx.arc(u.x,u.y,R,0,Math.PI*2);
+  ctx.fillStyle=isAlly?(rd?.color||'#3498db'):u.color;ctx.fill();
+  ctx.strokeStyle=isAlly?'#aac':'#f88';ctx.lineWidth=1;ctx.stroke();
+  ctx.fillStyle='#fff';ctx.font='bold 8px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+  const mark=isAlly?(u.class10Key?CLASS10[u.class10Key].name.slice(0,2):u.classKey||u.baseRole).slice(0,2):u.mark;
+  ctx.fillText(mark,u.x,u.y);
+  const bw=28,bh=3,bx=u.x-bw/2,by=u.y-R-6;
+  ctx.fillStyle='#111';ctx.fillRect(bx,by,bw,bh);
+  const pct=Math.max(0,u.hp/u.maxHp);
+  ctx.fillStyle=pct>0.5?'#2ecc71':pct>0.25?'#f39c12':'#e74c3c';
+  ctx.fillRect(bx,by,bw*pct,bh);
+  if(u.def>0.05){ctx.fillStyle='#60a5fa88';ctx.font='7px Arial';ctx.textAlign='center';ctx.fillText(`🛡${Math.floor(u.def*100)}%`,u.x,u.y+R+7);}
+  // 특수 상태 표시
+  if(!isAlly&&u.elite){ctx.fillStyle='#f1c40f';ctx.font='7px Arial';ctx.textAlign='center';ctx.fillText('★',u.x,u.y-R-8);}
+  if(!isAlly&&u.ambushReady&&!u.ambushDone){ctx.fillStyle='#e74c3c';ctx.font='7px Arial';ctx.textAlign='center';ctx.fillText('❓',u.x,u.y-R-8);}
+  if(!isAlly&&u.flees){ctx.fillStyle='#5d8a3c';ctx.font='7px Arial';ctx.textAlign='center';ctx.fillText('🏃',u.x,u.y-R-8);}
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════
+// UI 패널
+// ══════════════════════════════════════════════════════
+function renderAllyPanel(){
+  // 왼쪽 패널: 주둔 중이 아닌 통솔 유닛만 표시
+  const activeAllies=allies.filter(a=>!a.garrisoned);
+  const canChange=!isBattle||isPaused;
+  document.getElementById('al').innerHTML=activeAllies.map(a=>{
+    const role=a.classKey||a.baseRole;
+    const rd=BASE_ROLES[role];
+    const statusStr=!a.isDeployed?`<span style="color:#5b2d82;font-size:9px">⏳대기</span>`:
+      a.dead?`<span style="color:#333;font-size:9px">💀전사</span>`:
+      a.onHold?`<span style="color:#a855f7;font-size:9px">⚑홀드</span>`:
+      a.wx!==null?`<span style="color:#f1c40f;font-size:9px">🎯이동</span>`:
+      `<span style="color:#2980b9;font-size:9px">▶자동</span>`;
+    const className=a.class10Key?CLASS10[a.class10Key].name:
+      a.classKey?(BASE_ROLES[a.classKey]?.name||a.classKey):
+      (BASE_ROLES[a.baseRole]?.name||a.baseRole);
+    const skillBtns=a.availableSkills.map(sk=>{
+      const sd=BASE_SKILLS[sk]||CLASS5_SKILLS[sk]||{name:sk};
+      const isAct=a.activeSkills.includes(sk);
+      return `<button class="skb${isAct?' act':''}" onclick="toggleSkill(${a.id},'${sk}')" title="${sd.desc||''}">${sd.name}</button>`;
+    }).join('');
+    const baseAtk=(rd?.atk||30)+a.bonusAtk;
+    const baseDef=Math.floor((a.bonusDef)*100);
+    const baseSpd=(a.spd).toFixed(1);
+    const baseCDR=Math.floor((a.bonusCDR||0)*100);
+    const baseMana=a.bonusMana||0;
+    const baseMagic=a.bonusMagic||0;
+
+    const upgBtns=Object.entries(UPGRADES).map(([stat,upg])=>{
+      const cost=upg.cost(a.lv);
+      const affordable=gold>=cost;
+      // 현재 값 표시
+      const curVals={
+        atk:`현재:${baseAtk}`,
+        def:`현재:${baseDef}%`,
+        spd:`현재:${baseSpd}`,
+        cdr:`현재:-${baseCDR}%`,
+        mana:`마나:${baseMana}`,
+        magic:`현재:${baseMagic}`,
+      };
+      return `<button class="ub${affordable?'':' dimmed'}" onclick="upgradeUnit(${a.id},'${stat}')" title="${upg.tip(a)}">
+        ${upg.label}<br>
+        <span style="color:#aaa;font-size:7px">${curVals[stat]}</span><br>
+        <small style="color:${affordable?'#f1c40f':'#666'}">${cost}G</small>
+      </button>`;
+    }).join('');
+    return `<div class="uc${a.onHold?' hold':''}">
+      <div class="uch">
+        <span class="un">${a.name}</span>
+        <span>${statusStr} <span class="ulv">Lv.${a.lv} ${className}</span></span>
+      </div>
+      <div class="bl" style="color:#a78bfa;font-size:8px">✦ ${TRAITS[a.traitKey||'balanced'].name} — ${TRAITS[a.traitKey||'balanced'].desc}${a.bonusRange>0?` | 사거리+${a.bonusRange}`:''}</div>
+      <div class="bl">ATK ${baseAtk} | DEF ${baseDef}% | SPD ${baseSpd}${baseMagic>0?` | ✨${baseMagic}`:''}</div>
+      <div class="bl">HP ${Math.floor(a.hp)}/${a.maxHp}</div>
+      <div class="bw"><div class="bf hf" style="width:${(a.hp/a.maxHp)*100}%"></div></div>
+      <div class="bl">EXP ${a.exp}/${a.maxExp} | 슬롯 ${a.activeSkills.length}/${a.maxSkillSlots}</div>
+      <div class="bw"><div class="bf ef" style="width:${(a.exp/a.maxExp)*100}%"></div></div>
+      <div class="sl" style="margin-top:4px">스킬 선택 (슬롯 ${a.maxSkillSlots}개) ${!a.classKey?'<span style="color:#9ca3af;font-size:8px">— 선택 스킬로 역할 결정</span>':''} <span style="color:#2ecc71;font-size:8px">✏️전투중 변경가능</span></div>
+      <div class="sk-row">${skillBtns}</div>
+      <div class="sl" style="margin-top:3px">강화 <span style="color:#f1c40f;font-size:8px">💰전투중 사용가능</span></div>
+      <div class="ur">${upgBtns}</div>
+      <div style="font-size:9px;color:#374151;margin-top:3px;text-align:center">더블클릭→홀드 | 드래그→이동목표</div>
+    </div>`;
+  }).join('');
+}
+function renderEnemyPanel(){
+  const tc={prey:'#5d8a3c',predator:'#a05a00',bandit:'#7b1d1d',king:'#1a5276',basic:'#555'};
+  document.getElementById('el').innerHTML=enemies.map(e=>{
+    const col=tc[e.etype]||'#555';
+    const tags=[
+      e.elite?`<span class="etb" style="background:#6c2899">★엘리트</span>`:'',
+      e.flees?`<span class="etb" style="background:#2d7a3a">🏃도망</span>`:'',
+      (e.ambushReady&&!e.ambushDone)?`<span class="etb" style="background:#7b1d1d">❓매복</span>`:'',
+      e.ambushDone?`<span class="etb" style="background:#e74c3c">⚡기습중</span>`:'',
+    ].join('');
+    return `<div class="ec">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+        <b>${e.name}</b>
+        <span>
+          <span class="etb" style="background:${col}">${e.role?`[${e.role}]`:''}${e.mark}</span>
+          ${tags}
+        </span>
+      </div>
+      <div style="color:#374151;font-size:9px;margin-bottom:2px">ATK:${e.atk} RNG:${e.range} DEF:${Math.floor((e.def||0)*100)}% SPD:${e.spd.toFixed(1)}</div>
+      <div class="bw" style="height:3px"><div class="bf" style="width:${Math.max(0,(e.hp/e.maxHp)*100)}%;background:${col}"></div></div>
+      <div style="font-size:9px;color:#6b7280">${Math.max(0,Math.floor(e.hp))}/${e.maxHp}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('ed').innerText=enemies.filter(e=>!e.dead&&e.hp>0).length;
+}
+function alog(m){const el=document.getElementById('alog');el.innerHTML=`<div class="ll">${m}</div>`+el.innerHTML;}
+function elog(m){const el=document.getElementById('elog');el.innerHTML=`<div class="ll">${m}</div>`+el.innerHTML;}
+function addFloat(x,y,t,c){floats.push({x,y,text:t,color:c,life:40});}
+
+// ══════════════════════════════════════════════════════
+// 하단 주둔 바
+// ══════════════════════════════════════════════════════
+let _garrisonBarOpen=false;
+
+function toggleGarrisonBar(){
+  _garrisonBarOpen=!_garrisonBarOpen;
+  const body=document.getElementById('garrison-bar-body');
+  body.classList.toggle('open',_garrisonBarOpen);
+  document.querySelector('#garrison-bar-header span:last-child').innerText=_garrisonBarOpen?'▲ 접기':'▼ 펼치기';
+  if(_garrisonBarOpen)renderGarrisonBar();
+}
+
+function renderGarrisonBar(){
+  // 헤더 수익 요약
+  let totalFood=0,totalGold=0;
+  Object.entries(zoneRecords).forEach(([zid,rec])=>{
+    if(!rec.cleared)return;
+    const saved=_garrisonZoneId;_garrisonZoneId=zid;
+    const r=garrisonIncomePerMin(rec);
+    _garrisonZoneId=saved;
+    totalFood+=r.food;totalGold+=r.gold;
+  });
+  document.getElementById('garrison-bar-income').innerText=
+    totalFood>0||totalGold>0?`🍖+${totalFood}/분 💰+${totalGold}/분`:'클리어한 전투지 없음';
+
+  if(!_garrisonBarOpen)return;
+
+  const container=document.getElementById('garrison-zones-container');
+  const cleared=Object.entries(zoneRecords).filter(([,r])=>r.cleared);
+  if(cleared.length===0){
+    container.innerHTML='<div style="font-size:10px;color:#374151;padding:8px">아직 클리어한 전투지가 없습니다.</div>';
+    return;
+  }
+
+  container.innerHTML=cleared.map(([zid,rec])=>{
+    const zone=ZONES[zid];
+    const saved=_garrisonZoneId;_garrisonZoneId=zid;
+    const r=garrisonIncomePerMin(rec);
+    _garrisonZoneId=saved;
+
+    const unitItems=(rec.garrison||[]).map(g=>`
+      <div class="gz-unit" draggable="true"
+        ondragstart="garrisonDragStart(event,'${zid}',${g.id})"
+        title="드래그하여 통솔로 이동">
+        ${g.name} Lv.${g.lv}
+      </div>`).join('');
+
+    // 배치 가능 유닛 (주둔 안된 유닛)
+    const addable=allies.filter(a=>!a.garrisoned&&!a.dead)
+      .map(a=>`<span class="gz-add" onclick="addToGarrison('${zid}',${a.id})">+${a.name}</span>`).join('');
+
+    return `<div class="gz" ondragover="event.preventDefault()"
+        ondrop="garrisonDrop(event,'${zid}')">
+      <div class="gz-title" style="color:${zone.color}">${zone.name} — Stage ${zone.finalStage} 클리어</div>
+      <div class="gz-income">🍖+${r.food}/분  💰+${r.gold}/분 (30초마다 수령)</div>
+      <div class="gz-units">${unitItems||'<span style="font-size:9px;color:#374151">배치된 유닛 없음</span>'}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">${addable}</div>
+    </div>`;
+  }).join('');
+}
+
+// 주둔 유닛 추가
+window.addToGarrison=function(zid,uid){
+  const rec=zoneRecords[zid];if(!rec||!rec.cleared)return;
+  const u=allies.find(a=>a.id===uid);if(!u)return;
+  u.garrisoned=zid;
+  if(!rec.garrison)rec.garrison=[];
+  rec.garrison.push({id:u.id,name:u.name,lv:u.lv,classKey:u.classKey,baseRole:u.baseRole});
+  rec.lastTick=Date.now();
+  startGarrisonTick();
+  alog(`🏰 ${u.name} → ${ZONES[zid].name} 주둔`);
+  markDirty();renderGarrisonBar();
+};
+
+// 주둔 유닛 드래그 → 통솔로 복귀
+window.garrisonDragStart=function(e,zid,uid){
+  e.dataTransfer.setData('garrison-zid',zid);
+  e.dataTransfer.setData('garrison-uid',uid);
+};
+window.garrisonDrop=function(e,toZid){
+  const fromZid=e.dataTransfer.getData('garrison-zid');
+  const uid=parseInt(e.dataTransfer.getData('garrison-uid'));
+  if(!uid)return;
+  // 같은 존이면 무시
+  if(fromZid===toZid)return;
+  // 다른 존으로 이동 또는 통솔로 복귀 (toZid가 없으면 통솔)
+  moveGarrisonUnit(fromZid,uid,toZid);
+};
+// 왼쪽 패널 드롭 영역 (통솔로 복귀)
+function enableAllyPanelDrop(){
+  const panel=document.getElementById('al');
+  panel.addEventListener('dragover',e=>e.preventDefault());
+  panel.addEventListener('drop',e=>{
+    const zid=e.dataTransfer.getData('garrison-zid');
+    const uid=parseInt(e.dataTransfer.getData('garrison-uid'));
+    if(zid&&uid)moveGarrisonUnit(zid,uid,null);
+  });
+}
+function moveGarrisonUnit(fromZid,unitId,toZid){
+  const rec=zoneRecords[fromZid];if(!rec)return;
+  rec.garrison=(rec.garrison||[]).filter(g=>g.id!==unitId);
+  const u=allies.find(a=>a.id===unitId);
+  if(u){
+    if(toZid){
+      u.garrisoned=toZid;
+      const toRec=zoneRecords[toZid];
+      if(toRec){
+        if(!toRec.garrison)toRec.garrison=[];
+        toRec.garrison.push({id:u.id,name:u.name,lv:u.lv,classKey:u.classKey,baseRole:u.baseRole});
+      }
+      alog(`🔀 ${u.name} → ${ZONES[toZid].name} 이동`);
+    }else{
+      u.garrisoned=null;
+      alog(`↩️ ${u.name} 통솔로 복귀`);
+    }
+  }
+  markDirty();renderGarrisonBar();
+}
+
+// 주둔 경험치 틱 (30초마다 주둔 유닛도 소량 경험치)
+function garrisonExpTick(){
+  Object.entries(zoneRecords).forEach(([zid,rec])=>{
+    if(!rec.cleared||!rec.garrison||rec.garrison.length===0)return;
+    rec.garrison.forEach(g=>{
+      const u=allies.find(a=>a.id===g.id);
+      if(u) gainExp(u, 15+g.lv*2); // 30초당 소량 경험치
+    });
+    // 스냅샷 갱신 (레벨업 반영)
+    rec.garrison=rec.garrison.map(g=>{
+      const u=allies.find(a=>a.id===g.id);
+      return u?{id:u.id,name:u.name,lv:u.lv,classKey:u.classKey,baseRole:u.baseRole}:g;
+    });
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// 메인 루프
+// ══════════════════════════════════════════════════════
+let _panelDirty=true;
+let _frameCount=0;
+function markDirty(){_panelDirty=true;}
+
+function loop(){
+  if(isBattle&&!isPaused)battleTick();
+  draw();
+  _frameCount++;
+  // 전투 중에는 10프레임마다 패널 갱신 (클릭 이벤트 보존)
+  // 전투 외에는 변경 있을 때만 갱신
+  if(_panelDirty||(isBattle&&!isPaused&&_frameCount%10===0)){
+    renderAllyPanel();
+    renderEnemyPanel();
+    _panelDirty=false;
+  }
+  document.getElementById('gd').innerText=gold;
+  document.getElementById('fd').innerText=food;
+  document.getElementById('sd').innerText=stage;
+  requestAnimationFrame(loop);
+}
+
+window.onload=init;
+</script>
+</body>
+</html>
