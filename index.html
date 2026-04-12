@@ -558,7 +558,7 @@ function buildMap(){
   // 존 ID 기반 시드로 고정 지형 생성
   const seed=zid.split('').reduce((s,c)=>s+c.charCodeAt(0),42);
   const rndFn=seededRand(seed);
-  const tier=currentZone.tier;
+  const tier=currentZone.terrain||currentZone.tier; // 챕터 지형 테마 우선
 
   for(let r=0;r<ROWS;r++){
     hexMap[r]=[];
@@ -820,6 +820,36 @@ function getEnemyFormation(s,tier){
   const H=CH,bx=CW-60;
   const diff=currentZone.diffMult||1.0;
 
+  // 챕터 이름 기반 적 이름 오버라이드
+  const zoneName=currentZone.name||'';
+  const enemyTheme=
+    zoneName.includes('숲')||zoneName.includes('동굴')?'forest':
+    zoneName.includes('성')||zoneName.includes('요새')||zoneName.includes('감시')?'castle':
+    zoneName.includes('협곡')||zoneName.includes('계곡')||zoneName.includes('마그마')?'volcanic':
+    zoneName.includes('해골')||zoneName.includes('죽음')||zoneName.includes('혼돈')?'undead':
+    zoneName.includes('고원')||zoneName.includes('고개')||zoneName.includes('얼음')?'mountain':
+    'default';
+
+  // 테마별 적 이름 풀
+  const banditNames={
+    default:  ['산적대장','기습병A','기습병B','독궁수A','독궁수B','산적마법사','산적치료사'],
+    forest:   ['숲의 족장','매복자A','매복자B','독화살사수A','독화살사수B','수풀마법사','숲치료사'],
+    castle:   ['성주','성벽전사A','성벽전사B','망루궁수A','망루궁수B','궁정마법사','성채치료사'],
+    volcanic: ['화염대장','폭발병A','폭발병B','용암궁수A','용암궁수B','불꽃술사','화산치료사'],
+    undead:   ['해골대장','망자A','망자B','유령궁수A','유령궁수B','사령술사','저주사제'],
+    mountain: ['산악대장','절벽전사A','절벽전사B','고지궁수A','고지궁수B','폭풍술사','산악치료사'],
+  };
+  const armyNames={
+    default:  ['왕군방패병1','왕군방패병2','왕군방패병3','왕군기사1','왕군기사2','왕군마법사1','왕군마법사2','왕군성직자'],
+    castle:   ['철벽방패병1','철벽방패병2','철벽방패병3','성기사1','성기사2','궁정마법사1','궁정마법사2','성직자'],
+    forest:   ['숲수호자1','숲수호자2','숲수호자3','나무정령1','나무정령2','고목마법사1','고목마법사2','숲치유자'],
+    volcanic: ['용암수호자1','용암수호자2','용암수호자3','화염기사1','화염기사2','화염마법사1','화염마법사2','화염치료사'],
+    undead:   ['해골병사1','해골병사2','해골병사3','데스나이트1','데스나이트2','네크로맨서1','네크로맨서2','어둠사제'],
+    mountain: ['고산수호자1','고산수호자2','고산수호자3','빙설기사1','빙설기사2','폭풍마법사1','폭풍마법사2','산악치료사'],
+  };
+  const bNames=(banditNames[enemyTheme]||banditNames.default);
+  const aNames=(armyNames[enemyTheme]||armyNames.default);
+
   // ══ 들판: 초식동물 — 피난민도 힘들게, 전직자면 수월 ══
   if(tier==='hunt'){
     const cnt=2+Math.min(s,5);
@@ -864,20 +894,21 @@ function getEnemyFormation(s,tier){
   // ══ 산적/폐허: 전직 10레벨 파티 필요, 탱커 필수 ══
   if(tier==='bandit'||tier==='raider'){
     const rank=Math.max(1,s-9);
+    const n=bNames;
     const f=[
-      {name:'산적대장',  mark:'T',color:'#c0392b',role:'Tank',x:bx,   y:H*0.50,
+      {name:n[0], mark:'T',color:'#c0392b',role:'Tank',x:bx,   y:H*0.50,
         hp:Math.floor((800+rank*250)*diff), atk:Math.floor((45+rank*12)*diff),range:60,spd:0.7,def:0.35,etype:'bandit'},
-      {name:'기습병A',   mark:'!',color:'#d35400',role:'Warrior',x:bx+20,y:H*0.15,
+      {name:n[1], mark:'!',color:'#d35400',role:'Warrior',x:bx+20,y:H*0.15,
         hp:Math.floor((350+rank*100)*diff), atk:Math.floor((65+rank*15)*diff),range:65,spd:2.0,def:0.0,etype:'bandit',ambushReady:true},
-      {name:'기습병B',   mark:'!',color:'#d35400',role:'Warrior',x:bx+20,y:H*0.85,
+      {name:n[2], mark:'!',color:'#d35400',role:'Warrior',x:bx+20,y:H*0.85,
         hp:Math.floor((350+rank*100)*diff), atk:Math.floor((65+rank*15)*diff),range:65,spd:2.0,def:0.0,etype:'bandit',ambushReady:true},
-      {name:'독궁수A',   mark:'B',color:'#8e44ad',role:'Ranged', x:bx+80,y:H*0.30,
+      {name:n[3], mark:'B',color:'#8e44ad',role:'Ranged', x:bx+80,y:H*0.30,
         hp:Math.floor((280+rank*80)*diff),  atk:Math.floor((50+rank*12)*diff),range:230,spd:0.6,def:0.0,etype:'bandit'},
-      {name:'독궁수B',   mark:'B',color:'#8e44ad',role:'Ranged', x:bx+80,y:H*0.70,
+      {name:n[4], mark:'B',color:'#8e44ad',role:'Ranged', x:bx+80,y:H*0.70,
         hp:Math.floor((280+rank*80)*diff),  atk:Math.floor((50+rank*12)*diff),range:230,spd:0.6,def:0.0,etype:'bandit'},
-      {name:'산적마법사', mark:'M',color:'#9b59b6',role:'Mage',  x:bx+120,y:H*0.45,
+      {name:n[5], mark:'M',color:'#9b59b6',role:'Mage',  x:bx+120,y:H*0.45,
         hp:Math.floor((220+rank*60)*diff),  atk:Math.floor((80+rank*20)*diff),range:200,spd:0.4,def:0.0,etype:'bandit'},
-      {name:'산적치료사', mark:'H',color:'#1e8449',role:'Heal',  x:bx+140,y:H*0.55,
+      {name:n[6], mark:'H',color:'#1e8449',role:'Heal',  x:bx+140,y:H*0.55,
         hp:Math.floor((200+rank*60)*diff),  atk:Math.floor((10)*diff),        range:200,spd:0.4,def:0.0,etype:'bandit'},
     ];
     return f.slice(0,Math.min(3+Math.floor(rank*0.7),f.length));
@@ -886,22 +917,26 @@ function getEnemyFormation(s,tier){
   // ══ 약탈자/왕군: 2차전직+최고레벨+강화 없이 불가능 ══
   if(tier==='army'){
     const rank=Math.max(1,s-19);
+    const n=aNames;
+    const armyColor=zoneName.includes('해골')||zoneName.includes('죽음')?'#374151':
+                    zoneName.includes('화염')||zoneName.includes('마그마')?'#c0392b':
+                    zoneName.includes('숲')||zoneName.includes('동굴')?'#1e6b1e':'#1a5276';
     const f=[
-      {name:'왕군방패병1',mark:'S',color:'#1a5276',role:'Tank',
+      {name:n[0],mark:'S',color:armyColor,role:'Tank',
         x:bx,   y:H*0.20,hp:Math.floor((1200+rank*300)*diff),atk:Math.floor((30+rank*8)*diff), range:58,spd:0.55,def:0.45,etype:'king',elite:true},
-      {name:'왕군방패병2',mark:'S',color:'#1a5276',role:'Tank',
+      {name:n[1],mark:'S',color:armyColor,role:'Tank',
         x:bx,   y:H*0.50,hp:Math.floor((1200+rank*300)*diff),atk:Math.floor((30+rank*8)*diff), range:58,spd:0.55,def:0.45,etype:'king',elite:true},
-      {name:'왕군방패병3',mark:'S',color:'#1a5276',role:'Tank',
+      {name:n[2],mark:'S',color:armyColor,role:'Tank',
         x:bx,   y:H*0.80,hp:Math.floor((1200+rank*300)*diff),atk:Math.floor((30+rank*8)*diff), range:58,spd:0.55,def:0.45,etype:'king',elite:true},
-      {name:'왕군기사1',  mark:'K',color:'#6c2899',role:'Melee',
+      {name:n[3],mark:'K',color:'#6c2899',role:'Melee',
         x:bx+50,y:H*0.30,hp:Math.floor((700+rank*180)*diff), atk:Math.floor((70+rank*18)*diff),range:65,spd:1.1,def:0.20,etype:'king',elite:true},
-      {name:'왕군기사2',  mark:'K',color:'#6c2899',role:'Warrior',
+      {name:n[4],mark:'K',color:'#6c2899',role:'Warrior',
         x:bx+50,y:H*0.70,hp:Math.floor((600+rank*160)*diff), atk:Math.floor((90+rank*22)*diff),range:75,spd:1.4,def:0.08,etype:'king',elite:true},
-      {name:'왕군마법사1',mark:'M',color:'#8e44ad',role:'Mage',
+      {name:n[5],mark:'M',color:'#8e44ad',role:'Mage',
         x:bx+100,y:H*0.30,hp:Math.floor((450+rank*100)*diff),atk:Math.floor((100+rank*25)*diff),range:240,spd:0.5,def:0.05,etype:'king',elite:true},
-      {name:'왕군마법사2',mark:'M',color:'#8e44ad',role:'Mage',
+      {name:n[6],mark:'M',color:'#8e44ad',role:'Mage',
         x:bx+100,y:H*0.70,hp:Math.floor((450+rank*100)*diff),atk:Math.floor((100+rank*25)*diff),range:240,spd:0.5,def:0.05,etype:'king',elite:true},
-      {name:'왕군성직자', mark:'P',color:'#27ae60',role:'Heal',
+      {name:n[7],mark:'P',color:'#27ae60',role:'Heal',
         x:bx+140,y:H*0.50,hp:Math.floor((400+rank*100)*diff),atk:Math.floor((10)*diff),         range:210,spd:0.4,def:0.15,etype:'king',elite:true},
     ];
     return f.slice(0,Math.min(4+Math.floor(rank*0.5),f.length));
@@ -1041,13 +1076,16 @@ function onUp(e){
         // 지도 유닛 단일 클릭 → 동료 패널 강조
         _selectedUnitId=dragUnit.id;
         markDirty();
-        // 동료 패널 최상단으로 스크롤 후 해당 카드로 이동
+        // 동료 패널에서 해당 카드가 맨 위에 오도록 스크롤
         setTimeout(()=>{
           const panel=document.getElementById('panel-ally-body');
-          if(panel)panel.scrollTop=0;
           const el=document.getElementById('uc-'+dragUnit.id);
-          if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
-        },60);
+          if(panel&&el){
+            const panelTop=panel.getBoundingClientRect().top;
+            const elTop=el.getBoundingClientRect().top;
+            panel.scrollTop+=elTop-panelTop-8;
+          }
+        },80);
       }
     }
     markDirty();
@@ -2094,15 +2132,28 @@ function generateShopItems(){
   return picked;
 }
 
+let _merchantDepartTime=0; // 상인 떠나는 시각
+
 function spawnMerchant(){
   _merchantPresent=true;
   _currentShopItems=generateShopItems();
+  _merchantDepartTime=Date.now()+180000; // 3분 체류
   const btn=document.getElementById('shop-btn');
   if(btn){
     btn.style.display='inline';
-    btn.innerHTML=`<button onclick="openShop(event)" style="font-size:0.72em;padding:2px 8px;border-radius:4px;border:1px solid #f1c40f;background:#2d2600;color:#f1c40f;cursor:pointer;animation:pulse-gold 1.5s infinite;touch-action:manipulation">🛒 상인 방문중!</button>`;
+    updateMerchantBtn();
   }
   alog('🛒 상인이 나타났습니다! 거점 현황에서 거래할 수 있어요.');
+}
+
+function updateMerchantBtn(){
+  if(!_merchantPresent||civPhase>=2) return;
+  const btn=document.getElementById('shop-btn');
+  if(!btn) return;
+  const left=Math.max(0,Math.ceil((_merchantDepartTime-Date.now())/1000));
+  const mm=Math.floor(left/60), ss=left%60;
+  const timeStr=mm>0?`${mm}:${ss<10?'0':''}${ss}`:`${ss}초`;
+  btn.innerHTML=`<button onclick="openShop(event)" style="font-size:0.72em;padding:2px 8px;border-radius:4px;border:1px solid #f1c40f;background:#2d2600;color:#f1c40f;cursor:pointer;touch-action:manipulation">🛒 상인 (${timeStr})</button>`;
 }
 
 function dismissMerchant(){
@@ -2183,36 +2234,72 @@ function showNextChapterModal(clearedZid){
   _clearedZoneId=clearedZid;
   const clearedZone=ZONES[clearedZid];
 
-  // 난이도 배율 1.3~2.0x인 새 챕터 4개 생성
   const mults=[1.3,1.6,2.0,2.5];
-  const chapterNames=[
-    ['🌑 어둠의 숲','🌊 폭풍 해안','🏔️ 얼음 산맥','🔥 화염 협곡'],
-    ['🦅 독수리 고개','🐉 용의 둥지','⚡ 번개 평원','🌑 심연 동굴'],
-    ['👁️ 감시탑','🏰 저주받은 성','🌋 마그마 지대','☠️ 해골 미로'],
-    ['🌀 혼돈의 땅','💀 죽음의 계곡','🔱 신성한 전장','✨ 최후의 시험'],
-  ];
-  const tierPick=Math.min(Object.keys(ZONES).indexOf(clearedZid)+1,3);
-  const names=chapterNames[tierPick]||chapterNames[0];
 
-  nextChapters=mults.map((mult,i)=>({
-    id:`chapter_${clearedZid}_${i}`,
-    name:names[i],
-    tier:clearedZone.tier,
-    diffMult:mult,
-    finalStage:Math.floor(clearedZone.finalStage*mult),
-    rFood:clearedZone.rFood,
-    rGold:Math.min(clearedZone.rGold+Math.floor(i*0.5),6),
-    color:['#2d7a3a','#a05a00','#7b1d1d','#6c2899'][i],
-  }));
+  // 클리어한 존의 단계에 따라 다음 챕터 풀 결정
+  const chapterPool={
+    hunt:[
+      {name:'🌑 어둠의 숲',    tier:'pred',   terrain:'pred',   color:'#2d6a2d'},
+      {name:'🌊 강가 초원',    tier:'hunt',   terrain:'hunt',   color:'#2d7a5a'},
+      {name:'🏔️ 고원 목초지', tier:'pred',   terrain:'pred',   color:'#6b5a2d'},
+      {name:'🌾 황야 사냥터', tier:'hunt',   terrain:'hunt',   color:'#7a6a2d'},
+    ],
+    pred:[
+      {name:'⚔️ 산적 은신처', tier:'bandit', terrain:'bandit', color:'#7b1d1d'},
+      {name:'🏚 폐허 소굴',   tier:'raider', terrain:'raider', color:'#7c4020'},
+      {name:'🌑 심연 동굴',   tier:'pred',   terrain:'pred',   color:'#3d1d5a'},
+      {name:'🦅 독수리 고개', tier:'pred',   terrain:'pred',   color:'#5a4a1d'},
+    ],
+    bandit:[
+      {name:'👁️ 감시탑 요새', tier:'army',   terrain:'bandit', color:'#4a1d7b'},
+      {name:'🏰 저주받은 성', tier:'army',   terrain:'raider', color:'#6c2899'},
+      {name:'🔥 약탈자 진영', tier:'army',   terrain:'army',   color:'#c0392b'},
+      {name:'☠️ 해골 협곡',  tier:'raider', terrain:'raider', color:'#5a2d1d'},
+    ],
+    raider:[
+      {name:'🌋 마그마 지대', tier:'army',   terrain:'army',   color:'#8b1a1a'},
+      {name:'🌀 혼돈의 전장', tier:'army',   terrain:'army',   color:'#6c2899'},
+      {name:'💀 죽음의 계곡', tier:'army',   terrain:'army',   color:'#374151'},
+      {name:'🔱 신성한 전장', tier:'army',   terrain:'army',   color:'#1a3d7b'},
+    ],
+    army:[
+      {name:'✨ 최후의 시험', tier:'army',   terrain:'army',   color:'#f1c40f'},
+      {name:'🌀 혼돈의 땅',  tier:'army',   terrain:'army',   color:'#a855f7'},
+      {name:'👑 왕도 전장',   tier:'army',   terrain:'army',   color:'#c0392b'},
+      {name:'🔱 성역 결전',   tier:'army',   terrain:'army',   color:'#2980b9'},
+    ],
+  };
+  const pool=chapterPool[clearedZone.tier]||chapterPool.bandit;
+
+  nextChapters=mults.map((mult,i)=>{
+    const ch=pool[i%pool.length];
+    return {
+      id:`chapter_${clearedZid}_${i}`,
+      name:ch.name,
+      tier:ch.tier,
+      terrain:ch.terrain||ch.tier, // 지형 테마 (buildMap에서 사용)
+      diffMult:mult,
+      finalStage:Math.floor(clearedZone.finalStage*mult),
+      rFood:clearedZone.rFood,
+      rGold:Math.min((clearedZone.rGold||1)+Math.floor(i*0.5),6),
+      rWood:clearedZone.rWood||0,
+      rStone:clearedZone.rStone||0,
+      rIron:clearedZone.rIron||0,
+      rHerb:clearedZone.rHerb||0,
+      color:ch.color,
+    };
+  });
 
   document.getElementById('next-chapter-sub').innerText=
-    `${clearedZone.name} 파이널(Stage ${clearedZone.finalStage}) 클리어! 더 높은 난이도의 새 챕터를 선택하세요.`;
+    `${clearedZone.name} 파이널(Stage ${clearedZone.finalStage}) 클리어! 다음 지역을 선택하세요.`;
 
   document.getElementById('next-chapter-grid').innerHTML=nextChapters.map((c,i)=>`
     <div onclick="selectNextChapter(${i})" style="background:#111d2b;border:2px solid ${c.color};border-radius:9px;padding:14px;cursor:pointer;text-align:center">
       <div style="font-size:1em;font-weight:bold;color:${c.color};margin-bottom:5px">${c.name}</div>
       <div style="font-size:0.75em;color:#9ca3af;margin-bottom:6px">파이널: Stage ${c.finalStage}<br>난이도 ×${c.diffMult.toFixed(1)}</div>
-      <div style="font-size:0.72em;padding:2px 7px;border-radius:3px;display:inline-block;background:#1a2a3d;color:${c.color}">🍖×${c.rFood} 💰×${c.rGold}</div>
+      <div style="font-size:0.72em;padding:2px 7px;border-radius:3px;display:inline-block;background:#1a2a3d;color:${c.color}">
+        ${c.rFood?`🍖×${c.rFood} `:''}${c.rGold?`💰×${c.rGold} `:''}${c.rWood?`나무×${c.rWood} `:''}${c.rIron?`철×${c.rIron}`:''}
+      </div>
     </div>`).join('');
 
   document.getElementById('next-chapter-modal').classList.add('show');
@@ -2224,8 +2311,10 @@ window.selectNextChapter=function(idx){
   // 동적으로 새 전투지 추가
   ZONES[ch.id]={
     id:ch.id, name:ch.name, desc:`난이도 ×${ch.diffMult.toFixed(1)} 챕터`,
-    tier:ch.tier, color:ch.color,
-    rFood:ch.rFood, rGold:ch.rGold, rClass:'bandit',
+    tier:ch.tier, terrain:ch.terrain||ch.tier, color:ch.color,
+    rFood:ch.rFood||0, rGold:ch.rGold||0,
+    rWood:ch.rWood||0, rStone:ch.rStone||0, rIron:ch.rIron||0, rHerb:ch.rHerb||0,
+    rClass:'bandit',
     finalStage:ch.finalStage,
     diffMult:ch.diffMult,
   };
@@ -3064,7 +3153,8 @@ function loop(){
     }
   }
   if(_frameCount%20===0){
-    if(_frameCount%120===0)checkCivUpgrade(); // 2초마다 마을 건설 버튼 갱신
+    if(_frameCount%120===0){checkCivUpgrade();}
+    if(_frameCount%60===0&&_merchantPresent&&civPhase<2) updateMerchantBtn(); // 1초마다 체류시간 갱신
     document.getElementById('gd').innerText=gold;
     document.getElementById('fd').innerText=food;
     var ri=document.getElementById('r-stone');if(ri)ri.innerText=res.stone||0;
