@@ -6,111 +6,105 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>왕국 연대기 v6.0</title>
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji','Malgun Gothic', sans-serif; background: #080c10; color: #ccc; display: flex; flex-direction: column; align-items: center; padding: 6px; user-select: none; }
-#top { width:100%; max-width:1380px; background:#0f1923; border:1px solid #1e3a5f; border-radius:7px; padding:5px 12px; margin-bottom:5px; display:flex; flex-direction:column; gap:2px; }
-.logo { color:#f1c40f; font-weight:bold; font-size:0.9em; flex-shrink:0; }
-/* 자원 표시 - v6 11 원본 그대로 */
-.rv { font-size:0.82em; }
-.rv span { color:#f1c40f; }
+.rv { font-size:0.82em; } .rv span { color:#f1c40f; font-weight:bold; }
 .rv span.g { color:#2ecc71; } .rv span.r { color:#e74c3c; } .rv span.fo { color:#e67e22; }
-.logo { color:#f1c40f; font-weight:bold; font-size:0.9em; flex-shrink:0; }
-#top-row1 { display:flex; align-items:center; gap:10px; flex-wrap:nowrap; }
-#top-row2 { display:flex; align-items:center; gap:10px; flex-wrap:nowrap; }
+/* 상단 자원바 - v6 11 원본 */
+#top { width:100%; max-width:1380px; background:#0f1923; border:1px solid #1e3a5f; border-radius:7px; padding:7px 14px; display:flex; gap:14px; align-items:center; margin-bottom:5px; flex-wrap:wrap; }
+.logo { color:#f1c40f; font-weight:bold; font-size:0.95em; }
 .hint { margin-left:auto; font-size:9px; color:#374151; }
-#ctrl { width:100%; max-width:1380px; display:flex; gap:5px; align-items:center; margin-bottom:5px; flex-wrap:wrap; }
-.badge { padding:4px 12px; border-radius:4px; font-weight:bold; font-size:0.75em; min-width:80px; text-align:center; }
-.b-pl{background:#5b2d82} .b-ba{background:#7b1d1d} .b-pa{background:#7d5a00} .b-re{background:#1a3d5c}
-.cb { padding:5px 10px; border:none; border-radius:4px; color:#fff; font-weight:bold; cursor:pointer; font-size:0.75em; transition:filter 0.12s; }
-.cb:hover { filter:brightness(1.3); }
-.cb-go{background:#7b1d1d} .cb-pa{background:#7d5a00} .cb-hi{background:#1a5c32} .cb-zo{background:#1a3d5c} .cb-fo{background:#5a3010}
-#lay { width:100%; max-width:1380px; display:flex; gap:6px; align-items:flex-start; }
-.sp { width:270px; flex-shrink:0; background:#0f1923; border:1px solid #1e2d3d; border-radius:7px; padding:9px; max-height:700px; overflow-y:auto; }
-.pt { font-size:0.82em; font-weight:bold; color:#f1c40f; margin-bottom:7px; border-bottom:1px solid #1e2d3d; padding-bottom:4px; }
-.uc { background:#111d2b; border:1px solid #1e2d3d; border-radius:5px; padding:7px; margin-bottom:6px; font-size:11px; cursor:pointer; transition:border-color 0.15s; }
-.uc:hover { border-color:#374151; } .uc.hold { border-color:#7b2f9e !important; background:#120b1e; }
-.uch { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
-.un { font-weight:bold; font-size:11px; } .ulv { font-size:9px; color:#f1c40f; }
-.bw { width:100%; height:4px; background:#1e2d3d; border-radius:2px; margin:2px 0; overflow:hidden; }
-.bf { height:100%; border-radius:2px; transition:width 0.3s; }
-.hf{background:#27ae60} .ef{background:#2980b9}
-.bl { font-size:9px; color:#374151; }
-.sk-row { display:flex; gap:3px; flex-wrap:wrap; margin:3px 0; }
-.skb { padding:2px 5px; border-radius:3px; border:1px solid #1e2d3d; background:#0f1923; color:#6b7280; font-size:9px; cursor:pointer; transition:all 0.1s; }
-.skb:hover { border-color:#f1c40f; color:#f1c40f; } .skb.act { background:#f1c40f; color:#000; border-color:#f1c40f; font-weight:bold; }
-.sl { font-size:9px; color:#374151; margin-bottom:2px; }
-.ur { display:flex; gap:2px; margin-top:4px; flex-wrap:wrap; }
-.ub { flex:1; min-width:calc(33% - 3px); padding:3px 1px; border-radius:3px; border:1px solid #1e2d3d; background:#0f1923; color:#6b7280; font-size:8px; cursor:pointer; text-align:center; transition:all 0.12s; }
-.ub:hover { background:#f1c40f; color:#000; border-color:#f1c40f; }
-.ub.dimmed { opacity:0.45; cursor:not-allowed; }
-.ub.dimmed:hover { background:#0f1923; color:#6b7280; border-color:#1e2d3d; }
-.ec { background:#120808; border:1px solid #3d1010; border-radius:4px; padding:5px; margin-bottom:5px; font-size:10px; }
-.etb { font-size:8px; padding:1px 4px; border-radius:2px; color:#fff; margin-left:3px; }
-.log { height:75px; overflow-y:auto; background:#080c10; border:1px solid #1e2d3d; border-radius:3px; padding:4px; font-size:9px; color:#4ade80; margin-top:5px; }
-.log.el { color:#f87171; } .ll { padding:1px 0; }
-#mw { flex:1; position:relative; border:1px solid #1e2d3d; border-radius:7px; overflow:hidden; background:#060a0d; }
-canvas { display:block; }
-#pg { position:absolute; top:7px; left:50%; transform:translateX(-50%); background:rgba(91,45,130,0.93); color:#fff; padding:4px 13px; border-radius:14px; font-size:10px; font-weight:bold; z-index:10; pointer-events:none; display:none; white-space:nowrap; }
-/* 모달 공통 */
-.overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.87); z-index:100; align-items:center; justify-content:center; }
-.overlay.show { display:flex; }
-.modal-box { background:#0f1923; border:1px solid #f1c40f44; border-radius:10px; padding:20px; max-width:540px; width:90%; }
-.modal-title { color:#f1c40f; font-size:1.1em; font-weight:bold; margin-bottom:10px; text-align:center; }
-.modal-sub { color:#9ca3af; font-size:0.82em; margin-bottom:14px; text-align:center; }
-.class-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-.class-btn { background:#111d2b; border:1px solid #1e2d3d; border-radius:7px; padding:12px; cursor:pointer; transition:all 0.15s; text-align:left; }
-.class-btn:hover { border-color:#f1c40f; background:#1a2a3d; }
-.class-btn .cn { font-weight:bold; color:#f1c40f; font-size:0.9em; margin-bottom:4px; }
-.class-btn .cd { font-size:0.75em; color:#9ca3af; line-height:1.4; }
-.class-btn .cs { font-size:0.72em; color:#60a5fa; margin-top:5px; }
-/* 전투지 모달 */
-.zone-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-.zone-btn { background:#111d2b; border:2px solid #1e2d3d; border-radius:9px; padding:14px; cursor:pointer; transition:all 0.15s; text-align:center; }
-.zone-btn:hover { border-color:#f1c40f; transform:translateY(-2px); }
-.zone-btn .zn { font-size:1em; font-weight:bold; margin-bottom:5px; }
-.zone-btn .zd { font-size:0.75em; color:#9ca3af; line-height:1.4; margin-bottom:6px; }
-.zone-btn .zr { font-size:0.72em; padding:2px 7px; border-radius:3px; display:inline-block; }
-.zr-hunt{background:#1a3d20;color:#2ecc71} .zr-bandit{background:#3d1010;color:#e74c3c}
-.zone-cur { font-size:9px; color:#f1c40f; margin-top:5px; }
-::-webkit-scrollbar { width:3px; } ::-webkit-scrollbar-thumb { background:#1e2d3d; border-radius:2px; }
-/* 메인 레이아웃: 좌(통솔)+중앙(지도+주둔)+우(적) */
-#lay { width:100%; max-width:1380px; display:flex; gap:6px; align-items:flex-start; }
-#center-col { flex:1; display:flex; flex-direction:column; gap:5px; min-width:0; }
-/* 주둔지 현황 — 지도 바로 하단, 동일 너비 */
-#garrison-bar { background:#0a1520; border:1px solid #1e3a5f; border-radius:7px; overflow:hidden; }
-#garrison-bar-header { display:flex; align-items:center; gap:10px; padding:6px 12px; cursor:pointer; background:#0f1923; }
-#garrison-bar-header:hover { background:#111d2b; }
-#garrison-bar-body { padding:8px; display:flex; gap:6px; flex-wrap:nowrap; overflow-x:auto; }
-.gz { background:#111d2b; border:1px solid #1e2d3d; border-radius:6px; padding:7px; min-width:160px; flex-shrink:0; }
-.gz-title { font-size:10px; font-weight:bold; margin-bottom:4px; }
-.gz-units { display:flex; gap:3px; flex-wrap:wrap; margin-bottom:4px; min-height:22px; }
-.gz-unit { padding:2px 6px; border-radius:3px; font-size:9px; border:1px solid #1e2d3d; background:#0f1923; cursor:grab; user-select:none; }
-.gz-unit:hover { border-color:#f1c40f; }
-.gz-unit.standby { border-color:#5b2d82; color:#a855f7; }
-.gz-promote { border-color:#f1c40f !important; background:#1a1400 !important; color:#f1c40f !important; animation: pulse-gold 1.5s infinite; }
-@keyframes pulse-gold { 0%,100%{box-shadow:0 0 4px #f1c40f44} 50%{box-shadow:0 0 8px #f1c40faa} }
-.gz-unit.dead-10 { border-color:#e74c3c; color:#e74c3c; }
-.gz-unit.dead-perm { border-color:#333; color:#555; opacity:0.6; }
-.gz-income { font-size:9px; color:#2ecc71; margin-bottom:3px; }
-.gz-add { font-size:9px; color:#f1c40f; cursor:pointer; padding:2px 5px; border:1px dashed #374151; border-radius:3px; margin-top:2px; }
-.gz-add:hover { border-color:#f1c40f; }
-/* 터치 최적화 */
-button, .cb, .skb, .ub, .class-btn, .zone-btn, .gz-unit, .gz-add { touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
-canvas { touch-action:none; }
-.sp { -webkit-overflow-scrolling:touch; }
-/* 모바일 접기 버튼 */
-.collapse-btn { font-size:10px; color:#f1c40f; cursor:pointer; padding:2px 8px; border:1px solid #1e2d3d; border-radius:3px; background:#0f1923; }
-.collapsible-panel { transition:max-height 0.2s; overflow:hidden; }
-/* 모바일 레이아웃 */
-@media (max-width:800px){
+
+- { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: ‘Malgun Gothic’, sans-serif; background: #080c10; color: #ccc; display: flex; flex-direction: column; align-items: center; padding: 6px; user-select: none; }
+  /* ── 상단 자원바 ── */
+  /* ── 컨트롤 바 ── */
+  #ctrl { width:100%; max-width:1380px; display:flex; gap:5px; align-items:center; margin-bottom:5px; flex-wrap:wrap; }
+  .badge { padding:4px 12px; border-radius:4px; font-weight:bold; font-size:0.75em; min-width:80px; text-align:center; }
+  .b-pl{background:#5b2d82} .b-ba{background:#7b1d1d} .b-pa{background:#7d5a00} .b-re{background:#1a3d5c}
+  .cb { padding:5px 10px; border:none; border-radius:4px; color:#fff; font-weight:bold; cursor:pointer; font-size:0.75em; transition:filter 0.12s; }
+  .cb:hover { filter:brightness(1.3); }
+  .cb-go{background:#7b1d1d} .cb-pa{background:#7d5a00} .cb-hi{background:#1a5c32} .cb-zo{background:#1a3d5c} .cb-fo{background:#5a3010}
+  /* ── 메인 레이아웃 ── */
+  #lay { width:100%; max-width:1380px; display:flex; gap:6px; align-items:flex-start; }
+  #center-col { flex:1; display:flex; flex-direction:column; gap:5px; min-width:0; }
+  .sp { width:270px; flex-shrink:0; background:#0f1923; border:1px solid #1e2d3d; border-radius:7px; padding:9px; max-height:700px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .pt { font-size:0.82em; font-weight:bold; color:#f1c40f; margin-bottom:7px; border-bottom:1px solid #1e2d3d; padding-bottom:4px; }
+  /* ── 유닛 카드 ── */
+  .uc { background:#111d2b; border:1px solid #1e2d3d; border-radius:5px; padding:7px; margin-bottom:6px; font-size:11px; cursor:pointer; transition:border-color 0.15s; }
+  .uc:hover { border-color:#374151; } .uc.hold { border-color:#7b2f9e !important; background:#120b1e; }
+  .uch { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+  .un { font-weight:bold; font-size:11px; } .ulv { font-size:9px; color:#f1c40f; }
+  .bw { width:100%; height:4px; background:#1e2d3d; border-radius:2px; margin:2px 0; overflow:hidden; }
+  .bf { height:100%; border-radius:2px; transition:width 0.3s; }
+  .hf{background:#27ae60} .ef{background:#2980b9}
+  .bl { font-size:9px; color:#374151; }
+  .sk-row { display:flex; gap:3px; flex-wrap:wrap; margin:3px 0; }
+  .skb { padding:2px 5px; border-radius:3px; border:1px solid #1e2d3d; background:#0f1923; color:#6b7280; font-size:9px; cursor:pointer; transition:all 0.1s; }
+  .skb:hover { border-color:#f1c40f; color:#f1c40f; } .skb.act { background:#f1c40f; color:#000; border-color:#f1c40f; font-weight:bold; }
+  .sl { font-size:9px; color:#374151; margin-bottom:2px; }
+  .ur { display:flex; gap:2px; margin-top:4px; flex-wrap:wrap; }
+  .ub { flex:1; min-width:calc(33% - 3px); padding:3px 1px; border-radius:3px; border:1px solid #1e2d3d; background:#0f1923; color:#6b7280; font-size:8px; cursor:pointer; text-align:center; transition:all 0.12s; }
+  .ub:hover { background:#f1c40f; color:#000; border-color:#f1c40f; }
+  .ub.dimmed { opacity:0.45; cursor:not-allowed; }
+  .ub.dimmed:hover { background:#0f1923; color:#6b7280; border-color:#1e2d3d; }
+  .ec { background:#120808; border:1px solid #3d1010; border-radius:4px; padding:5px; margin-bottom:5px; font-size:10px; }
+  .etb { font-size:8px; padding:1px 4px; border-radius:2px; color:#fff; margin-left:3px; }
+  .log { height:75px; overflow-y:auto; background:#080c10; border:1px solid #1e2d3d; border-radius:3px; padding:4px; font-size:9px; color:#4ade80; margin-top:5px; }
+  .log.el { color:#f87171; } .ll { padding:1px 0; }
+  /* ── 지도 ── */
+  #mw { flex:1; position:relative; border:1px solid #1e2d3d; border-radius:7px; overflow:hidden; background:#060a0d; }
+  canvas { display:block; touch-action:none; }
+  #pg { position:absolute; top:7px; left:50%; transform:translateX(-50%); background:rgba(91,45,130,0.93); color:#fff; padding:4px 13px; border-radius:14px; font-size:10px; font-weight:bold; z-index:10; pointer-events:none; display:none; white-space:nowrap; }
+  /* ── 모달 ── */
+  .overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.87); z-index:100; align-items:center; justify-content:center; }
+  .overlay.show { display:flex; }
+  .modal-box { background:#0f1923; border:1px solid #f1c40f44; border-radius:10px; padding:20px; max-width:540px; width:90%; }
+  .modal-title { color:#f1c40f; font-size:1.1em; font-weight:bold; margin-bottom:10px; text-align:center; }
+  .modal-sub { color:#9ca3af; font-size:0.82em; margin-bottom:14px; text-align:center; }
+  .class-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .class-btn { background:#111d2b; border:1px solid #1e2d3d; border-radius:7px; padding:12px; cursor:pointer; transition:all 0.15s; text-align:left; }
+  .class-btn:hover { border-color:#f1c40f; background:#1a2a3d; }
+  .class-btn .cn { font-weight:bold; font-size:0.9em; margin-bottom:4px; }
+  .class-btn .cd { font-size:0.75em; color:#9ca3af; line-height:1.4; }
+  .class-btn .cs { font-size:0.72em; color:#60a5fa; margin-top:5px; }
+  /* ── 전투지 모달 ── */
+  .zone-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .zone-btn { background:#111d2b; border:2px solid #1e2d3d; border-radius:9px; padding:14px; cursor:pointer; transition:all 0.15s; text-align:center; }
+  .zone-btn:hover { border-color:#f1c40f; transform:translateY(-2px); }
+  .zone-btn .zn { font-size:1em; font-weight:bold; margin-bottom:5px; }
+  .zone-btn .zd { font-size:0.75em; color:#9ca3af; line-height:1.4; margin-bottom:6px; }
+  .zone-cur { font-size:9px; color:#f1c40f; margin-top:5px; }
+  .zr-hunt{background:#1a3d20;color:#2ecc71} .zr-bandit{background:#3d1010;color:#e74c3c}
+  /* ── 거점 현황 ── */
+  #garrison-bar { background:#0a1520; border:1px solid #1e3a5f; border-radius:7px; overflow:hidden; }
+  #garrison-bar-header { display:flex; align-items:center; gap:10px; padding:6px 12px; cursor:pointer; background:#0f1923; }
+  #garrison-bar-header:hover { background:#111d2b; }
+  #garrison-bar-body { padding:8px; display:flex; gap:6px; flex-wrap:nowrap; overflow-x:auto; }
+  .gz { background:#111d2b; border:1px solid #1e2d3d; border-radius:6px; padding:7px; min-width:160px; flex-shrink:0; }
+  .gz-title { font-size:10px; font-weight:bold; margin-bottom:4px; }
+  .gz-units { display:flex; gap:3px; flex-wrap:wrap; margin-bottom:4px; min-height:22px; }
+  .gz-unit { padding:2px 6px; border-radius:3px; font-size:9px; border:1px solid #1e2d3d; background:#0f1923; cursor:grab; user-select:none; }
+  .gz-unit:hover { border-color:#f1c40f; }
+  .gz-unit.standby { border-color:#5b2d82; color:#a855f7; }
+  .gz-promote { border-color:#f1c40f !important; background:#1a1400 !important; color:#f1c40f !important; animation:pulse-gold 1.5s infinite; }
+  @keyframes pulse-gold { 0%,100%{box-shadow:0 0 4px #f1c40f44} 50%{box-shadow:0 0 8px #f1c40faa} }
+  .gz-unit.dead-10 { border-color:#e74c3c; color:#e74c3c; }
+  .gz-unit.dead-perm { border-color:#333; color:#555; opacity:0.6; }
+  .gz-income { font-size:9px; color:#2ecc71; margin-bottom:3px; }
+  .gz-add { font-size:9px; color:#f1c40f; cursor:pointer; padding:2px 5px; border:1px dashed #374151; border-radius:3px; margin-top:2px; }
+  .gz-add:hover { border-color:#f1c40f; }
+  /* ── 스크롤바 ── */
+  ::-webkit-scrollbar { width:3px; } ::-webkit-scrollbar-thumb { background:#1e2d3d; border-radius:2px; }
+  /* ── 터치 최적화 ── */
+  button, .cb, .skb, .ub, .class-btn, .zone-btn, .gz-unit, .gz-add { touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+  /* ── 접기 버튼 ── */
+  .collapse-btn { font-size:10px; color:#f1c40f; cursor:pointer; padding:2px 8px; border:1px solid #1e2d3d; border-radius:3px; background:#0f1923; }
+  /* ── 모바일 ── */
+  @media (max-width:800px){
   body { padding:3px; }
-  #top { padding:4px 8px; gap:2px; font-size:0.8em; }
-  #top-row1 { gap:7px; font-size:0.9em; }
-  #top-row2 { gap:8px; font-size:0.88em; }
+  #top { padding:4px 8px; gap:8px; }
   #ctrl { gap:3px; flex-wrap:wrap; }
   .cb { padding:5px 7px; font-size:0.72em; }
   #lay { flex-direction:column; gap:4px; }
-  /* 모바일 순서: 지도+거점(center-col=1) → 아군(2) → 적(3) */
   #center-col { width:100%; order:1 !important; }
   #panel-ally { width:100%; order:2 !important; max-height:220px; }
   #panel-enemy { width:100%; order:3 !important; max-height:180px; }
@@ -118,35 +112,31 @@ canvas { touch-action:none; }
   canvas { width:100% !important; height:auto !important; }
   .sp-collapsed { display:none; }
   .sp { max-height:none; }
-}
-@media (min-width:801px){
+  }
+  @media (min-width:801px){
   .sp-mob-toggle { display:none; }
-  /* 데스크탑: 아군(left) | 지도(center) | 적(right) */
   #lay { flex-direction:row; }
   #panel-ally { order:1; }
   #center-col { order:2; flex:1; }
   #panel-enemy { order:3; }
-}
+  }
+
 </style>
 </head>
 <body>
 
 <div id="top">
-  <div id="top-row1">
-    <span class="logo">⚔️ 왕국 연대기</span>
-    <span class="rv">🍖<span class="fo" id="fd">50</span></span>
-    <span class="rv">돌<span id="r-stone" style="color:#90a4ae">0</span></span>
-    <span class="rv">나무<span id="r-wood" style="color:#8d6e63">0</span></span>
-    <span class="rv">철<span id="r-iron" style="color:#78909c">0</span></span>
-    <span class="rv">🌿<span id="r-herb" style="color:#66bb6a">0</span></span>
-    <span class="rv">💰<span id="gd">100</span></span>
-    <span class="rv">💠<span id="r-diamond" style="color:#b3e5fc">0</span></span>
-  </div>
-  <div id="top-row2">
-    <span class="rv" id="day-label" style="color:#f1c40f;font-weight:bold">사냥 1일차</span>
-    <span class="rv">적 <span class="r" id="ed">0</span>명</span>
-    <span class="rv" id="area-label" style="color:#a855f7;font-weight:bold"></span>
-  </div>
+  <span class="logo">⚔️ 왕국 연대기</span>
+  <span class="rv">🍖<span class="fo" id="fd">50</span></span>
+  <span class="rv" style="color:#90a4ae">돌<span id="r-stone">0</span></span>
+  <span class="rv" style="color:#8d6e63">나무<span id="r-wood">0</span></span>
+  <span class="rv" style="color:#78909c">철<span id="r-iron">0</span></span>
+  <span class="rv" style="color:#66bb6a">🌿<span id="r-herb">0</span></span>
+  <span class="rv">💰<span id="gd">100</span></span>
+  <span class="rv" style="color:#b3e5fc">💠<span id="r-diamond">0</span></span>
+  <span class="rv" id="day-label" style="color:#f1c40f;font-weight:bold">사냥 1일차</span>
+  <span class="rv">적 <span class="r" id="ed">0</span>명</span>
+  <span class="rv" id="area-label" style="color:#a855f7;font-weight:bold"></span>
 </div>
 
 <div id="ctrl">
@@ -157,7 +147,7 @@ canvas { touch-action:none; }
   <button class="cb cb-fo" onclick="showRefugeeModal()">🍖 피난민 합류</button>
   <button class="cb cb-hi" onclick="hireGold()">💰 용병 고용 (100G)</button>
   <button class="cb" id="btn-auto" onclick="toggleAutoStart()" style="background:#1a4030">🔄 자동 진행: OFF</button>
-  <span id="battle-timer" style="font-size:0.75em;color:#f1c40f;font-weight:bold;padding:4px 8px;display:none">⏱ 0:00</span>
+  <span id="battle-timer" style="font-size:0.75em;color:#f1c40f;font-weight:bold;padding:4px 8px;display:none;vertical-align:top">⏱ 0:00</span>
 </div>
 
 <div id="lay">
@@ -165,7 +155,7 @@ canvas { touch-action:none; }
   <!-- 모바일: 지도 → 거점 → 아군 → 적 순 (CSS order로 제어) -->
   <div class="sp" id="panel-ally" style="order:2">
     <div class="pt" style="display:flex;justify-content:space-between;align-items:center">
-      <span>🧑‍🤝‍🧑 함께하는 동료 <span id="party-count" style="color:#f1c40f"></span></span>
+      <span>🧑‍🤝‍🧑 함께하는 동료 <b id="party-count" style="color:#f1c40f"></b></span>
       <button class="collapse-btn sp-mob-toggle" onclick="togglePanel('panel-ally-body')">▲</button>
     </div>
     <div id="panel-ally-body">
