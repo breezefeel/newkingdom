@@ -150,7 +150,7 @@ canvas { touch-action:none; }
   <!-- 모바일: 지도 → 거점 → 아군 → 적 순 (CSS order로 제어) -->
   <div class="sp" id="panel-ally" style="order:2">
     <div class="pt" style="display:flex;justify-content:space-between;align-items:center">
-      <span>🧑‍🤝‍🧑 함께하는 동료</span>
+      <span>🧑‍🤝‍🧑 함께하는 동료 <span id="party-count" style="color:#f1c40f;font-size:0.85em"></span></span>
       <button class="collapse-btn sp-mob-toggle" onclick="togglePanel('panel-ally-body')">▲</button>
     </div>
     <div id="panel-ally-body">
@@ -611,27 +611,31 @@ function mkAlly(name){
 
 function spawnAllies(){
   allies=[mkAlly('피난민A'),mkAlly('피난민B'),mkAlly('피난민C')];
-  // 피난민 기본 스킬: 몸으로 막기/돌팔매/상처 처치
+  // 피난민 기본 스킬
   allies[0].activeSkills=['Arrow'];
   allies[1].activeSkills=['Arrow'];
   allies[2].activeSkills=['Arrow'];
+  // 모두 미배치 상태로 시작 (배치 단계에서 클릭으로 배치)
+  allies.forEach(a=>{a.isDeployed=false;a.x=-300;a.y=-300;});
+  savedPositions={}; initialPositions={};
 }
 
 // ★ 전투 후: 최초 배치 위치로 복귀
 function resetDeployment(){
+  const DEPLOY_MAX_X=CW*0.45;
   allies.forEach(a=>{
-    if(a.permanentlyDead) return; // 영구사망 제외
+    if(a.permanentlyDead) return;
     a.dead=false; a.hp=a.maxHp;
     a.wx=null; a.wy=null; a.onHold=false;
     a.totalHeal=0; a.totalAbsorb=0; a.atkCd=0;
-    // 마지막으로 사용자가 드래그해서 정한 위치(savedPositions) 우선
-    // 없으면 초기 배치 위치(initialPositions) 사용
-    const saved=savedPositions[a.id];
-    const init=initialPositions[a.id];
-    const pos=saved||init;
-    if(pos && !a.garrisoned && !a.inStandby){
-      a.x=pos.x; a.y=pos.y; a.isDeployed=true;
-    }else if(!a.garrisoned && !a.inStandby){
+    if(a.garrisoned||a.inStandby) return;
+    const pos=savedPositions[a.id]||initialPositions[a.id];
+    if(pos){
+      // 배치 경계 내로 강제 클램프
+      a.x=Math.max(MAP_PAD,Math.min(DEPLOY_MAX_X,pos.x));
+      a.y=Math.max(MAP_PAD,Math.min(CH-MAP_PAD,pos.y));
+      a.isDeployed=true;
+    }else{
       a.isDeployed=false; a.x=-300; a.y=-300;
     }
   });
@@ -893,13 +897,12 @@ function onUp(e){
         if(!initialPositions[dragUnit.id])initialPositions[dragUnit.id]={x:cx,y:cy};
         alog(`📍 ${dragUnit.name} 이동`);addFloat(cx,cy,dragUnit.name,'#a855f7');
       } else {
-        // 전투 중 드래그: 홀드였으면 이동 후 다시 홀드
+        // 전투 중 드래그: wx/wy 이동명령만 설정 (savedPositions 변경 안 함)
         const wasOnHold=dragUnit.onHold;
         dragUnit.wx=x; dragUnit.wy=y;
-        dragUnit.onHold=false; // 일단 해제하여 waypoint로 이동
-        // 홀드 상태였으면 목적지 도착 후 홀드 재설정을 위해 플래그
+        dragUnit.onHold=false;
         dragUnit._reholdAfterMove=wasOnHold;
-        savedPositions[dragUnit.id]={x,y};
+        // ★ savedPositions는 배치 단계에서만 저장 — 전투 중 덮어쓰지 않음
         alog(`🎯 ${dragUnit.name} 이동 명령${wasOnHold?' (홀드 예약)':''}`);
         addFloat(x,y,'🎯','#f1c40f');
       }
@@ -1241,7 +1244,7 @@ function battleTick(){
   // 빈사 5초 경과 시 영구 사망 처리
   const now=Date.now();
   allies.forEach(a=>{
-    if(a.dead&&a.deathTime&&(now-a.deathTime)>=5000&&!a.permanentlyDead){
+    if(a.dead&&a.deathTime&&(now-a.deathTime)>=7000&&!a.permanentlyDead){
       a.permanentlyDead=true;
       a.isDeployed=false;
       a.inStandby=false;
@@ -1310,7 +1313,7 @@ function battleTick(){
           if(sk==='Revive'){
             const now=Date.now();
             // 5초 이내 빈사 → 시간 촉박한 순 정렬
-            const dying=allies.filter(x=>x.dead&&x.isDeployed&&x.deathTime&&(now-x.deathTime)<5000);
+            const dying=allies.filter(x=>x.dead&&x.isDeployed&&x.deathTime&&(now-x.deathTime)<7000);
             dying.sort((x,y)=>x.deathTime-y.deathTime); // 먼저 쓰러진 순
             const dead=dying.find(x=>dist(a,x)<(210+(a.bonusRange||0)));
             if(dead){
@@ -1622,7 +1625,7 @@ function moveAlly(a,ae,aa,baseTerrSpd){
     const now2=Date.now();
 
     // 최우선: 빈사(5초 내 부활 가능) 대원이 있으면 즉시 달려가기
-    const dying=allies.filter(x=>x.dead&&!x.permanentlyDead&&x.deathTime&&(now2-x.deathTime)<5000&&x.isDeployed);
+    const dying=allies.filter(x=>x.dead&&!x.permanentlyDead&&x.deathTime&&(now2-x.deathTime)<7000&&x.isDeployed);
     if(dying.length>0){
       // 가장 시간이 촉박한 빈사 대원 우선
       dying.sort((x,y)=>x.deathTime-y.deathTime);
@@ -1964,7 +1967,7 @@ function draw(){
       // 빈사(dead but not permanently dead): 카운트다운 표시
       if(u.dead&&!u.permanentlyDead&&u.deathTime){
         const elapsed=Date.now()-u.deathTime;
-        const left=Math.max(0,Math.ceil((5000-elapsed)/1000));
+        const left=Math.max(0,Math.ceil((7000-elapsed)/1000));
         const R=13;
         ctx.save();
         // 어두운 원
@@ -1972,7 +1975,7 @@ function draw(){
         ctx.fillStyle='rgba(50,0,0,0.85)';ctx.fill();
         ctx.strokeStyle='#e74c3c';ctx.lineWidth=2;
         // 남은 시간 원호
-        ctx.beginPath();ctx.arc(u.x,u.y,R,- Math.PI/2,(2*Math.PI*((5000-elapsed)/5000))-Math.PI/2);
+        ctx.beginPath();ctx.arc(u.x,u.y,R,- Math.PI/2,(2*Math.PI*((7000-elapsed)/5000))-Math.PI/2);
         ctx.strokeStyle='#e74c3c';ctx.lineWidth=3;ctx.stroke();
         // 카운트 숫자
         ctx.fillStyle='#fff';ctx.font='bold 10px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
@@ -2013,6 +2016,11 @@ function drawUnit(u){
   const pct=Math.max(0,u.hp/u.maxHp);
   ctx.fillStyle=pct>0.5?'#2ecc71':pct>0.25?'#f39c12':'#e74c3c';
   ctx.fillRect(bx,by,bw*pct,bh);
+  // 유닛 이름 (체력바 위)
+  ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(u.x-14,by-10,28,9);
+  ctx.fillStyle=isAlly?(rd?.color||'#fff'):'#ffaaaa';
+  ctx.font='6px Arial';ctx.textAlign='center';ctx.textBaseline='top';
+  ctx.fillText((u.name||'').slice(0,5),u.x,by-10);
   if(u.def>0.05){ctx.fillStyle='#60a5fa88';ctx.font='7px Arial';ctx.textAlign='center';ctx.fillText(`🛡${Math.floor(u.def*100)}%`,u.x,u.y+R+7);}
   // 특수 상태 표시
   if(!isAlly&&u.elite){ctx.fillStyle='#f1c40f';ctx.font='7px Arial';ctx.textAlign='center';ctx.fillText('★',u.x,u.y-R-8);}
@@ -2025,8 +2033,11 @@ function drawUnit(u){
 // UI 패널
 // ══════════════════════════════════════════════════════
 function renderAllyPanel(){
-  // 왼쪽 패널: 대기(inStandby)나 주둔(garrisoned), 영구사망 아닌 통솔 유닛만 표시
   const activeAllies=allies.filter(a=>!a.garrisoned&&!a.inStandby&&!a.permanentlyDead);
+  const deployedCount=activeAllies.filter(a=>a.isDeployed&&!a.dead).length;
+  // 파티원 수 표시
+  const pc=document.getElementById('party-count');
+  if(pc)pc.innerText=`(${deployedCount}/${PARTY_LIMIT})`;
   const canChange=!isBattle||isPaused;
   document.getElementById('al').innerHTML=activeAllies.map(a=>{
     const role=a.classKey||a.baseRole;
@@ -2183,7 +2194,7 @@ function renderGarrisonBar(){
     <div class="gz-units" style="min-height:22px">
       ${permDead.map(a=>`<div class="gz-unit dead-perm" title="영구 사망">⚰️${a.name}</div>`).join('')}
       ${revivable.map(a=>{
-        const left=Math.max(0,Math.ceil((5000-(now-a.deathTime))/1000));
+        const left=Math.max(0,Math.ceil((7000-(now-a.deathTime))/1000));
         return `<div class="gz-unit dead-10" title="${left}초 내 부활 가능">💀 ${a.name} ${left}s 빈사</div>`;
       }).join('')}
       ${permDead.length===0&&revivable.length===0?'<span style="font-size:9px;color:#374151">없음</span>':''}
@@ -2431,7 +2442,7 @@ var _introData=[
    b:'<b style="color:#2ecc71">15일차 사냥 성공</b> = 해당 사냥터 <b>거점 활성화!</b><br><br>거점이 활성화되면 유닛을 배치해 <b>자동으로 자원</b>을 얻을 수 있어요.<br><br>자동 사냥 효율은 <b>15일간의 기록</b>(클리어 속도·보상량)으로 결정됩니다.<br>• 초기: 기준치의 <b style="color:#e74c3c">50%</b> 수준<br>• 시간이 지나면서 점차 안정화 → 최대 <b style="color:#2ecc71">100%</b><br><br>당신은 새 사냥터를 개척하고, 동료들이 거점을 지킵니다.',
    btn:'다음 ▶'},
   {t:'💀 게임 방법 ④: 빈사와 부활',
-   b:'대원의 HP가 0이 되면 <b style="color:#e74c3c">빈사 상태</b>로 쓰러집니다.<br><br>• <b style="color:#2ecc71">5초 이내</b>: 힐러의 응급 소생 스킬로 되살릴 수 있어요<br>• <b>전투 승리</b> 시: 빈사 대원 자동 회복<br>• <b style="color:#e74c3c">5초 초과</b>: 무덤으로 → 다음 전투 참여 불가<br><br>힐러를 꼭 데려가세요! 한 명이 여럿을 살릴 수 있습니다.',
+   b:'대원의 HP가 0이 되면 <b style="color:#e74c3c">빈사 상태</b>로 쓰러집니다.<br><br>• <b style="color:#2ecc71">7초 이내</b>: 힐러의 응급 소생 스킬로 되살릴 수 있어요<br>• <b>전투 승리</b> 시: 빈사 대원 자동 회복<br>• <b style="color:#e74c3c">7초 초과</b>: 무덤으로 → 다음 전투 참여 불가<br><br>힐러를 꼭 데려가세요! 한 명이 여럿을 살릴 수 있습니다.',
    btn:'사냥에 나서다! 🌿'},
 ];
 
