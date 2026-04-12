@@ -506,12 +506,51 @@ function terrainAtkBonus(unit,cell){
   const bonus=TERRAIN[cell.type].bonus[role];
   return(typeof bonus==='number'&&bonus>0)?bonus:1.0;
 }
+function terrainMoveCost(cell, role){
+  if(!cell) return 10;
+  const t=TERRAIN[cell.type];
+  const spd=t.spd||1.0;
+  // 기본 비용: 느릴수록 높음
+  let cost=1.0/Math.max(spd,0.05);
+  // 산: 근접은 매우 기피
+  if(cell.type==='mountain'){
+    const likesMtn=['Ranged','Sniper','Artillery'];
+    cost=likesMtn.includes(role)?2.0:12.0;
+  }
+  // 강: 모두 극도로 기피 (우회 선호)
+  if(cell.type==='river') cost=20.0;
+  // 언덕: 원거리 선호, 나머지 약간 기피
+  if(cell.type==='hill'){
+    const likesHill=['Ranged','Sniper','Artillery'];
+    cost=likesHill.includes(role)?0.9:1.5;
+  }
+  // 숲: 매복계 선호
+  if(cell.type==='forest'){
+    const likesForest=['Melee','Warrior','Rogue','Berserker2','Duelist'];
+    cost=likesForest.includes(role)?0.7:1.8;
+  }
+  return cost;
+}
+
 function bestAdjacentCell(unit,targetX,targetY){
-  const candidates=[];
+  const role=unit.classKey||unit.class10Key||unit.baseRole||'Melee';
   const baseAngle=Math.atan2(targetY-unit.y,targetX-unit.x);
-  for(let a=-1;a<=1;a++){const ang=baseAngle+a*(Math.PI/5);const nx=unit.x+Math.cos(ang)*HW,ny=unit.y+Math.sin(ang)*HR*1.5;const cell=nearestCell(nx,ny);if(cell)candidates.push({x:nx,y:ny,cell});}
-  if(!candidates.length)return null;
-  candidates.sort((a,b)=>terrainAtkBonus(unit,b.cell)*TERRAIN[b.cell.type].spd-terrainAtkBonus(unit,a.cell)*TERRAIN[a.cell.type].spd);
+  const candidates=[];
+  // 7방향 탐색 (정면 ±108도) — 우회 경로를 찾을 수 있도록 넓게
+  for(let i=-3;i<=3;i++){
+    const ang=baseAngle+i*(Math.PI/6);
+    const nx=unit.x+Math.cos(ang)*HW;
+    const ny=unit.y+Math.sin(ang)*HR*1.5;
+    const cell=nearestCell(nx,ny);
+    if(!cell) continue;
+    const moveCost=terrainMoveCost(cell,role);
+    // 방향 보너스: 정면에 가까울수록 낮은 페널티
+    const dirPenalty=Math.abs(i)*0.4;
+    const score=moveCost+dirPenalty;
+    candidates.push({x:nx,y:ny,cell,score});
+  }
+  if(!candidates.length) return null;
+  candidates.sort((a,b)=>a.score-b.score);
   return candidates[0];
 }
 
@@ -565,8 +604,8 @@ function mkAlly(name){
     bonusMana:0,bonusMagic:baseMag,bonusMaxHp:baseHp-500,
     totalHeal:0,totalAbsorb:0,
     atkCd:0,atkSpd:1.0,
-    // 사거리 보너스 (전직 시)
     bonusRange:0,
+    upgCount:{atk:0,def:0,spd:0,cdr:0,mana:0,magic:0}, // 강화 횟수
   };
 }
 
@@ -581,16 +620,18 @@ function spawnAllies(){
 // ★ 전투 후: 최초 배치 위치로 복귀
 function resetDeployment(){
   allies.forEach(a=>{
+    if(a.permanentlyDead) return; // 영구사망 제외
     a.dead=false; a.hp=a.maxHp;
     a.wx=null; a.wy=null; a.onHold=false;
-    a.totalHeal=0; a.totalAbsorb=0;
-    a.atkCd=0;
+    a.totalHeal=0; a.totalAbsorb=0; a.atkCd=0;
+    // 마지막으로 사용자가 드래그해서 정한 위치(savedPositions) 우선
+    // 없으면 초기 배치 위치(initialPositions) 사용
+    const saved=savedPositions[a.id];
     const init=initialPositions[a.id];
-    if(init){
-      // 최초 배치 위치로 복귀
-      a.x=init.x; a.y=init.y; a.isDeployed=true;
-      savedPositions[a.id]=init; // savedPositions도 초기값으로 리셋
-    }else{
+    const pos=saved||init;
+    if(pos && !a.garrisoned && !a.inStandby){
+      a.x=pos.x; a.y=pos.y; a.isDeployed=true;
+    }else if(!a.garrisoned && !a.inStandby){
       a.isDeployed=false; a.x=-300; a.y=-300;
     }
   });
@@ -883,9 +924,38 @@ function onUp(e){
 // ══════════════════════════════════════════════════════
 function showClassModal(unit){
   pendingClass=unit;
-  let title,sub,options;
+  let title,options;
+
+  // 현재 능력치
+  const role=unit.classKey||unit.baseRole||'Refugee';
+  const rd=BASE_ROLES[role];
+  const uAtk=(rd?.atk||22)+unit.bonusAtk;
+  const uDef=Math.floor(unit.bonusDef*100);
+  const uSpd=+unit.spd.toFixed(1);
+  const uHp=unit.maxHp;
+  const uMag=unit.bonusMagic||0;
+
+  // 아군 평균
+  const pool=allies.filter(a=>!a.permanentlyDead);
+  const n=Math.max(pool.length,1);
+  const avgAtk=pool.reduce((s,a)=>{const r=a.classKey||a.baseRole;return s+(BASE_ROLES[r]?.atk||22)+a.bonusAtk;},0)/n;
+  const avgDef=pool.reduce((s,a)=>s+Math.floor(a.bonusDef*100),0)/n;
+  const avgSpd=pool.reduce((s,a)=>s+a.spd,0)/n;
+  const avgHp =pool.reduce((s,a)=>s+a.maxHp,0)/n;
+
+  function sc(label,val,avg,suffix=''){
+    const ratio=avg>0?val/avg:1;
+    const c=ratio>1.15?'#ff6b6b':ratio<0.85?'#60a5fa':'#9ca3af';
+    return `<span style="color:${c};font-size:10px">${label}<b>${val}${suffix}</b></span>`;
+  }
+  const statLine=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+    ${sc('ATK:',uAtk,avgAtk)} ${sc('DEF:',uDef,avgDef,'%')}
+    ${sc('SPD:',uSpd,avgSpd)} ${sc('HP:',uHp,avgHp)}
+    ${uMag>0?sc('✨:',uMag,20):''}
+  </div>`;
+
   if(unit.lv===5){
-    title=`${unit.name} — 5레벨 전직`;sub='클래스 선택 시 해당 스킬 2개 사용 가능.';
+    title=`${unit.name} — 5레벨 전직`;
     options=[
       {key:'Tank',    name:'⚔ 탱커',    desc:'높은 방어, 아군 보호 특화',      skills:'요새화+도발'},
       {key:'Melee',   name:'🗡 전사',    desc:'숲에서 강력한 근접 전투',         skills:'매복+회전베기'},
@@ -895,14 +965,21 @@ function showClassModal(unit){
       {key:'Mage',    name:'🔮 마법사',  desc:'강력한 마법으로 원거리 광역 공격', skills:'화염구+빙결진'},
     ];
   }else if(unit.lv===10){
-    title=`${unit.name} — 10레벨 세부 전직`;sub='전문화 클래스 선택. 스킬 3개 사용 가능.';
+    title=`${unit.name} — 10레벨 세부 전직`;
     const cls10=Object.entries(CLASS10).filter(([,v])=>v.base===unit.classKey);
     options=cls10.map(([k,v])=>({key:k,name:v.name,desc:v.desc,skills:v.skills.map(s=>(BASE_SKILLS[s]||CLASS5_SKILLS[s]||{name:s}).name).join('/')}));
     if(!options.length)options=[{key:'__skip__',name:'현재 클래스 유지',desc:'변경 없음',skills:'—'}];
   }else{return;}
+
   document.getElementById('modal-title').innerText=title;
-  document.getElementById('modal-sub').innerText=sub;
-  document.getElementById('modal-grid').innerHTML=options.map(o=>`<div class="class-btn" onclick="selectClass('${o.key}')"><div class="cn">${o.name}</div><div class="cd">${o.desc}</div><div class="cs">스킬: ${o.skills}</div></div>`).join('');
+  document.getElementById('modal-sub').innerHTML=
+    `<span style="color:#a78bfa;font-size:10px">✦${TRAITS[unit.traitKey||'balanced'].name}</span> `+statLine;
+  document.getElementById('modal-grid').innerHTML=options.map(o=>
+    `<div class="class-btn" onclick="selectClass('${o.key}')">
+      <div class="cn">${o.name}</div>
+      <div class="cd">${o.desc}</div>
+      <div class="cs">스킬: ${o.skills}</div>
+    </div>`).join('');
   document.getElementById('modal').classList.add('show');
 }
 window.selectClass=function(key){
@@ -1023,9 +1100,12 @@ window.upgradeUnit=function(id,stat){
   const u=allies.find(a=>a.id===id);if(!u){alog('❌ 유닛 없음');return;}
   const upg=UPGRADES[stat];if(!upg)return;
   const cost=upg.cost(u.lv);
-  if(gold<cost){alog(`❌ 금화 부족 (필요:${cost}G 보유:${gold}G)`);return;}
-  gold-=cost;
+  res.gold=gold; // 동기화
+  if(res.gold<cost){alog(`❌ 금화 부족 (필요:${cost}G 보유:${res.gold}G)`);return;}
+  res.gold-=cost; gold=res.gold;
   upg.apply(u);
+  if(!u.upgCount)u.upgCount={atk:0,def:0,spd:0,cdr:0,mana:0,magic:0};
+  u.upgCount[stat]=(u.upgCount[stat]||0)+1;
   if(stat==='spd')u.spd=u.baseSpd+u.bonusSpd;
   alog(`${upg.label} ${u.name} 강화! (−${cost}G) → ${upg.tip(u)}`);
   addFloat(u.x>0?u.x:200,u.y>0?u.y:200,`${upg.label}↑`,'#f1c40f');
@@ -1175,6 +1255,22 @@ function battleTick(){
   const ae=enemies.filter(e=>e.hp>0&&!e.dead);
   const aa=allies.filter(a=>a.isDeployed&&a.hp>0&&!a.dead&&!a.permanentlyDead);
 
+  // 아군끼리 겹침 방지 (반경 26px 기준 밀어내기)
+  const SEP=26;
+  for(let i=0;i<aa.length;i++){
+    for(let j=i+1;j<aa.length;j++){
+      const a=aa[i],b=aa[j];
+      const dx=b.x-a.x, dy=b.y-a.y;
+      const d=Math.hypot(dx,dy);
+      if(d<SEP&&d>0.1){
+        const push=(SEP-d)*0.3;
+        const nx=dx/d*push, ny=dy/d*push;
+        a.x-=nx; a.y-=ny; b.x+=nx; b.y+=ny;
+        clampToMap(a); clampToMap(b);
+      }
+    }
+  }
+
   aa.forEach(a=>{
     const cell=nearestCell(a.x,a.y);
     const terrSpd=cell?TERRAIN[cell.type].spd:1.0;
@@ -1213,13 +1309,14 @@ function battleTick(){
         if(sk==='Mend'||sk==='Barrier'||sk==='Revive'){
           if(sk==='Revive'){
             const now=Date.now();
-            // 10초 이내 사망 아군만 부활 가능
-            const dead=allies.find(x=>x.dead&&x.isDeployed&&x.deathTime&&(now-x.deathTime)<5000);
-            if(dead&&dist(a,dead)<(210+(a.bonusRange||0))){
+            // 5초 이내 빈사 → 시간 촉박한 순 정렬
+            const dying=allies.filter(x=>x.dead&&x.isDeployed&&x.deathTime&&(now-x.deathTime)<5000);
+            dying.sort((x,y)=>x.deathTime-y.deathTime); // 먼저 쓰러진 순
+            const dead=dying.find(x=>dist(a,x)<(210+(a.bonusRange||0)));
+            if(dead){
               dead.hp=Math.floor(dead.maxHp*0.3);dead.dead=false;dead.deathTime=null;
-              // deadUnits에서 제거
               deadUnits=deadUnits.filter(d=>d.id!==dead.id);
-              alog(`✨ ${a.name} → ${dead.name} 부활!`);addFloat(dead.x,dead.y,'부활!','#a855f7');
+              alog(`✨ ${a.name} → ${dead.name} 응급 소생!`);addFloat(dead.x,dead.y,'소생!','#a855f7');
               renderGarrisonBar();
             }
           }else{
@@ -1487,95 +1584,86 @@ function clampToMap(u){
 }
 
 function moveAlly(a,ae,aa,baseTerrSpd){
-  const role=a.classKey||a.baseRole;
+  const role=a.classKey||a.class10Key||a.baseRole||'Melee';
 
-  // 웨이포인트 이동 (전투 중 명령)
+  // 현재 지형 이동속도 계산 (지형 비용의 역수)
+  const curCell=nearestCell(a.x,a.y);
+  const terrCost=curCell?terrainMoveCost(curCell,role):1.0;
+  const terrSpd=Math.min(1.0, 1.0/Math.max(terrCost*0.6, 0.1));
+  const spd=a.spd*terrSpd;
+
+  // 홀드: 웨이포인트 있으면 이동, 없으면 정지
+  if(a.onHold&&(a.wx===null||a.wy===null)) return;
+
+  // 웨이포인트 이동
   if(a.wx!==null&&a.wy!==null){
     const dx=a.wx-a.x,dy=a.wy-a.y,d=Math.hypot(dx,dy);
     if(d<8){
       a.wx=null;a.wy=null;
-      // 홀드 예약이 있었으면 도착 후 홀드 복원
       if(a._reholdAfterMove){
-        a.onHold=true;
-        a._reholdAfterMove=false;
+        a.onHold=true; a._reholdAfterMove=false;
         addFloat(a.x,a.y,'⚑홀드','#a855f7');
       }
     }else{
-      const cell=nearestCell(a.x,a.y);
-      const spd=a.spd*(cell?TERRAIN[cell.type].spd:1.0);
-      a.x+=dx/d*spd; a.y+=dy/d*spd;
-      clampToMap(a);
+      a.x+=dx/d*spd; a.y+=dy/d*spd; clampToMap(a);
     }
     return;
   }
 
-  // 힐러 스킬 보유 여부
+  // Fortress: 이동 안 함
+  if(a.activeSkills?.includes('Fortress')) return;
+
   const isHealer=role==='Heal'||
     (role==='Refugee'&&a.activeSkills.some(s=>['Mend','Barrier','Revive'].includes(s)));
 
-  let moveTgt=null, stopRange=55;
-
   if(isHealer){
-    const healRange=210;
-    const wounded=aa.filter(x=>x!==a&&x.hp<x.maxHp).sort((x,y)=>x.hp-y.hp);
-    // 힐 가능한 대상이 사거리 안에 있으면 제자리
-    const inRange=wounded.find(x=>hasLOS(a.x,a.y,x.x,x.y)&&dist(a,x)<healRange);
-    if(inRange)return;
-    // 가장 HP 낮은 아군 따라가기
-    moveTgt=wounded[0]||aa.find(x=>x!==a&&x.hp>0);
-    stopRange=healRange*0.65;
-  } else {
-    // 공격/방어 역할: 가장 가까운 적에게 적극적으로 이동
-    const enemyTgt=closest(a,ae,Infinity);
-    if(enemyTgt){
-      const attackRange=(BASE_ROLES[role]?.range||65)-15;
-      const d=dist(a,enemyTgt);
-      if(d>attackRange){
-        // 적에게 다가가기
-        const best=bestAdjacentCell(a,enemyTgt.x,enemyTgt.y);
-        if(best){
-          const cell=nearestCell(a.x,a.y);
-          const spd=a.spd*(cell?TERRAIN[cell.type].spd:1.0);
-          const dx=best.x-a.x,dy=best.y-a.y,dn=Math.hypot(dx,dy);
-          if(dn>1){a.x+=dx/dn*spd;a.y+=dy/dn*spd;clampToMap(a);}
-        }
-      } else if(role==='Tank'||a.activeSkills.includes('Guard')||a.activeSkills.includes('Fortress')){
-        // 탱커: 사거리 안이어도 적쪽으로 붙어서 막기
-        const d2=dist(a,enemyTgt);
-        if(d2>30){
-          const dx=enemyTgt.x-a.x,dy=enemyTgt.y-a.y,dn=Math.hypot(dx,dy);
-          const cell=nearestCell(a.x,a.y);
-          const spd=a.spd*(cell?TERRAIN[cell.type].spd:1.0)*0.5;
-          if(dn>1){a.x+=dx/dn*spd;a.y+=dy/dn*spd;clampToMap(a);}
-        }
+    const healRange=210+(a.bonusRange||0);
+    const revRange=200+(a.bonusRange||0);
+    const now2=Date.now();
+
+    // 최우선: 빈사(5초 내 부활 가능) 대원이 있으면 즉시 달려가기
+    const dying=allies.filter(x=>x.dead&&!x.permanentlyDead&&x.deathTime&&(now2-x.deathTime)<5000&&x.isDeployed);
+    if(dying.length>0){
+      // 가장 시간이 촉박한 빈사 대원 우선
+      dying.sort((x,y)=>x.deathTime-y.deathTime);
+      const tgt=dying[0];
+      const d=dist(a,tgt);
+      if(d<=revRange){
+        return; // 사거리 내 → 제자리에서 부활 스킬 발동 (battleTick에서 처리)
       }
-      // 원거리/피난민: 최적 공격 위치 유지 (약간 측면)
-      else if(role==='Ranged'||(role==='Refugee'&&a.activeSkills.includes('Arrow'))){
-        // 너무 가까우면 살짝 후퇴
-        if(d<80){
-          const cell=nearestCell(a.x,a.y);
-          const spd=a.spd*(cell?TERRAIN[cell.type].spd:1.0)*0.4;
-          const dx=a.x-enemyTgt.x,dy=a.y-enemyTgt.y,dn=Math.hypot(dx,dy);
-          if(dn>1){a.x+=dx/dn*spd;a.y+=dy/dn*spd;clampToMap(a);}
-        }
-      }
+      // 빈사 대원 향해 전력 질주
+      const best=bestAdjacentCell(a,tgt.x,tgt.y);
+      if(best){const dx=best.x-a.x,dy=best.y-a.y,dn=Math.hypot(dx,dy);if(dn>1){a.x+=dx/dn*spd*1.2;a.y+=dy/dn*spd*1.2;clampToMap(a);}}
       return;
     }
-    // 적이 없으면 맵 중앙쪽으로 이동
-    moveTgt=null;
+
+    // 일반: 부상 아군 치료
+    const wounded=aa.filter(x=>x!==a&&x.hp<x.maxHp).sort((x,y)=>x.hp-y.hp);
+    const inRange=wounded.find(x=>hasLOS(a.x,a.y,x.x,x.y)&&dist(a,x)<healRange);
+    if(inRange) return;
+    const moveTgt=wounded[0]||aa.find(x=>x!==a&&x.hp>0&&x.isDeployed);
+    if(!moveTgt) return;
+    const d=dist(a,moveTgt);
+    if(d<=healRange*0.6) return;
+    const best=bestAdjacentCell(a,moveTgt.x,moveTgt.y);
+    if(best){const dx=best.x-a.x,dy=best.y-a.y,dn=Math.hypot(dx,dy);if(dn>1){a.x+=dx/dn*spd;a.y+=dy/dn*spd;clampToMap(a);}}
+    return;
   }
 
-  if(!moveTgt)return;
-  const d=dist(a,moveTgt);
-  if(d<=stopRange)return;
-  const best=bestAdjacentCell(a,moveTgt.x,moveTgt.y);
-  if(!best)return;
-  const cell=nearestCell(a.x,a.y);
-  const spd=a.spd*(cell?TERRAIN[cell.type].spd:1.0);
-  const dx=best.x-a.x,dy=best.y-a.y,dn=Math.hypot(dx,dy);
-  if(dn<1)return;
-  a.x+=dx/dn*spd;a.y+=dy/dn*spd;
-  clampToMap(a);
+  const enemyTgt=closest(a,ae,Infinity);
+  if(enemyTgt){
+    const attackRange=(BASE_ROLES[role]?.range||65)-15;
+    const d=dist(a,enemyTgt);
+    if(d>attackRange){
+      // bestAdjacentCell이 지형 비용 기반으로 최적 경로 선택
+      const best=bestAdjacentCell(a,enemyTgt.x,enemyTgt.y);
+      if(best){const dx=best.x-a.x,dy=best.y-a.y,dn=Math.hypot(dx,dy);if(dn>1){a.x+=dx/dn*spd;a.y+=dy/dn*spd;clampToMap(a);}}
+    }else if(role==='Tank'||a.activeSkills?.includes('Guard')||a.activeSkills?.includes('Taunt')){
+      if(d>28){const dx=enemyTgt.x-a.x,dy=enemyTgt.y-a.y,dn=Math.hypot(dx,dy);if(dn>1){a.x+=dx/dn*spd*0.5;a.y+=dy/dn*spd*0.5;clampToMap(a);}}
+    }else if(role==='Ranged'||role==='Mage'||(role==='Refugee'&&a.activeSkills?.includes('Arrow'))){
+      if(d<80){const dx=a.x-enemyTgt.x,dy=a.y-enemyTgt.y,dn=Math.hypot(dx,dy);if(dn>1){a.x+=dx/dn*spd*0.5;a.y+=dy/dn*spd*0.5;clampToMap(a);}}
+    }
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -1870,10 +1958,34 @@ function draw(){
   });
   if(dragUnit&&isDragging){ctx.save();ctx.beginPath();ctx.moveTo(dragUnit.x,dragUnit.y);ctx.lineTo(mouseX,mouseY);ctx.strokeStyle='#f1c40faa';ctx.lineWidth=1.5;ctx.setLineDash([5,3]);ctx.stroke();ctx.beginPath();ctx.arc(mouseX,mouseY,6,0,Math.PI*2);ctx.strokeStyle='#f1c40f';ctx.lineWidth=2;ctx.setLineDash([]);ctx.stroke();ctx.restore();}
   [...allies,...enemies].forEach(u=>{
-    if(u.dead)return;
     if(u.type==='ally'){
       if(!u.isDeployed)return;
-      if(u.garrisoned||u.inStandby)return; // 주둔/대기 유닛은 지도에서 제외
+      if(u.garrisoned||u.inStandby)return;
+      // 빈사(dead but not permanently dead): 카운트다운 표시
+      if(u.dead&&!u.permanentlyDead&&u.deathTime){
+        const elapsed=Date.now()-u.deathTime;
+        const left=Math.max(0,Math.ceil((5000-elapsed)/1000));
+        const R=13;
+        ctx.save();
+        // 어두운 원
+        ctx.beginPath();ctx.arc(u.x,u.y,R,0,Math.PI*2);
+        ctx.fillStyle='rgba(50,0,0,0.85)';ctx.fill();
+        ctx.strokeStyle='#e74c3c';ctx.lineWidth=2;
+        // 남은 시간 원호
+        ctx.beginPath();ctx.arc(u.x,u.y,R,- Math.PI/2,(2*Math.PI*((5000-elapsed)/5000))-Math.PI/2);
+        ctx.strokeStyle='#e74c3c';ctx.lineWidth=3;ctx.stroke();
+        // 카운트 숫자
+        ctx.fillStyle='#fff';ctx.font='bold 10px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText(left>0?left:'!',u.x,u.y);
+        // "빈사" 텍스트
+        ctx.font='7px Arial';ctx.fillStyle='#e74c3c';
+        ctx.fillText('빈사',u.x,u.y+R+7);
+        ctx.restore();
+        return; // 일반 drawUnit 건너뜀
+      }
+      if(u.dead) return; // 영구사망
+    }else{
+      if(u.dead) return;
     }
     drawUnit(u);
   });
@@ -1942,9 +2054,19 @@ function renderAllyPanel(){
     // 슬림 강화 버튼 (현재값+비용 한 줄)
     const upgBtns=Object.entries(UPGRADES).map(([stat,upg])=>{
       const cost=upg.cost(a.lv);
-      const affordable=gold>=cost;
-      const curVals={atk:baseAtk,def:baseDef+'%',spd:baseSpd,cdr:'-'+baseCDR+'%',mana:baseMana,magic:baseMagic};
-      return `<button class="ub${affordable?'':' dimmed'}" onclick="upgradeUnit(${a.id},'${stat}')" title="${upg.tip(a)}">${upg.label} <span style="color:#aaa;font-size:7px">${curVals[stat]}</span> <span style="color:${affordable?'#f1c40f':'#555'}">${cost}G</span></button>`;
+      const affordable=res.gold>=cost||gold>=cost;
+      const cnt=(a.upgCount&&a.upgCount[stat])||0;
+      // 강화마다 오르는 수치
+      const gainMap={atk:'+8⚔',def:'+5%🛡',spd:'+0.1💨',cdr:'-5%⏱',mana:'+50💧/+30HP',magic:'+10✨'};
+      const gain=gainMap[stat]||'';
+      return `<button class="ub${affordable?'':' dimmed'}" onclick="upgradeUnit(${a.id},'${stat}')"
+        title="${upg.tip(a)}"
+        style="font-size:9px;padding:2px 5px">
+        ${upg.label}<br>
+        <span style="color:#2ecc71;font-size:8px">${gain}</span>
+        <span style="color:#6b7280;font-size:7px">${cnt>0?` ×${cnt}`:''}</span>
+        <span style="color:${affordable?'#f1c40f':'#555'};font-size:8px">${cost}G</span>
+      </button>`;
     }).join('');
     return `<div class="uc${a.onHold?' hold':''}" draggable="true" ondragstart="allyDragStart(event,${a.id})" ondragover="event.preventDefault()" ondrop="allyDrop(event,${a.id})">
       <div class="uch">
@@ -2300,13 +2422,16 @@ var _introData=[
    b:'<b style="color:#e74c3c">3일치 식량밖에 남지 않았다.</b><br><br>저 들판에 사냥감이 있다. 싸울 수 있는 사람을 데리고 나가면 당장 굶어죽는 건 막을 수 있어.<br><br><b style="color:#f1c40f">🎯 목표: 마을 → 도시 → 왕국</b><br>🌿 사냥 → 🍖 식량 → 👥 영입 → ⚔️ 전투 → 🏘️ 건설',
    btn:'게임 방법 알아보기 ▶'},
   {t:'🗺️ 게임 방법 ①: 배치',
-   b:'<b style="color:#a855f7">보라색 영역</b>을 터치하면 대원이 그 자리에 배치됩니다.<br><br>배치된 대원은 <b>드래그</b>로 위치를 바꿀 수 있어요.<br><br>탱커 먼저, 딜러, 원거리, 힐러 순으로 자동 배치됩니다.<br><br>대원을 모두 배치하면 <b style="color:#e74c3c">▶ 출발!</b>을 눌러 사냥을 시작하세요.',
+   b:'<b style="color:#a855f7">보라색 영역</b>을 터치하면 대원이 순서대로 배치됩니다.<br>탱커 → 근딜 → 원딜 → 마법사 → 힐러 순으로 자동 배치돼요.<br><br>배치된 대원을 <b>꾹 누른 채 드래그</b>하면 위치를 바꿀 수 있습니다.<br><br>모든 대원을 배치하면 <b style="color:#e74c3c">▶ 출발!</b>을 눌러 시작하세요.',
    btn:'다음 ▶'},
-  {t:'⚔️ 게임 방법 ②: 전투',
-   b:'전투는 <b>자동으로 진행</b>됩니다.<br><br>• 배치된 대원이 스스로 이동·공격해요<br>• 대원 터치 → 이동 명령<br>• 대원 더블탭 → <b style="color:#a855f7">홀드</b> (그 자리 고수)<br><br><b style="color:#f1c40f">🔄 자동 진행 ON</b> 설정 시, 사냥 성공 기록(시간·보상)을 바탕으로 자동 반복하며 대원들이 경험치를 얻습니다.',
+  {t:'⚔️ 게임 방법 ②: 전투 조작',
+   b:'전투는 <b>자동으로 진행</b>됩니다.<br><br>• 지도의 대원을 <b>터치 후 드래그</b> → 이동 명령<br>• 대원 <b>더블탭</b> → <b style="color:#a855f7">홀드</b> (그 자리에서 움직이지 않고 전투)<br><br><b style="color:#f1c40f">🔄 자동 진행 ON</b>: 전투 후 대기 없이 즉시 다음 전투를 시작합니다.<br>자동 진행 중에도 경험치와 자원을 획득해요.',
    btn:'다음 ▶'},
-  {t:'💀 게임 방법 ③: 빈사와 부활',
-   b:'대원의 HP가 0이 되면 <b style="color:#e74c3c">빈사 상태</b>로 쓰러집니다.<br><br>• <b style="color:#2ecc71">5초 이내</b>: 힐러의 부활 스킬로 소생 가능<br>• 전투 종료 시: 빈사 대원 자동 회복<br>• <b style="color:#e74c3c">5초 초과</b>: 무덤으로 이동, 다음 전투에 참여 불가<br><br>힐러를 꼭 데려가세요!',
+  {t:'🏕 게임 방법 ③: 거점 활성화',
+   b:'<b style="color:#2ecc71">15일차 사냥 성공</b> = 해당 사냥터 <b>거점 활성화!</b><br><br>거점이 활성화되면 유닛을 배치해 <b>자동으로 자원</b>을 얻을 수 있어요.<br><br>자동 사냥 효율은 <b>15일간의 기록</b>(클리어 속도·보상량)으로 결정됩니다.<br>• 초기: 기준치의 <b style="color:#e74c3c">50%</b> 수준<br>• 시간이 지나면서 점차 안정화 → 최대 <b style="color:#2ecc71">100%</b><br><br>당신은 새 사냥터를 개척하고, 동료들이 거점을 지킵니다.',
+   btn:'다음 ▶'},
+  {t:'💀 게임 방법 ④: 빈사와 부활',
+   b:'대원의 HP가 0이 되면 <b style="color:#e74c3c">빈사 상태</b>로 쓰러집니다.<br><br>• <b style="color:#2ecc71">5초 이내</b>: 힐러의 응급 소생 스킬로 되살릴 수 있어요<br>• <b>전투 승리</b> 시: 빈사 대원 자동 회복<br>• <b style="color:#e74c3c">5초 초과</b>: 무덤으로 → 다음 전투 참여 불가<br><br>힐러를 꼭 데려가세요! 한 명이 여럿을 살릴 수 있습니다.',
    btn:'사냥에 나서다! 🌿'},
 ];
 
