@@ -2499,7 +2499,7 @@ function draw(){
       ctx.save();
       ctx.beginPath();ctx.arc(a.x,a.y,skillRange,0,Math.PI*2);
       // 선택된 유닛: 노란색 굵은 원
-      ctx.strokeStyle=isMapSel?'#f1c40f':(rd.color+(isBattle&&!isPaused?'88':'cc'));
+      ctx.strokeStyle=isMapSel?(rd.color+'ff'):(rd.color+(isBattle&&!isPaused?'88':'cc'));
       ctx.lineWidth=isMapSel?2.5:(isBattle&&!isPaused?1.5:2);
       ctx.setLineDash([5,4]);ctx.stroke();
       ctx.restore();
@@ -3233,7 +3233,7 @@ function showIntro(){
 
 window.onload=function(){
   init();
-  // iOS Safari: onclick에서 전역 함수 찾을 수 있도록 window에 명시 등록
+  // iOS Safari onclick 함수 window 등록 (명시적)
   window.toggleBattle=toggleBattle;
   window.togglePause=togglePause;
   window.toggleAutoStart=toggleAutoStart;
@@ -3245,8 +3245,46 @@ window.onload=function(){
   window.hireFood=hireFood;
   window.toggleGarrisonBar=toggleGarrisonBar;
   window.togglePanel=togglePanel;
+  window.skipIntro=skipIntro;
+  window.skipRename=skipRename;
+  window.confirmRename=confirmRename;
+  window.confirmGarrison=confirmGarrison;
+  window.closeGarrisonModal=closeGarrisonModal;
+  window.closeNextChapterModal=closeNextChapterModal;
+  window.garrisonChangeHire=garrisonChangeHire;
+  window.showClassModal=showClassModal;
+  window.selectClass=selectClass;
+  window.upgradeUnit=upgradeUnit;
+  window.toggleSkill=toggleSkill;
+  window.selectUnitOnMap=selectUnitOnMap;
+  window.selectAndSendToStandby=selectAndSendToStandby;
+  window.sendToStandby=sendToStandby;
+  window.sendToGarrison=sendToGarrison;
+  window.clickStandbyUnit=clickStandbyUnit;
+  window.clickGarrisonUnit=clickGarrisonUnit;
+  window.standbyToParty=standbyToParty;
+  window.standbyToZone=standbyToZone;
+  window.addToGarrison=addToGarrison;
+  window.openShop=openShop;
+  window.shopBuy=shopBuy;
+  window.shopSell=shopSell;
+  window.showCivModal=showCivModal;
+  window.buildCiv=buildCiv;
+  window.selectNextChapter=selectNextChapter;
+  window.allyDragStart=allyDragStart;
+  window.allyDrop=allyDrop;
+  window.allyDropToStandby=allyDropToStandby;
+  window.allyDropToGarrison=allyDropToGarrison;
+  window.allyPanelDrop=allyPanelDrop;
+  window.standbyDragStart=standbyDragStart;
+  window.standbyFrameDrop=standbyFrameDrop;
+  window.garrisonDragStart=garrisonDragStart;
+  window.zoneFrameDrop=zoneFrameDrop;
+  window.toggleGarrisonUnit=toggleGarrisonUnit;
+  window.moveGarrisonUnit=moveGarrisonUnit;
+  window.garrisonDrop=garrisonDrop;
   setTimeout(showIntro,600);
-  startMerchantSchedule(); // 상인 방문 스케줄
+  startMerchantSchedule();
 };
 </script>
 
