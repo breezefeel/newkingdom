@@ -82,6 +82,8 @@ canvas { display:block; }
 .gz-unit { padding:2px 6px; border-radius:3px; font-size:9px; border:1px solid #1e2d3d; background:#0f1923; cursor:grab; user-select:none; }
 .gz-unit:hover { border-color:#f1c40f; }
 .gz-unit.standby { border-color:#5b2d82; color:#a855f7; }
+.gz-promote { border-color:#f1c40f !important; background:#1a1400 !important; color:#f1c40f !important; animation: pulse-gold 1.5s infinite; }
+@keyframes pulse-gold { 0%,100%{box-shadow:0 0 4px #f1c40f44} 50%{box-shadow:0 0 8px #f1c40faa} }
 .gz-unit.dead-10 { border-color:#e74c3c; color:#e74c3c; }
 .gz-unit.dead-perm { border-color:#333; color:#555; opacity:0.6; }
 .gz-income { font-size:9px; color:#2ecc71; margin-bottom:3px; }
@@ -284,11 +286,14 @@ const CW=Math.ceil(COLS*HW+HW*0.5+10);
 const CH=Math.ceil(ROWS*HR*1.5+HR+10);
 
 const TERRAIN={
-  plain:   {label:'평지',color:'#0d1f30',border:'#1a3a55',spd:1.0, blockLOS:false,sym:'',  bonus:{}},
-  forest:  {label:'숲',  color:'#0a1f14',border:'#1a4028',spd:0.65,blockLOS:false,sym:'🌲',bonus:{Melee:1.6,Rogue:1.8}},
-  mountain:{label:'산',  color:'#1c1c1c',border:'#333',   spd:0.2, blockLOS:true, sym:'⛰',bonus:{Ranged:1.5,Sniper:1.7}},
-  river:   {label:'강',  color:'#08163a',border:'#1435a0',spd:0.2, blockLOS:false,sym:'〰',bonus:{Ranged:-0.3}},
-  hill:    {label:'언덕',color:'#1a1208',border:'#3d2c0a',spd:0.75,blockLOS:false,sym:'🏕',bonus:{Ranged:1.3,Tank:1.2}},
+  plain:   {label:'평지', color:'#0d1f30',border:'#1a3a55',spd:1.0, blockLOS:false,sym:'',   bonus:{},                                     desc:'이동 페널티 없음'},
+  forest:  {label:'숲',   color:'#0a1f14',border:'#1a4028',spd:0.65,blockLOS:false,sym:'🌲', bonus:{Melee:1.8,Warrior:1.6,Rogue:2.0},       desc:'근접 전투 유리, 원거리 불리'},
+  mountain:{label:'산',   color:'#1c1c1c',border:'#444',   spd:0.18,blockLOS:true, sym:'⛰',  bonus:{Ranged:1.8,Sniper:2.0,Artillery:1.9},   desc:'원거리 압도적 유리, 이동 매우 느림'},
+  river:   {label:'강',   color:'#08163a',border:'#1435a0',spd:0.18,blockLOS:false,sym:'〰',  bonus:{},                                     desc:'이동 매우 느림, 우회하는게 빠름'},
+  hill:    {label:'언덕', color:'#1a1208',border:'#3d2c0a',spd:0.72,blockLOS:false,sym:'🏕',  bonus:{Ranged:1.4,Tank:1.3,Sniper:1.5},        desc:'원거리·탱커 유리'},
+  desert:  {label:'사막', color:'#2a1f00',border:'#5a3a00',spd:0.80,blockLOS:false,sym:'🏜',  bonus:{Ranged:1.2},                            desc:'원거리 약간 유리'},
+  cave:    {label:'동굴', color:'#111118',border:'#2a2a3a',spd:0.60,blockLOS:true, sym:'🕳',  bonus:{Melee:1.4,Warrior:1.4},                desc:'근접 유리, 시야 차단'},
+  ruins:   {label:'폐허', color:'#1a1410',border:'#3a2a1a',spd:0.82,blockLOS:false,sym:'🏚',  bonus:{Tank:1.3,Melee:1.2},                   desc:'탱커·근접 유리'},
 };
 
 const BASE_SKILLS={
@@ -328,7 +333,7 @@ const CLASS10={
   Duelist:   {name:'결투사',   base:'Warrior', skills:['Slash','Rush','Ambush','Strike'],        desc:'단일 강타 전문.'},
 };
 const BASE_ROLES={
-  Tank:    {name:'탱커',   mark:'T',  color:'#3498db', range:55,  atk:18,  spd:1.2, def:0.3,  atkSpd:0.55, castDelay:0},
+  Tank:    {name:'탱커',   mark:'T',  color:'#3498db', range:58,  atk:32,  spd:1.2, def:0.3,  atkSpd:0.55, castDelay:0},
   Melee:   {name:'전사',   mark:'M',  color:'#e67e22', range:65,  atk:55,  spd:1.8, def:0.0,  atkSpd:1.2,  castDelay:0},
   Warrior: {name:'전투가', mark:'W',  color:'#e84393', range:75,  atk:68,  spd:1.9, def:0.05, atkSpd:1.4,  castDelay:0},
   Ranged:  {name:'궁수',   mark:'R',  color:'#27ae60', range:230, atk:35,  spd:1.5, def:0.0,  atkSpd:0.75, castDelay:0},
@@ -472,23 +477,94 @@ window.selectZone=function(id){
 // ══════════════════════════════════════════════════════
 function hexCenter(r,c){return{x:c*HW+(r%2)*HW*0.5+HR+5,y:r*HR*1.5+HR+5};}
 
+// 간단한 시드 랜덤 (지형 고정용)
+function seededRand(seed){
+  let s=seed;
+  return function(){s=(s*1664525+1013904223)&0xffffffff;return(s>>>0)/0xffffffff;};
+}
+
+// 존별 고정 지형 저장
+const _fixedMaps={};
+
 function buildMap(){
   hexMap=[];
+  const zid=currentZone.id;
+  // 이미 생성된 지형이면 재사용 (고정 지형)
+  if(_fixedMaps[zid]){
+    hexMap=_fixedMaps[zid].map(row=>row.map(cell=>({...cell})));
+    return;
+  }
+  // 존 ID 기반 시드로 고정 지형 생성
+  const seed=zid.split('').reduce((s,c)=>s+c.charCodeAt(0),42);
+  const rndFn=seededRand(seed);
   const tier=currentZone.tier;
+
   for(let r=0;r<ROWS;r++){
     hexMap[r]=[];
     for(let c=0;c<COLS;c++){
-      let type='plain';
       const {x,y}=hexCenter(r,c);
-      const rnd=Math.random();
-      if(tier==='hunt'){if(c>4&&c<16){if(rnd>0.75)type='forest';else if(rnd>0.92)type='hill';}}
-      else if(tier==='pred'){if(c>3&&c<17){if(rnd>0.82)type='forest';else if(rnd>0.68)type='hill';else if(rnd>0.92)type='mountain';}}
-      else if(tier==='bandit'){if(c>4&&c<16){if(rnd>0.80)type='mountain';else if(rnd>0.66)type='hill';else if((c===8||c===9||c===10)&&rnd>0.55)type='river';}}
-      else{if(c>4&&c<16){if(rnd>0.83)type='mountain';else if(rnd>0.70)type='forest';else if(rnd>0.60)type='hill';else if((c===9||c===10)&&rnd>0.55)type='river';}}
-      if(c>=16)type=(rnd>0.85)?'hill':'plain';
+      let type='plain';
+      const v=rndFn();
+      const v2=rndFn();
+
+      if(tier==='hunt'){
+        // 들판: 중앙에 작은 숲, 언덕, 강 한 줄기
+        if(c===9&&r>=2&&r<=9) type='river';         // 가운데 강
+        else if(c===10&&(r===4||r===5)) type='river';
+        else if(c>5&&c<9&&v<0.35) type='forest';
+        else if(c>10&&c<14&&v<0.30) type='forest';
+        else if(c===7&&r>=1&&r<=3) type='hill';
+        else if(c===12&&r>=8&&r<=10) type='hill';
+        else if(c<4) type='plain'; // 아군 진영 평지
+      }else if(tier==='pred'){
+        // 숲+산: 울창한 숲, 산맥, 좁은 통로
+        if(c>=1&&c<=3) type='plain';
+        else if(c>=4&&c<=7&&v<0.55) type='forest';
+        else if(c>=8&&c<=11){
+          if(v<0.20) type='mountain';
+          else if(v<0.55) type='forest';
+          else if(v<0.65) type='hill';
+        }else if(c>=12&&c<=15&&v<0.40) type='forest';
+        else if(c>=16) type=(v<0.3)?'hill':'plain';
+        // 산맥 라인
+        if(c===10&&(r===2||r===3||r===8||r===9)) type='mountain';
+        if(c===11&&(r===5||r===6)) type='mountain';
+      }else if(tier==='bandit'){
+        // 사막+돌산+협곡
+        if(c>=1&&c<=3) type='plain';
+        else if(c>=4&&c<=8){
+          if(v<0.45) type='desert';
+          else if(v<0.60) type='hill';
+          else if(v<0.68) type='mountain';
+        }else if(c>=9&&c<=13){
+          if(v<0.30) type='mountain';
+          else if(v<0.55) type='desert';
+          else if(v<0.65) type='ruins';
+        }else if(c>=14) type=(v<0.4)?'desert':'plain';
+        // 강 협곡
+        if(c===8&&r>=3&&r<=8) type='river';
+        if(c===9&&(r===3||r===8)) type='river';
+      }else{
+        // 폐허+숲+언덕 복합
+        if(c>=1&&c<=2) type='plain';
+        else if(c>=3&&c<=6){
+          if(v<0.30) type='ruins';
+          else if(v<0.45) type='forest';
+          else if(v<0.55) type='hill';
+        }else if(c>=7&&c<=12){
+          if(v<0.25) type='mountain';
+          else if(v<0.40) type='ruins';
+          else if(v<0.55) type='forest';
+          else if(v<0.65) type='hill';
+        }else if(c>=13) type=(v<0.35)?'hill':'plain';
+        if(c===9&&r>=2&&r<=4) type='river';
+        if(c===10&&r>=7&&r<=9) type='river';
+      }
       hexMap[r][c]={type,x,y};
     }
   }
+  // 고정 지형 저장
+  _fixedMaps[zid]=hexMap.map(row=>row.map(cell=>({...cell})));
 }
 
 function nearestCell(x,y){
@@ -2079,6 +2155,14 @@ function renderAllyPanel(){
         <span style="color:${affordable?'#f1c40f':'#555'};font-size:8px">${cost}G</span>
       </button>`;
     }).join('');
+    // 보내기 버튼 (대기/자동사냥터)
+    const clearedZones=Object.entries(zoneRecords).filter(([,r])=>r.cleared);
+    const sendBtns=`<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:4px;border-top:1px solid #1e2d3d;padding-top:3px">
+      <span style="font-size:8px;color:#6b7280">보내기:</span>
+      <button class="gz-add" onclick="sendToStandby(${a.id})" style="font-size:8px">⏳대기</button>
+      ${clearedZones.map(([zid])=>{const z=ZONES[zid]||{name:zid,color:'#555'};return `<button class="gz-add" onclick="sendToGarrison(${a.id},'${zid}')" style="font-size:8px;color:${z.color}">${z.name}</button>`;}).join('')}
+    </div>`;
+
     return `<div class="uc${a.onHold?' hold':''}" draggable="true" ondragstart="allyDragStart(event,${a.id})" ondragover="event.preventDefault()" ondrop="allyDrop(event,${a.id})">
       <div class="uch">
         <span class="un">${a.name}</span>
@@ -2095,6 +2179,7 @@ function renderAllyPanel(){
       </div>
       <div class="sk-row" style="margin-top:3px">${skillBtns}</div>
       <div class="ur" style="margin-top:3px">${upgBtns}</div>
+      ${clearedZones.length>0||true?sendBtns:''}
     </div>`;
   }).join('');
 }
@@ -2153,17 +2238,22 @@ function renderGarrisonBar(){
 
   const container=document.getElementById('garrison-zones-container');
 
-  // ① 대기 인원 프레임 (미배치 or 파티 초과 유닛)
+  // ① 대기 인원 프레임 — 2열 그리드
   const standby=allies.filter(a=>!a.dead&&!a.permanentlyDead&&!a.garrisoned&&a.inStandby);
   const standbyHtml=`<div class="gz" ondragover="event.preventDefault()" ondrop="standbyFrameDrop(event)">
     <div class="gz-title" style="color:#a855f7">⏳ 대기 인원 (${standby.length}명)</div>
-    <div class="gz-units" style="min-height:24px">
-      ${standby.map(a=>`<div class="gz-unit standby" draggable="true"
-        ondragstart="standbyDragStart(event,${a.id})"
-        title="드래그→전장 배치">${a.name} Lv.${a.lv}</div>`).join('')
-      ||'<span style="font-size:9px;color:#374151">없음</span>'}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;min-height:24px">
+      ${standby.map(a=>{
+        const canPromote=(a.lv>=5&&!a.classKey)||(a.lv>=10&&a.classKey&&!a.class10Key);
+        return `<div class="gz-unit standby${canPromote?' gz-promote':''}" draggable="true"
+          ondragstart="standbyDragStart(event,${a.id})"
+          onclick="${canPromote?`showClassModal(allies.find(x=>x.id===${a.id}))`:`clickStandbyUnit(${a.id})`}"
+          title="${canPromote?'전직 가능! 탭하여 전직':'탭하여 통솔로'}">
+          ${canPromote?'⭐ ':''}${a.name}<br>
+          <span style="font-size:8px;color:#9ca3af">Lv.${a.lv}</span>
+        </div>`;
+      }).join('')||'<span style="font-size:9px;color:#374151;grid-column:1/-1">없음</span>'}
     </div>
-    ${standby.length>0?`<div style="font-size:8px;color:#6b7280">드래그하여 전장에 배치하거나 주둔 배정</div>`:''}
   </div>`;
 
   // ② 클리어한 전투지 주둔 프레임
@@ -2172,16 +2262,29 @@ function renderGarrisonBar(){
     const zone=ZONES[zid];
     const sv=_garrisonZoneId;_garrisonZoneId=zid;
     const r=garrisonIncomePerMin(rec);_garrisonZoneId=sv;
-    const unitItems=(rec.garrison||[]).map(g=>
-      `<div class="gz-unit" draggable="true" ondragstart="garrisonDragStart(event,'${zid}',${g.id})"
-        title="드래그→통솔 복귀">${g.name} Lv.${g.lv}</div>`).join('');
-    const addable=allies.filter(a=>!a.garrisoned&&!a.dead&&!a.permanentlyDead&&!a.isDeployed)
+    const expPerMin=Math.floor((rec.garrison||[]).reduce((s,g)=>{
+      const u=allies.find(a=>a.id===g.id);return s+(u?15+u.lv*2:15);},0)*2);
+    const unitItems=(rec.garrison||[]).map(g=>{
+      const u=allies.find(a=>a.id===g.id);
+      if(!u) return '';
+      const canPromote=(u.lv>=5&&!u.classKey)||(u.lv>=10&&u.classKey&&!u.class10Key);
+      return `<div class="gz-unit${canPromote?' gz-promote':''}" draggable="true"
+        ondragstart="garrisonDragStart(event,'${zid}',${g.id})"
+        onclick="${canPromote?`showClassModal(allies.find(x=>x.id===${u.id}))`:`clickGarrisonUnit('${zid}',${g.id})`}"
+        title="${canPromote?'전직 가능! 탭하여 전직':'탭하여 통솔/대기로'}">
+        ${canPromote?'⭐ ':''}${u.name}<br>
+        <span style="font-size:7px;color:#9ca3af">Lv.${u.lv} ${u.classKey?BASE_ROLES[u.classKey]?.name||'':'피난민'}</span>
+      </div>`;
+    }).join('');
+    const addable=allies.filter(a=>!a.garrisoned&&!a.dead&&!a.permanentlyDead&&!a.isDeployed&&!a.inStandby)
       .map(a=>`<span class="gz-add" onclick="addToGarrison('${zid}',${a.id})">+${a.name}</span>`).join('');
     return `<div class="gz" ondragover="event.preventDefault()" ondrop="zoneFrameDrop(event,'${zid}')">
       <div class="gz-title" style="color:${zone.color}">${zone.name}</div>
-      <div class="gz-income">🍖+${r.food}/분 💰+${r.gold}/분</div>
-      <div class="gz-units" style="min-height:22px">${unitItems||'<span style="font-size:9px;color:#374151">배치 없음</span>'}</div>
-      <div style="display:flex;gap:3px;flex-wrap:wrap">${addable}</div>
+      <div class="gz-income">🍖+${r.food}/분 💰+${r.gold}/분 ✨+${expPerMin}/분</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;min-height:22px">
+        ${unitItems||'<span style="font-size:9px;color:#374151;grid-column:1/-1">배치 없음</span>'}
+      </div>
+      <div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">${addable}</div>
     </div>`;
   }).join('');
 
@@ -2373,18 +2476,29 @@ function resizeCanvas(){
 }
 window.addEventListener('resize',resizeCanvas);
 function garrisonExpTick(){
+  let changed=false;
   Object.entries(zoneRecords).forEach(([zid,rec])=>{
     if(!rec.cleared||!rec.garrison||rec.garrison.length===0)return;
     rec.garrison.forEach(g=>{
       const u=allies.find(a=>a.id===g.id);
-      if(u) gainExp(u, 15+g.lv*2); // 30초당 소량 경험치
+      if(!u) return;
+      const prevLv=u.lv;
+      gainExp(u, 15+u.lv*2); // 30초당 경험치
+      if(u.lv!==prevLv){
+        alog(`🏕 ${u.name} Lv.${u.lv} 달성! (${ZONES[zid]?.name||zid} 자동 사냥 중)`);
+        changed=true;
+      }
+      // 전직 가능 여부 체크 → 화면 갱신
+      const canPromote=(u.lv>=5&&!u.classKey)||(u.lv>=10&&u.classKey&&!u.class10Key);
+      if(canPromote) changed=true;
     });
-    // 스냅샷 갱신 (레벨업 반영)
+    // 스냅샷 갱신
     rec.garrison=rec.garrison.map(g=>{
       const u=allies.find(a=>a.id===g.id);
       return u?{id:u.id,name:u.name,lv:u.lv,classKey:u.classKey,baseRole:u.baseRole}:g;
     });
   });
+  if(changed) markDirty();
 }
 
 // ══════════════════════════════════════════════════════
