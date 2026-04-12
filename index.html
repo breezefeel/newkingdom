@@ -145,6 +145,7 @@ canvas { touch-action:none; }
   <button class="cb cb-fo" onclick="showRefugeeModal()">🍖 피난민 합류</button>
   <button class="cb cb-hi" onclick="hireGold()">💰 용병 고용 (100G)</button>
   <button class="cb" id="btn-auto" onclick="toggleAutoStart()" style="background:#1a4030">🔄 자동 진행: OFF</button>
+  <span id="battle-timer" style="font-size:0.75em;color:#f1c40f;font-weight:bold;padding:4px 8px;display:none">⏱ 0:00</span>
 </div>
 
 <div id="lay">
@@ -354,12 +355,18 @@ const ZONES={
 
 // 강화 항목
 const UPGRADES={
-  atk:  {label:'⚔️ 공격',   cost:lv=>20+lv*8,  apply:u=>{u.bonusAtk+=8;},                              tip:u=>`공격력+8 (현재 ${(BASE_ROLES[u.classKey||u.baseRole]?.atk||30)+u.bonusAtk})`},
-  def:  {label:'🛡 방어',   cost:lv=>22+lv*9,  apply:u=>{u.bonusDef=Math.min(u.bonusDef+0.05,0.6);},   tip:u=>`방어+5% (현재 ${Math.floor(u.bonusDef*100)}%)`},
-  spd:  {label:'💨 속도',   cost:lv=>18+lv*7,  apply:u=>{u.bonusSpd+=0.1;},                             tip:u=>`속도+0.1 (현재 ${(u.baseSpd+u.bonusSpd).toFixed(1)})`},
-  cdr:  {label:'⏱ 쿨감',   cost:lv=>25+lv*10, apply:u=>{u.bonusCDR=Math.min(u.bonusCDR+0.05,0.5);},   tip:u=>`쿨타임-5% (누적 ${Math.floor(u.bonusCDR*100)}%)`},
-  mana: {label:'💧 마나',   cost:lv=>20+lv*8,  apply:u=>{u.bonusMana+=50;u.maxHp+=30;u.hp=Math.min(u.hp+30,u.maxHp);}, tip:u=>`마나+50, HP+30`},
-  magic:{label:'✨ 마법',   cost:lv=>28+lv*11, apply:u=>{u.bonusMagic+=10;},                            tip:u=>`마법력+10 (힐/스킬 위력)`},
+  atk:  {label:'공격',  cost:lv=>20+lv*8,  apply:u=>{u.bonusAtk+=8;},
+         cur:u=>`${(BASE_ROLES[u.classKey||u.baseRole]?.atk||30)+u.bonusAtk}`,  gain:'+8',  unit:''},
+  def:  {label:'방어',  cost:lv=>22+lv*9,  apply:u=>{u.bonusDef=Math.min(u.bonusDef+0.05,0.6);},
+         cur:u=>`${Math.floor(u.bonusDef*100)}`,                                gain:'+5',  unit:'%'},
+  spd:  {label:'속도',  cost:lv=>18+lv*7,  apply:u=>{u.bonusSpd+=0.1;},
+         cur:u=>`${u.spd.toFixed(1)}`,                                          gain:'+0.1',unit:''},
+  cdr:  {label:'쿨감',  cost:lv=>25+lv*10, apply:u=>{u.bonusCDR=Math.min(u.bonusCDR+0.05,0.5);},
+         cur:u=>`${Math.floor(u.bonusCDR*100)}`,                                gain:'-5',  unit:'%'},
+  mana: {label:'체력',  cost:lv=>20+lv*8,  apply:u=>{u.bonusMana+=50;u.maxHp+=30;u.hp=Math.min(u.hp+30,u.maxHp);},
+         cur:u=>`${u.maxHp}`,                                                   gain:'+30', unit:''},
+  magic:{label:'마법',  cost:lv=>28+lv*11, apply:u=>{u.bonusMagic+=10;},
+         cur:u=>`${u.bonusMagic||0}`,                                           gain:'+10', unit:''},
 };
 
 // ══════════════════════════════════════════════════════
@@ -462,7 +469,7 @@ function showZoneModal(){
 function closeZoneModal(){document.getElementById('zone-modal').classList.remove('show');}
 window.selectZone=function(id){
   currentZone=ZONES[id];
-  zoneStage=1; stage=1; // 새 전투지에서 스테이지 1부터 시작
+  zoneStage=1; stage=1; window._prevBattleTime=0;
   savedPositions={}; initialPositions={}; // 배치 위치 초기화
   buildMap(); spawnEnemies();
   document.getElementById('area-label').innerText=currentZone.name;
@@ -1186,7 +1193,7 @@ window.upgradeUnit=function(id,stat){
   if(!u.upgCount)u.upgCount={atk:0,def:0,spd:0,cdr:0,mana:0,magic:0};
   u.upgCount[stat]=(u.upgCount[stat]||0)+1;
   if(stat==='spd')u.spd=u.baseSpd+u.bonusSpd;
-  alog(`${upg.label} ${u.name} 강화! (−${cost}G) → ${upg.tip(u)}`);
+  alog(`${upg.label} ${u.name} 강화! (−${cost}G) → ${upg.cur(u)}${upg.unit} ${upg.gain}${upg.unit}`);
   addFloat(u.x>0?u.x:200,u.y>0?u.y:200,`${upg.label}↑`,'#f1c40f');
   markDirty();
 };
@@ -1610,6 +1617,8 @@ function battleTick(){
     }
 
     zoneStage++; stage=zoneStage; isBattle=false;
+    // 누적 전투 시간 저장
+    window._prevBattleTime=(window._prevBattleTime||0)+Math.floor((Date.now()-(_battleStartTime||Date.now()))/1000);
     resetDeployment(); buildMap(); spawnEnemies();
     document.getElementById('btn-go').style.display='inline-block';
     document.getElementById('btn-pa').style.display='none';
@@ -2138,20 +2147,17 @@ function renderAllyPanel(){
     const baseMana=a.bonusMana||0;
     const baseMagic=a.bonusMagic||0;
 
-    // 슬림 강화 버튼 (현재값+비용 한 줄)
+    // 강화 버튼: 항목명 | 현재 → +증가량 | 비용G
     const upgBtns=Object.entries(UPGRADES).map(([stat,upg])=>{
       const cost=upg.cost(a.lv);
       const affordable=res.gold>=cost||gold>=cost;
       const cnt=(a.upgCount&&a.upgCount[stat])||0;
-      // 강화마다 오르는 수치
-      const gainMap={atk:'+8⚔',def:'+5%🛡',spd:'+0.1💨',cdr:'-5%⏱',mana:'+50💧/+30HP',magic:'+10✨'};
-      const gain=gainMap[stat]||'';
+      const curVal=upg.cur(a);
+      const cntStr=cnt>0?` <span style="color:#6b7280">×${cnt}</span>`:'';
       return `<button class="ub${affordable?'':' dimmed'}" onclick="upgradeUnit(${a.id},'${stat}')"
-        title="${upg.tip(a)}"
-        style="font-size:9px;padding:2px 5px">
-        ${upg.label}<br>
-        <span style="color:#2ecc71;font-size:8px">${gain}</span>
-        <span style="color:#6b7280;font-size:7px">${cnt>0?` ×${cnt}`:''}</span>
+        style="font-size:9px;padding:3px 5px;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:44px">
+        <span style="color:#9ca3af;font-size:8px">${upg.label}</span>
+        <span style="color:#fff;font-size:9px">${curVal}${upg.unit}<span style="color:#2ecc71">${upg.gain}${upg.unit}</span>${cntStr}</span>
         <span style="color:${affordable?'#f1c40f':'#555'};font-size:8px">${cost}G</span>
       </button>`;
     }).join('');
@@ -2247,7 +2253,7 @@ function renderGarrisonBar(){
         const canPromote=(a.lv>=5&&!a.classKey)||(a.lv>=10&&a.classKey&&!a.class10Key);
         return `<div class="gz-unit standby${canPromote?' gz-promote':''}" draggable="true"
           ondragstart="standbyDragStart(event,${a.id})"
-          onclick="${canPromote?`showClassModal(allies.find(x=>x.id===${a.id}))`:`clickStandbyUnit(${a.id})`}"
+          onclick="${canPromote?`showClassModal(allies.find(x=>x.id===${a.id}))`:`clickStandbyUnit(${a.id},event)`}"
           title="${canPromote?'전직 가능! 탭하여 전직':'탭하여 통솔로'}">
           ${canPromote?'⭐ ':''}${a.name}<br>
           <span style="font-size:8px;color:#9ca3af">Lv.${a.lv}</span>
@@ -2340,6 +2346,117 @@ window.standbyDrop=function(e){
   const aid=parseInt(e.dataTransfer.getData('ally-id'));
   if(aid){const u=allies.find(a=>a.id===aid);if(u){u.isDeployed=false;u.x=-300;u.y=-300;markDirty();renderGarrisonBar();}}
 };
+// 유닛을 모든 소속에서 완전히 제거
+function removeUnitFromAllGroups(uid){
+  Object.values(zoneRecords).forEach(rec=>{
+    if(rec.garrison)rec.garrison=rec.garrison.filter(g=>g.id!==uid);
+  });
+  const u=allies.find(a=>a.id===uid);
+  if(u){u.garrisoned=null;u.inStandby=false;u.isDeployed=false;u.x=-300;u.y=-300;}
+}
+
+// 통솔 카드 보내기 버튼 — 대기로
+window.sendToStandby=function(uid){
+  if(isBattle){alog('❌ 전투 중 이동 불가');return;}
+  removeUnitFromAllGroups(uid);
+  const u=allies.find(a=>a.id===uid);
+  if(u){u.inStandby=true;alog(`⏳ ${u.name} → 대기`);}
+  markDirty();renderGarrisonBar();
+};
+
+// 통솔 카드 보내기 버튼 — 자동 사냥터로
+window.sendToGarrison=function(uid,zid){
+  if(isBattle){alog('❌ 전투 중 이동 불가');return;}
+  removeUnitFromAllGroups(uid);
+  addToGarrison(zid,uid);
+};
+
+// 대기 유닛 클릭 → 팝업으로 행선지 선택
+window.clickStandbyUnit=function(uid, evt){
+  const u=allies.find(a=>a.id===uid);if(!u)return;
+  document.querySelectorAll('.standby-popup').forEach(el=>el.remove());
+
+  const cleared=Object.entries(zoneRecords).filter(([,r])=>r.cleared);
+  const activeCount=allies.filter(a=>!a.dead&&!a.permanentlyDead&&!a.garrisoned&&!a.inStandby).length;
+  const canParty=activeCount<PARTY_LIMIT;
+
+  let html=`<div class="standby-popup" style="
+    position:fixed;z-index:250;background:#0f1923;border:1px solid #1e3a5f;
+    border-radius:8px;padding:10px;min-width:160px;box-shadow:0 4px 16px #000c;
+    font-size:12px;touch-action:manipulation;">
+    <div style="font-weight:bold;color:#f1c40f;margin-bottom:8px">${u.name} 이동</div>`;
+
+  if(canParty){
+    html+=`<div onclick="standbyToParty(${uid})" style="padding:8px;cursor:pointer;border-radius:4px;margin-bottom:4px;background:#1a3d1a;color:#2ecc71;touch-action:manipulation">🧑 통솔 파티로</div>`;
+  }else{
+    html+=`<div style="padding:6px;color:#555;font-size:10px;margin-bottom:4px">통솔 ${PARTY_LIMIT}명 꽉 참</div>`;
+  }
+  cleared.forEach(([zid])=>{
+    const z=ZONES[zid]||{name:zid,color:'#aaa'};
+    html+=`<div onclick="standbyToZone(${uid},'${zid}')" style="padding:8px;cursor:pointer;border-radius:4px;margin-bottom:4px;color:${z.color};background:#0a1520;touch-action:manipulation">${z.name}에 주둔</div>`;
+  });
+  html+=`<div onclick="document.querySelectorAll('.standby-popup').forEach(e=>e.remove())" style="padding:6px;cursor:pointer;color:#6b7280;margin-top:4px;text-align:center;touch-action:manipulation">✕ 취소</div>`;
+  html+=`</div>`;
+  document.body.insertAdjacentHTML('beforeend',html);
+
+  // 이벤트 좌표 기반 위치 계산
+  const pop=document.querySelector('.standby-popup');
+  const pw=180, ph=200;
+  let ex=0, ey=0;
+  if(evt){
+    if(evt.touches&&evt.touches[0]){ex=evt.touches[0].clientX;ey=evt.touches[0].clientY;}
+    else if(evt.changedTouches&&evt.changedTouches[0]){ex=evt.changedTouches[0].clientX;ey=evt.changedTouches[0].clientY;}
+    else{ex=evt.clientX||0;ey=evt.clientY||0;}
+  }
+  // 화면 밖으로 나가지 않도록
+  const left=Math.max(4,Math.min(window.innerWidth-pw-4, ex-pw/2));
+  const top=Math.max(4,Math.min(window.innerHeight-ph-4, ey+10));
+  pop.style.left=left+'px';
+  pop.style.top=top+'px';
+
+  setTimeout(()=>{
+    function closeOnOutside(e){
+      if(!e.target.closest('.standby-popup')){
+        document.querySelectorAll('.standby-popup').forEach(el=>el.remove());
+        document.removeEventListener('click',closeOnOutside);
+        document.removeEventListener('touchstart',closeOnOutside);
+      }
+    }
+    document.addEventListener('click',closeOnOutside);
+    document.addEventListener('touchstart',closeOnOutside);
+  },100);
+};
+
+window.standbyToParty=function(uid){
+  document.querySelectorAll('.standby-popup').forEach(e=>e.remove());
+  const u=allies.find(a=>a.id===uid);if(!u)return;
+  u.inStandby=false;
+  alog(`✅ ${u.name} → 통솔 파티 등록`);
+  isPlacing=true;document.getElementById('pg').style.display='block';updatePG();
+  markDirty();renderGarrisonBar();
+};
+
+window.standbyToZone=function(uid,zid){
+  document.querySelectorAll('.standby-popup').forEach(e=>e.remove());
+  removeUnitFromAllGroups(uid);
+  addToGarrison(zid,uid);
+};
+
+window.clickGarrisonUnit=function(zid,uid){
+  removeUnitFromAllGroups(uid);
+  const u=allies.find(a=>a.id===uid);if(!u)return;
+  const activeCount=allies.filter(a=>!a.dead&&!a.permanentlyDead&&!a.garrisoned&&!a.inStandby&&a.id!==uid).length;
+  if(activeCount<PARTY_LIMIT){
+    u.inStandby=false;
+    alog(`✅ ${u.name} 주둔 해제 → 통솔 등록`);
+    isPlacing=true;document.getElementById('pg').style.display='block';updatePG();
+  }else{
+    u.inStandby=true;
+    alog(`⏳ ${u.name} 주둔 해제 → 대기`);
+  }
+  markDirty();renderGarrisonBar();
+};
+
 window.addToGarrison=function(zid,uid){
   const rec=zoneRecords[zid];if(!rec||!rec.cleared)return;
   const u=allies.find(a=>a.id===uid);if(!u)return;
@@ -2517,7 +2634,21 @@ function loop(){
   }
   // 자원 동기화: gold/food → res (혹시 레거시 코드가 변경했을 경우 대비)
   res.gold=gold; res.food=food;
-  syncFromRes(); // res → gold/food
+  syncFromRes();
+  // 전투 타이머 (배치 대기 시간 제외 — isBattle 중일 때만 카운트)
+  var bt=document.getElementById('battle-timer');
+  if(bt){
+    if(isBattle&&!isPaused&&_battleStartTime){
+      bt.style.display='inline';
+      var elapsed=Math.floor((Date.now()-_battleStartTime)/1000);
+      // 누적 전투 시간 = 현재 elapsed + 이전 스테이지 시간
+      var total=elapsed+(window._prevBattleTime||0);
+      var mm=Math.floor(total/60),ss=total%60;
+      bt.innerText='⏱ '+mm+':'+(ss<10?'0':'')+ss;
+    }else if(!isBattle){
+      bt.style.display='none';
+    }
+  }
   if(_frameCount%20===0){
     document.getElementById('gd').innerText=gold;
     document.getElementById('fd').innerText=food;
