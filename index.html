@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html>
 <head>
 <meta charset="UTF-8">
@@ -13,93 +12,93 @@
 .logo { color:#f1c40f; font-weight:bold; font-size:0.95em; }
 .hint { margin-left:auto; font-size:9px; color:#374151; }
 
-- { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: ‘Malgun Gothic’, sans-serif; background: #080c10; color: #ccc; display: flex; flex-direction: column; align-items: center; padding: 6px; user-select: none; }
-  /* ── 상단 자원바 ── */
-  /* ── 컨트롤 바 ── */
-  #ctrl { width:100%; max-width:1380px; display:flex; gap:5px; align-items:center; margin-bottom:5px; flex-wrap:wrap; }
-  .badge { padding:4px 12px; border-radius:4px; font-weight:bold; font-size:0.75em; min-width:80px; text-align:center; }
-  .b-pl{background:#5b2d82} .b-ba{background:#7b1d1d} .b-pa{background:#7d5a00} .b-re{background:#1a3d5c}
-  .cb { padding:5px 10px; border:none; border-radius:4px; color:#fff; font-weight:bold; cursor:pointer; font-size:0.75em; transition:filter 0.12s; }
-  .cb:hover { filter:brightness(1.3); }
-  .cb-go{background:#7b1d1d} .cb-pa{background:#7d5a00} .cb-hi{background:#1a5c32} .cb-zo{background:#1a3d5c} .cb-fo{background:#5a3010}
-  /* ── 메인 레이아웃 ── */
-  #lay { width:100%; max-width:1380px; display:flex; gap:6px; align-items:flex-start; }
-  #center-col { flex:1; display:flex; flex-direction:column; gap:5px; min-width:0; }
-  .sp { width:270px; flex-shrink:0; background:#0f1923; border:1px solid #1e2d3d; border-radius:7px; padding:9px; max-height:700px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
-  .pt { font-size:0.82em; font-weight:bold; color:#f1c40f; margin-bottom:7px; border-bottom:1px solid #1e2d3d; padding-bottom:4px; }
-  /* ── 유닛 카드 ── */
-  .uc { background:#111d2b; border:1px solid #1e2d3d; border-radius:5px; padding:7px; margin-bottom:6px; font-size:11px; cursor:pointer; transition:border-color 0.15s; }
-  .uc:hover { border-color:#374151; } .uc.hold { border-color:#7b2f9e !important; background:#120b1e; }
-  .uch { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
-  .un { font-weight:bold; font-size:11px; } .ulv { font-size:9px; color:#f1c40f; }
-  .bw { width:100%; height:4px; background:#1e2d3d; border-radius:2px; margin:2px 0; overflow:hidden; }
-  .bf { height:100%; border-radius:2px; transition:width 0.3s; }
-  .hf{background:#27ae60} .ef{background:#2980b9}
-  .bl { font-size:9px; color:#374151; }
-  .sk-row { display:flex; gap:3px; flex-wrap:wrap; margin:3px 0; }
-  .skb { padding:2px 5px; border-radius:3px; border:1px solid #1e2d3d; background:#0f1923; color:#6b7280; font-size:9px; cursor:pointer; transition:all 0.1s; }
-  .skb:hover { border-color:#f1c40f; color:#f1c40f; } .skb.act { background:#f1c40f; color:#000; border-color:#f1c40f; font-weight:bold; }
-  .sl { font-size:9px; color:#374151; margin-bottom:2px; }
-  .ur { display:flex; gap:2px; margin-top:4px; flex-wrap:wrap; }
-  .ub { flex:1; min-width:calc(33% - 3px); padding:3px 1px; border-radius:3px; border:1px solid #1e2d3d; background:#0f1923; color:#6b7280; font-size:8px; cursor:pointer; text-align:center; transition:all 0.12s; }
-  .ub:hover { background:#f1c40f; color:#000; border-color:#f1c40f; }
-  .ub.dimmed { opacity:0.45; cursor:not-allowed; }
-  .ub.dimmed:hover { background:#0f1923; color:#6b7280; border-color:#1e2d3d; }
-  .ec { background:#120808; border:1px solid #3d1010; border-radius:4px; padding:5px; margin-bottom:5px; font-size:10px; }
-  .etb { font-size:8px; padding:1px 4px; border-radius:2px; color:#fff; margin-left:3px; }
-  .log { height:75px; overflow-y:auto; background:#080c10; border:1px solid #1e2d3d; border-radius:3px; padding:4px; font-size:9px; color:#4ade80; margin-top:5px; }
-  .log.el { color:#f87171; } .ll { padding:1px 0; }
-  /* ── 지도 ── */
-  #mw { flex:1; position:relative; border:1px solid #1e2d3d; border-radius:7px; overflow:hidden; background:#060a0d; }
-  canvas { display:block; touch-action:none; }
-  #pg { position:absolute; top:7px; left:50%; transform:translateX(-50%); background:rgba(91,45,130,0.93); color:#fff; padding:4px 13px; border-radius:14px; font-size:10px; font-weight:bold; z-index:10; pointer-events:none; display:none; white-space:nowrap; }
-  /* ── 모달 ── */
-  .overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.87); z-index:100; align-items:center; justify-content:center; }
-  .overlay.show { display:flex; }
-  .modal-box { background:#0f1923; border:1px solid #f1c40f44; border-radius:10px; padding:20px; max-width:540px; width:90%; }
-  .modal-title { color:#f1c40f; font-size:1.1em; font-weight:bold; margin-bottom:10px; text-align:center; }
-  .modal-sub { color:#9ca3af; font-size:0.82em; margin-bottom:14px; text-align:center; }
-  .class-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-  .class-btn { background:#111d2b; border:1px solid #1e2d3d; border-radius:7px; padding:12px; cursor:pointer; transition:all 0.15s; text-align:left; }
-  .class-btn:hover { border-color:#f1c40f; background:#1a2a3d; }
-  .class-btn .cn { font-weight:bold; font-size:0.9em; margin-bottom:4px; }
-  .class-btn .cd { font-size:0.75em; color:#9ca3af; line-height:1.4; }
-  .class-btn .cs { font-size:0.72em; color:#60a5fa; margin-top:5px; }
-  /* ── 전투지 모달 ── */
-  .zone-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .zone-btn { background:#111d2b; border:2px solid #1e2d3d; border-radius:9px; padding:14px; cursor:pointer; transition:all 0.15s; text-align:center; }
-  .zone-btn:hover { border-color:#f1c40f; transform:translateY(-2px); }
-  .zone-btn .zn { font-size:1em; font-weight:bold; margin-bottom:5px; }
-  .zone-btn .zd { font-size:0.75em; color:#9ca3af; line-height:1.4; margin-bottom:6px; }
-  .zone-cur { font-size:9px; color:#f1c40f; margin-top:5px; }
-  .zr-hunt{background:#1a3d20;color:#2ecc71} .zr-bandit{background:#3d1010;color:#e74c3c}
-  /* ── 거점 현황 ── */
-  #garrison-bar { background:#0a1520; border:1px solid #1e3a5f; border-radius:7px; overflow:hidden; }
-  #garrison-bar-header { display:flex; align-items:center; gap:10px; padding:6px 12px; cursor:pointer; background:#0f1923; }
-  #garrison-bar-header:hover { background:#111d2b; }
-  #garrison-bar-body { padding:8px; display:flex; gap:6px; flex-wrap:nowrap; overflow-x:auto; }
-  .gz { background:#111d2b; border:1px solid #1e2d3d; border-radius:6px; padding:7px; min-width:160px; flex-shrink:0; }
-  .gz-title { font-size:10px; font-weight:bold; margin-bottom:4px; }
-  .gz-units { display:flex; gap:3px; flex-wrap:wrap; margin-bottom:4px; min-height:22px; }
-  .gz-unit { padding:2px 6px; border-radius:3px; font-size:9px; border:1px solid #1e2d3d; background:#0f1923; cursor:grab; user-select:none; }
-  .gz-unit:hover { border-color:#f1c40f; }
-  .gz-unit.standby { border-color:#5b2d82; color:#a855f7; }
-  .gz-promote { border-color:#f1c40f !important; background:#1a1400 !important; color:#f1c40f !important; animation:pulse-gold 1.5s infinite; }
-  @keyframes pulse-gold { 0%,100%{box-shadow:0 0 4px #f1c40f44} 50%{box-shadow:0 0 8px #f1c40faa} }
-  .gz-unit.dead-10 { border-color:#e74c3c; color:#e74c3c; }
-  .gz-unit.dead-perm { border-color:#333; color:#555; opacity:0.6; }
-  .gz-income { font-size:9px; color:#2ecc71; margin-bottom:3px; }
-  .gz-add { font-size:9px; color:#f1c40f; cursor:pointer; padding:2px 5px; border:1px dashed #374151; border-radius:3px; margin-top:2px; }
-  .gz-add:hover { border-color:#f1c40f; }
-  /* ── 스크롤바 ── */
-  ::-webkit-scrollbar { width:3px; } ::-webkit-scrollbar-thumb { background:#1e2d3d; border-radius:2px; }
-  /* ── 터치 최적화 ── */
-  button, .cb, .skb, .ub, .class-btn, .zone-btn, .gz-unit, .gz-add { touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
-  /* ── 접기 버튼 ── */
-  .collapse-btn { font-size:10px; color:#f1c40f; cursor:pointer; padding:2px 8px; border:1px solid #1e2d3d; border-radius:3px; background:#0f1923; }
-  /* ── 모바일 ── */
-  @media (max-width:800px){
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #ccc; display: flex; flex-direction: column; align-items: center; padding: 6px; user-select: none; }
+/* ── 상단 자원바 ── */
+/* ── 컨트롤 바 ── */
+#ctrl { width:100%; max-width:1380px; display:flex; gap:5px; align-items:center; margin-bottom:5px; flex-wrap:wrap; }
+.badge { padding:4px 12px; border-radius:4px; font-weight:bold; font-size:0.75em; min-width:80px; text-align:center; }
+.b-pl{background:#5b2d82} .b-ba{background:#7b1d1d} .b-pa{background:#7d5a00} .b-re{background:#1a3d5c}
+.cb { padding:5px 10px; border:none; border-radius:4px; color:#fff; font-weight:bold; cursor:pointer; font-size:0.75em; transition:filter 0.12s; }
+.cb:hover { filter:brightness(1.3); }
+.cb-go{background:#7b1d1d} .cb-pa{background:#7d5a00} .cb-hi{background:#1a5c32} .cb-zo{background:#1a3d5c} .cb-fo{background:#5a3010}
+/* ── 메인 레이아웃 ── */
+#lay { width:100%; max-width:1380px; display:flex; gap:6px; align-items:flex-start; }
+#center-col { flex:1; display:flex; flex-direction:column; gap:5px; min-width:0; }
+.sp { width:270px; flex-shrink:0; background:#0f1923; border:1px solid #1e2d3d; border-radius:7px; padding:9px; max-height:700px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+.pt { font-size:0.82em; font-weight:bold; color:#f1c40f; margin-bottom:7px; border-bottom:1px solid #1e2d3d; padding-bottom:4px; }
+/* ── 유닛 카드 ── */
+.uc { background:#111d2b; border:1px solid #1e2d3d; border-radius:5px; padding:7px; margin-bottom:6px; font-size:11px; cursor:pointer; transition:border-color 0.15s; }
+.uc:hover { border-color:#374151; } .uc.hold { border-color:#7b2f9e !important; background:#120b1e; }
+.uch { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+.un { font-weight:bold; font-size:11px; } .ulv { font-size:9px; color:#f1c40f; }
+.bw { width:100%; height:4px; background:#1e2d3d; border-radius:2px; margin:2px 0; overflow:hidden; }
+.bf { height:100%; border-radius:2px; transition:width 0.3s; }
+.hf{background:#27ae60} .ef{background:#2980b9}
+.bl { font-size:9px; color:#374151; }
+.sk-row { display:flex; gap:3px; flex-wrap:wrap; margin:3px 0; }
+.skb { padding:2px 5px; border-radius:3px; border:1px solid #1e2d3d; background:#0f1923; color:#6b7280; font-size:9px; cursor:pointer; transition:all 0.1s; }
+.skb:hover { border-color:#f1c40f; color:#f1c40f; } .skb.act { background:#f1c40f; color:#000; border-color:#f1c40f; font-weight:bold; }
+.sl { font-size:9px; color:#374151; margin-bottom:2px; }
+.ur { display:flex; gap:2px; margin-top:4px; flex-wrap:wrap; }
+.ub { flex:1; min-width:calc(33% - 3px); padding:3px 1px; border-radius:3px; border:1px solid #1e2d3d; background:#0f1923; color:#6b7280; font-size:8px; cursor:pointer; text-align:center; transition:all 0.12s; }
+.ub:hover { background:#f1c40f; color:#000; border-color:#f1c40f; }
+.ub.dimmed { opacity:0.45; cursor:not-allowed; }
+.ub.dimmed:hover { background:#0f1923; color:#6b7280; border-color:#1e2d3d; }
+.ec { background:#120808; border:1px solid #3d1010; border-radius:4px; padding:5px; margin-bottom:5px; font-size:10px; }
+.etb { font-size:8px; padding:1px 4px; border-radius:2px; color:#fff; margin-left:3px; }
+.log { height:75px; overflow-y:auto; background:#080c10; border:1px solid #1e2d3d; border-radius:3px; padding:4px; font-size:9px; color:#4ade80; margin-top:5px; }
+.log.el { color:#f87171; } .ll { padding:1px 0; }
+/* ── 지도 ── */
+#mw { flex:1; position:relative; border:1px solid #1e2d3d; border-radius:7px; overflow:hidden; background:#060a0d; }
+canvas { display:block; touch-action:none; }
+#pg { position:absolute; top:7px; left:50%; transform:translateX(-50%); background:rgba(91,45,130,0.93); color:#fff; padding:4px 13px; border-radius:14px; font-size:10px; font-weight:bold; z-index:10; pointer-events:none; display:none; white-space:nowrap; }
+/* ── 모달 ── */
+.overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.87); z-index:100; align-items:center; justify-content:center; }
+.overlay.show { display:flex; }
+.modal-box { background:#0f1923; border:1px solid #f1c40f44; border-radius:10px; padding:20px; max-width:540px; width:90%; }
+.modal-title { color:#f1c40f; font-size:1.1em; font-weight:bold; margin-bottom:10px; text-align:center; }
+.modal-sub { color:#9ca3af; font-size:0.82em; margin-bottom:14px; text-align:center; }
+.class-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.class-btn { background:#111d2b; border:1px solid #1e2d3d; border-radius:7px; padding:12px; cursor:pointer; transition:all 0.15s; text-align:left; }
+.class-btn:hover { border-color:#f1c40f; background:#1a2a3d; }
+.class-btn .cn { font-weight:bold; font-size:0.9em; margin-bottom:4px; }
+.class-btn .cd { font-size:0.75em; color:#9ca3af; line-height:1.4; }
+.class-btn .cs { font-size:0.72em; color:#60a5fa; margin-top:5px; }
+/* ── 전투지 모달 ── */
+.zone-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.zone-btn { background:#111d2b; border:2px solid #1e2d3d; border-radius:9px; padding:14px; cursor:pointer; transition:all 0.15s; text-align:center; }
+.zone-btn:hover { border-color:#f1c40f; transform:translateY(-2px); }
+.zone-btn .zn { font-size:1em; font-weight:bold; margin-bottom:5px; }
+.zone-btn .zd { font-size:0.75em; color:#9ca3af; line-height:1.4; margin-bottom:6px; }
+.zone-cur { font-size:9px; color:#f1c40f; margin-top:5px; }
+.zr-hunt{background:#1a3d20;color:#2ecc71} .zr-bandit{background:#3d1010;color:#e74c3c}
+/* ── 거점 현황 ── */
+#garrison-bar { background:#0a1520; border:1px solid #1e3a5f; border-radius:7px; overflow:hidden; }
+#garrison-bar-header { display:flex; align-items:center; gap:10px; padding:6px 12px; cursor:pointer; background:#0f1923; }
+#garrison-bar-header:hover { background:#111d2b; }
+#garrison-bar-body { padding:8px; display:flex; gap:6px; flex-wrap:nowrap; overflow-x:auto; }
+.gz { background:#111d2b; border:1px solid #1e2d3d; border-radius:6px; padding:7px; min-width:160px; flex-shrink:0; }
+.gz-title { font-size:10px; font-weight:bold; margin-bottom:4px; }
+.gz-units { display:flex; gap:3px; flex-wrap:wrap; margin-bottom:4px; min-height:22px; }
+.gz-unit { padding:2px 6px; border-radius:3px; font-size:9px; border:1px solid #1e2d3d; background:#0f1923; cursor:grab; user-select:none; }
+.gz-unit:hover { border-color:#f1c40f; }
+.gz-unit.standby { border-color:#5b2d82; color:#a855f7; }
+.gz-promote { border-color:#f1c40f !important; background:#1a1400 !important; color:#f1c40f !important; animation:pulse-gold 1.5s infinite; }
+@keyframes pulse-gold { 0%,100%{box-shadow:0 0 4px #f1c40f44} 50%{box-shadow:0 0 8px #f1c40faa} }
+.gz-unit.dead-10 { border-color:#e74c3c; color:#e74c3c; }
+.gz-unit.dead-perm { border-color:#333; color:#555; opacity:0.6; }
+.gz-income { font-size:9px; color:#2ecc71; margin-bottom:3px; }
+.gz-add { font-size:9px; color:#f1c40f; cursor:pointer; padding:2px 5px; border:1px dashed #374151; border-radius:3px; margin-top:2px; }
+.gz-add:hover { border-color:#f1c40f; }
+/* ── 스크롤바 ── */
+::-webkit-scrollbar { width:3px; } ::-webkit-scrollbar-thumb { background:#1e2d3d; border-radius:2px; }
+/* ── 터치 최적화 ── */
+button, .cb, .skb, .ub, .class-btn, .zone-btn, .gz-unit, .gz-add { touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+/* ── 접기 버튼 ── */
+.collapse-btn { font-size:10px; color:#f1c40f; cursor:pointer; padding:2px 8px; border:1px solid #1e2d3d; border-radius:3px; background:#0f1923; }
+/* ── 모바일 ── */
+@media (max-width:800px){
   body { padding:3px; }
   #top { padding:4px 8px; gap:8px; }
   #ctrl { gap:3px; flex-wrap:wrap; }
@@ -112,15 +111,14 @@
   canvas { width:100% !important; height:auto !important; }
   .sp-collapsed { display:none; }
   .sp { max-height:none; }
-  }
-  @media (min-width:801px){
+}
+@media (min-width:801px){
   .sp-mob-toggle { display:none; }
   #lay { flex-direction:row; }
   #panel-ally { order:1; }
   #center-col { order:2; flex:1; }
   #panel-enemy { order:3; }
-  }
-
+}
 </style>
 </head>
 <body>
@@ -191,7 +189,6 @@
 </div>
 
 <!-- 상점 모달 -->
-
 <div id="shop-modal" class="overlay" style="z-index:200">
   <div class="modal-box" style="max-width:360px">
     <div class="modal-title" style="color:#f1c40f" id="shop-title">🛒 상인의 거래</div>
@@ -202,7 +199,6 @@
 </div>
 
 <!-- 스토리 인트로 모달 -->
-
 <div id="intro-modal" class="overlay" style="z-index:300">
   <div class="modal-box" style="max-width:500px">
     <div id="intro-title" style="font-size:1.2em;font-weight:bold;color:#f1c40f;text-align:center;margin-bottom:12px"></div>
@@ -215,10 +211,9 @@
 </div>
 
 <!-- 전직 모달 -->
-
 <div id="modal" class="overlay">
   <div class="modal-box" style="position:relative">
-    <button onclick="document.getElementById('modal').classList.remove('show');pendingClass=null;"
+    <button onclick="if(_classModalTimer){clearTimeout(_classModalTimer);_classModalTimer=null;}document.getElementById('modal').classList.remove('show');pendingClass=null;"
       style="position:absolute;top:8px;right:8px;background:transparent;border:1px solid #374151;color:#6b7280;border-radius:4px;padding:3px 8px;font-size:10px;cursor:pointer;touch-action:manipulation">나중에</button>
     <div class="modal-title" id="modal-title">전직 선택</div>
     <div class="modal-sub" id="modal-sub"></div>
@@ -227,7 +222,6 @@
 </div>
 
 <!-- 이름 부여 모달 (전직 후) -->
-
 <div id="rename-modal" class="overlay">
   <div class="modal-box" style="max-width:380px">
     <div class="modal-title">✨ 이름 부여</div>
@@ -244,7 +238,6 @@
 </div>
 
 <!-- 전투지 선택 모달 -->
-
 <div id="zone-modal" class="overlay">
   <div class="modal-box" style="max-width:520px">
     <div class="modal-title">🗺 전투 장소 선택</div>
@@ -255,7 +248,6 @@
 </div>
 
 <!-- 다음 챕터 선택 모달 -->
-
 <div id="next-chapter-modal" class="overlay">
   <div class="modal-box" style="max-width:560px">
     <div class="modal-title">🎉 무사 귀환! 다음 도전지 선택</div>
@@ -266,7 +258,6 @@
 </div>
 
 <!-- 주둔 모달 -->
-
 <div id="garrison-modal" class="overlay">
   <div class="modal-box" style="max-width:560px">
     <div class="modal-title" id="garrison-title">🏕 거점 배치</div>
@@ -1076,14 +1067,15 @@ function onUp(e){
         // 지도 유닛 단일 클릭 → 동료 패널 강조
         _selectedUnitId=dragUnit.id;
         markDirty();
-        // 동료 패널에서 해당 카드가 맨 위에 오도록 스크롤
         setTimeout(()=>{
           const panel=document.getElementById('panel-ally-body');
           const el=document.getElementById('uc-'+dragUnit.id);
           if(panel&&el){
-            const panelTop=panel.getBoundingClientRect().top;
-            const elTop=el.getBoundingClientRect().top;
-            panel.scrollTop+=elTop-panelTop-8;
+            // 카드가 완전히 보이도록: 카드 top이 패널 top과 일치하게
+            const panelRect=panel.getBoundingClientRect();
+            const elRect=el.getBoundingClientRect();
+            const scrollDelta=elRect.top-panelRect.top-4;
+            panel.scrollTop+=scrollDelta;
           }
         },80);
       }
@@ -1096,11 +1088,14 @@ function onUp(e){
 // ══════════════════════════════════════════════════════
 // 전직 모달
 // ══════════════════════════════════════════════════════
+let _classModalTimer=null;
+
 function showClassModal(unit){
   pendingClass=unit;
-  let title,options;
+  // 전투 중이면 일시정지
+  if(isBattle&&!isPaused)togglePause();
 
-  // 현재 능력치
+  let title,options;
   const role=unit.classKey||unit.baseRole||'Refugee';
   const rd=BASE_ROLES[role];
   const uAtk=(rd?.atk||22)+unit.bonusAtk;
@@ -1109,7 +1104,6 @@ function showClassModal(unit){
   const uHp=unit.maxHp;
   const uMag=unit.bonusMagic||0;
 
-  // 아군 평균
   const pool=allies.filter(a=>!a.permanentlyDead);
   const n=Math.max(pool.length,1);
   const avgAtk=pool.reduce((s,a)=>{const r=a.classKey||a.baseRole;return s+(BASE_ROLES[r]?.atk||22)+a.bonusAtk;},0)/n;
@@ -1145,12 +1139,9 @@ function showClassModal(unit){
     if(!options.length)options=[{key:'__skip__',name:'현재 클래스 유지',desc:'변경 없음',skills:'—'}];
   }else{return;}
 
-  // 현재 파티 구성 표시
   const partyComp=allies.filter(a=>!a.garrisoned&&!a.inStandby&&!a.permanentlyDead&&a.id!==unit.id)
-    .map(a=>{
-      const r=a.classKey||a.baseRole;
-      const rd=BASE_ROLES[r];
-      return `<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:9px;background:#0f1923;border:1px solid ${rd?.color||'#374151'};color:${rd?.color||'#9ca3af'}">${a.name.slice(0,3)} Lv${a.lv}</span>`;
+    .map(a=>{const r=a.classKey||a.baseRole;const rd2=BASE_ROLES[r];
+      return `<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:9px;background:#0f1923;border:1px solid ${rd2?.color||'#374151'};color:${rd2?.color||'#9ca3af'}">${a.name.slice(0,3)} Lv${a.lv}</span>`;
     }).join('');
   const partyHtml=partyComp?`<div style="margin-top:6px;font-size:9px;color:#6b7280">현재 파티: ${partyComp}</div>`:'';
 
@@ -1166,8 +1157,27 @@ function showClassModal(unit){
     </div>`;
   }).join('');
   document.getElementById('modal').classList.add('show');
+
+  // 15초 타임아웃 — 선택 없으면 '나중에'로 자동 닫기
+  if(_classModalTimer)clearTimeout(_classModalTimer);
+  let countdown=15;
+  const closeBtn=document.querySelector('#modal .modal-box button[onclick*="modal"]');
+  function tick(){
+    const btn=document.querySelector('#modal .modal-box button');
+    if(btn&&btn.textContent.includes('나중에'))btn.textContent=`나중에 (${countdown}s)`;
+    if(countdown<=0){
+      document.getElementById('modal').classList.remove('show');
+      pendingClass=null;
+      alog(`⏱ ${unit.name} 전직 창 자동 닫힘`);
+      return;
+    }
+    countdown--;
+    _classModalTimer=setTimeout(tick,1000);
+  }
+  _classModalTimer=setTimeout(tick,1000);
 }
 window.selectClass=function(key){
+  if(_classModalTimer){clearTimeout(_classModalTimer);_classModalTimer=null;}
   const u=pendingClass;if(!u)return;
   if(key==='__skip__'){document.getElementById('modal').classList.remove('show');pendingClass=null;return;}
   if(u.lv===5){
@@ -1735,27 +1745,116 @@ function battleTick(){
     },300);
 
   }else if(aa.every(a=>a.hp<=0||a.dead)){
-    alog('☠️ 모두 쓰러졌습니다... 하지만 경험은 남습니다.'); isBattle=false;
+    alog('☠️ 모두 쓰러졌습니다...'); isBattle=false;
     aa.forEach(a=>gainExp(a,5));
-    // 전멸 시에도 빈사 대원(5초 미경과) 회복
     allies.forEach(a=>{
       if(a.dead&&!a.permanentlyDead){
         a.hp=Math.floor(a.maxHp*0.1); a.dead=false; a.deathTime=null;
       }
     });
-    setTimeout(()=>{
-      if(confirm('쓰러졌습니다. 다시 도전하겠습니까?\n※ 다이아몬드는 보존됩니다.')){
-        // 다이아몬드만 보존, 나머지 초기화
-        const savedDiamond=res.diamond||0;
-        const savedHerb=res.herb||0;
-        res={food:50,stone:0,wood:0,iron:0,gold:100,diamond:savedDiamond,herb:savedHerb};
-        gold=res.gold; food=res.food;
-        if(savedDiamond>0)alog(`💠 다이아몬드 ${savedDiamond}개 보존됨`);
-        alog('🌅 다시 시작합니다. 식량 50, 금화 100 지급');
-        resetDeployment();buildMap();spawnEnemies();setTimeout(enterPlacement,300);
-      }
-    },200);
+    setTimeout(()=>showDefeatModal(),300);
   }
+}
+
+function showDefeatModal(){
+  const HIRE_COST=30; // 피난민 1명 고용 비용(식량)
+  const garrison=Object.values(zoneRecords).flatMap(r=>r.garrison||[]);
+  const garrisonAllies=garrison.map(g=>allies.find(a=>a.id===g.id)).filter(Boolean);
+  const activeCount=allies.filter(a=>!a.permanentlyDead&&!a.garrisoned).length;
+
+  // 게임 오버 조건: 통솔 가능 유닛 없음 + 거점 유닛도 없음 + 식량 부족
+  const canHireNew=res.food>=HIRE_COST;
+  const hasGarrisonUnits=garrisonAllies.length>0;
+
+  // 거점 피난민이 있으면 복귀시킬 수 있음
+  if(hasGarrisonUnits||canHireNew){
+    // 전멸 모달 표시
+    let bodyHtml=`<div style="font-size:11px;color:#9ca3af;margin-bottom:12px">
+      모두 쓰러졌습니다. 💀 경험치는 보존됩니다.
+    </div>`;
+    if(hasGarrisonUnits){
+      bodyHtml+=`<div style="font-size:10px;color:#2ecc71;margin-bottom:8px">
+        🏕 거점 대원 ${garrisonAllies.length}명이 복귀할 수 있습니다.
+      </div>`;
+    }
+    if(canHireNew){
+      bodyHtml+=`<div style="font-size:10px;color:#f1c40f;margin-bottom:8px">
+        🍖 새 피난민 고용: <b>식량 ${HIRE_COST}</b> (보유: ${Math.floor(res.food)})
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;justify-content:center">
+        <button onclick="defeatChangeHire(-1)" style="font-size:1.2em;width:32px;height:32px;border-radius:50%;border:1px solid #374151;background:#0f1923;color:#60a5fa;cursor:pointer;touch-action:manipulation">−</button>
+        <span id="defeat-hire-count" style="font-size:1.2em;color:#f1c40f;min-width:30px;text-align:center">0</span>
+        <button onclick="defeatChangeHire(1)" style="font-size:1.2em;width:32px;height:32px;border-radius:50%;border:1px solid #374151;background:#0f1923;color:#60a5fa;cursor:pointer;touch-action:manipulation">+</button>
+        <span style="font-size:10px;color:#9ca3af">명 고용</span>
+      </div>`;
+    }
+    bodyHtml+=`<div style="display:flex;gap:8px">
+      <button onclick="confirmDefeat()" style="flex:1;padding:10px;background:#1a5c32;border:none;border-radius:5px;color:#fff;font-weight:bold;cursor:pointer;touch-action:manipulation">✅ 재기</button>
+    </div>`;
+    document.getElementById('garrison-body').innerHTML=bodyHtml;
+    document.getElementById('garrison-title').innerText='💀 전멸 — 재기하겠습니까?';
+    document.getElementById('garrison-sub').innerText='';
+    document.getElementById('garrison-modal').classList.add('show');
+    window._defeatHireCount=0;
+  }else{
+    // 게임 오버
+    showGameOver();
+  }
+}
+
+window.defeatChangeHire=function(d){
+  const max=Math.floor(res.food/30);
+  window._defeatHireCount=Math.max(0,Math.min(max,(window._defeatHireCount||0)+d));
+  const el=document.getElementById('defeat-hire-count');
+  if(el)el.innerText=window._defeatHireCount;
+};
+
+window.confirmDefeat=function(){
+  document.getElementById('garrison-modal').classList.remove('show');
+  const cnt=window._defeatHireCount||0;
+  // 식량 차감 + 새 피난민 고용
+  if(cnt>0){
+    res.food-=cnt*30; food=res.food;
+    for(let i=0;i<cnt;i++){
+      const u=mkAlly('피난민'+(allies.length+1));
+      u.activeSkills=['Arrow'];
+      u.isDeployed=false; u.x=-300; u.y=-300;
+      allies.push(u);
+    }
+    alog(`👤 피난민 ${cnt}명 합류!`);
+  }
+  // 거점 대원 통솔로 복귀
+  Object.entries(zoneRecords).forEach(([zid,rec])=>{
+    if(!rec.garrison)return;
+    rec.garrison.forEach(g=>{
+      const u=allies.find(a=>a.id===g.id);
+      if(u){u.garrisoned=null;u.inStandby=true;}
+    });
+    rec.garrison=[];
+  });
+  // 자원 초기화 (다이아·약초 보존)
+  const savedDiamond=res.diamond||0, savedHerb=res.herb||0;
+  res={food:Math.max(res.food,0),stone:0,wood:0,iron:0,gold:100,diamond:savedDiamond,herb:savedHerb};
+  gold=res.gold; food=res.food;
+  alog('🌅 다시 일어섭니다! 금화 100 지급');
+  resetDeployment();buildMap();spawnEnemies();setTimeout(enterPlacement,300);
+  renderGarrisonBar();
+};
+
+function showGameOver(){
+  document.getElementById('garrison-body').innerHTML=`
+    <div style="text-align:center;padding:20px">
+      <div style="font-size:2em;margin-bottom:12px">💀</div>
+      <div style="font-size:1.1em;color:#e74c3c;font-weight:bold;margin-bottom:8px">게임 오버</div>
+      <div style="font-size:11px;color:#9ca3af;margin-bottom:16px">
+        더 이상 싸울 수 있는 대원도,<br>새로운 피난민을 고용할 식량도 없습니다.
+      </div>
+      <button onclick="location.reload()" style="padding:10px 24px;background:#7b1d1d;border:none;border-radius:5px;color:#fff;font-weight:bold;cursor:pointer;touch-action:manipulation">처음부터 다시</button>
+    </div>`;
+  document.getElementById('garrison-title').innerText='☠️ 왕국의 꿈이 사라졌습니다';
+  document.getElementById('garrison-sub').innerText='';
+  document.getElementById('garrison-modal').classList.add('show');
+  alog('☠️ 게임 오버. 모든 희망이 사라졌습니다...');
 }
 
 function applyDmg(a,tgt,cell,sk,mult=1){
@@ -3252,6 +3351,8 @@ window.onload=function(){
   window.closeGarrisonModal=closeGarrisonModal;
   window.closeNextChapterModal=closeNextChapterModal;
   window.garrisonChangeHire=garrisonChangeHire;
+  window.defeatChangeHire=defeatChangeHire;
+  window.confirmDefeat=confirmDefeat;
   window.showClassModal=showClassModal;
   window.selectClass=selectClass;
   window.upgradeUnit=upgradeUnit;
@@ -3287,6 +3388,5 @@ window.onload=function(){
   startMerchantSchedule();
 };
 </script>
-
 </body>
 </html>
