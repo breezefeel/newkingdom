@@ -10,6 +10,23 @@
 /* 상단 자원바 - v6 11 원본 */
 #top { width:100%; max-width:1380px; background:#0f1923; border:1px solid #1e3a5f; border-radius:7px; padding:7px 14px; display:flex; gap:14px; align-items:center; margin-bottom:5px; flex-wrap:wrap; position: sticky; top: 0; z-index: 100;}
 .logo { color:#f1c40f; font-weight:bold; font-size:0.95em; }
+
+.top-res-group {
+    margin-left: auto;      /* 핵심: 왼쪽 여백을 자동으로 채워 우측으로 밀어냄 */
+    display: flex;          /* 자원 아이콘들을 가로로 나열 */
+    gap: 12px;              /* 자원 사이의 간격 */
+    align-items: center;    /* 세로 중앙 정렬 */
+    justify-content: flex-end; /* 내부 아이템들도 우측 정렬 유지 */
+}
+
+/* 추가로 각 자원(rv)의 간격을 미세 조정하고 싶다면 */
+.rv {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    white-space: nowrap;    /* 자원 수치가 줄바꿈되지 않게 방지 */
+}
+
 .hint { margin-left:auto; font-size:9px; color:#374151; }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -34,15 +51,7 @@ body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #cc
 .cb:hover { filter:brightness(1.3); }
 .cb-go{background:#7b1d1d} .cb-pa{background:#7d5a00} .cb-hi{background:#1a5c32} .cb-zo{background:#1a3d5c} .cb-fo{background:#5a3010}
 /* ── 메인 레이아웃 ── */
-#lay { 
-    display: flex; 
-    flex-wrap: wrap; /* 공간 부족 시 자동으로 줄바꿈 */
-    gap: 15px; 
-    justify-content: center; 
-    width: 100%;
-    max-width: 100vw;
-    overflow-x: hidden; /* 가로 스크롤 방지 */
-}
+#lay { width:100%; max-width:1380px; display:flex; gap:6px; align-items:flex-start; }
 #center-col { flex:1; display:flex; flex-direction:column; gap:5px; min-width:0; }
 .sp { width:270px; flex-shrink:0; background:#0f1923; border:1px solid #1e2d3d; border-radius:7px; padding:9px; max-height:700px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
 .pt { font-size:0.82em; font-weight:bold; color:#f1c40f; margin-bottom:7px; border-bottom:1px solid #1e2d3d; padding-bottom:4px; }
@@ -159,47 +168,29 @@ button, .cb, .skb, .ub, .class-btn, .zone-btn, .gz-unit, .gz-add { touch-action:
     border-bottom: 1px solid #1e2d3d;
 }
 
-/* [수정] 아이패드 및 태블릿 대응 (1200px 이하일 때) */
-@media (max-width: 1200px) {
-    body { padding-top: 70px !important; }
+/* [수정] 기존 @media (max-width:800px)를 1100px로 변경 */
+@media (max-width: 1100px) {
+  body { padding-top: 70px !important; }
+  
+  #lay { 
+    flex-direction: column !important; /* 가로 배열 대신 세로 배열로 강제 */
+    align-items: center;
+  }
 
-    /* 지도를 감싸는 중앙 컬럼을 100%로 확장 */
-    #center-col { 
-        width: 100% !important; 
-        max-width: 100% !important;
-        flex: none !important;
-        order: 1 !important; 
-    }
+  #panel-ally { 
+    width: 100% !important; 
+    max-height: 500px !important; 
+    order: 2 !important; 
+  }
 
-    /* 지도 자체(Canvas)가 화면 폭에 맞춰 줄어들게 함 */
-    #mw { 
-        width: 100% !important; 
-        max-width: 100% !important;
-        margin: 0 auto;
-    }
-    canvas { 
-        width: 100% !important; 
-        height: auto !important; /* 가로 세로 비율 유지하며 축소 */
-    }
+  #center-col { 
+    width: 100% !important; 
+    order: 1 !important; 
+  }
 
-    /* 파티창을 지도 아래로 확실하게 보냄 */
-    #panel-ally { 
-        width: 100% !important; 
-        max-width: 100% !important;
-        flex: none !important;
-        order: 2 !important; 
-        margin-top: 10px;
-        max-height: 500px; 
-    }
-
-    /* 동료 리스트를 2열로 배치하여 공간 효율 극대화 */
-    #al { 
-        display: grid; 
-        grid-template-columns: 1fr 1fr; 
-        gap: 8px; 
-    }
-
-    #panel-enemy { width: 100%; order: 3 !important; }
+  /* 지도 크기가 화면을 넘지 않도록 조정 */
+  #mw { width: 100% !important; max-width: CW + 'px'; }
+  canvas { width: 100% !important; height: auto !important; }
 }
 
 /* ── 데스크탑 (801px 이상) ── */
@@ -216,9 +207,8 @@ button, .cb, .skb, .ub, .class-btn, .zone-btn, .gz-unit, .gz-add { touch-action:
 
 <div id="top">
   <div class="top-info-group">
-    <span class="logo">⚔️ 왕국 연대기</span>
+    <span class="logo">⚔️ 왕국 연대기 :</span>
     <span id="area-label" style="color:#a855f7;font-weight:bold">근처 들판</span>
-    <span id="day-label" style="color:#f1c40f;font-weight:bold">사냥 1일차</span>
   </div>
   
   <div class="top-res-group">
@@ -234,10 +224,10 @@ button, .cb, .skb, .ub, .class-btn, .zone-btn, .gz-unit, .gz-add { touch-action:
 </div>
 
 <div id="ctrl">
-  <div class="badge b-pl" id="sb">출발 준비</div>
   <button class="cb cb-go" id="btn-go" onclick="toggleBattle()">▶ 출발!</button>
-  <button class="cb cb-pa" id="btn-pa" onclick="togglePause()" style="display:none">⏸ 휴식</button>
+  <button class="cb cb-pa" id="btn-pa" onclick="togglePause()" style="display:none">❚❚ 휴식</button>
   <button class="cb" id="btn-auto" onclick="toggleAutoStart()" style="background:#1a4030">🔄 자동 진행: OFF</button>
+  <div class="badge b-pl" id="sb">출발 준비</div>
   
   <span id="battle-timer" style="font-size:0.75em;color:#f1c40f;font-weight:bold;padding:4px 8px;display:none;vertical-align:top">⏱ 0:00</span>
 
@@ -448,7 +438,7 @@ const CLASS10={
 };
 const BASE_ROLES = {
   Tank:    {name:'방패잡이', mark:'◈', color:'#8d6e63', range:58,  atk:20,  spd:1.1, def:0.40, atkSpd:0.50, castDelay:0}, 
-  Melee:   {name:'싸움꾼',   mark:'▼', color:'#a855f7', range:65,  atk:52,  spd:1.7, def:0.12, atkSpd:1.2,  castDelay:0}, 
+  Melee:   {name:'싸움꾼',   mark:'▼', color:'#9b22db', range:65,  atk:52,  spd:1.7, def:0.12, atkSpd:1.2,  castDelay:0}, 
   Warrior: {name:'도적',     mark:'▲', color:'#fdd835', range:75,  atk:72,  spd:1.9, def:0.04, atkSpd:1.4,  castDelay:0}, 
   Ranged:  {name:'활잡이',   mark:'▶', color:'#66bb6a', range:230, atk:35,  spd:1.5, def:0.0,  atkSpd:0.75, castDelay:0}, 
   Heal:    {name:'치료사',   mark:'✚', color:'#f0f4f8', range:210, atk:18,  spd:1.3, def:0.0,  atkSpd:0.6,  castDelay:0}, 
@@ -1132,26 +1122,39 @@ function enterPlacement() {
   markDirty();
 }
 function updatePG() {
-  const ud = getSortedUd();
+  // 현재 배치해야 할 유닛 리스트를 가져옵니다.
+  const ud = getSortedUd(); 
   const pg = document.getElementById('pg');
   if (!pg) return;
 
   if (ud.length === 0) {
-    // 모든 대원이 배치되었을 때 -> 초록색으로 변경하고 출발 대기
-    pg.style.display = 'block'; 
-    pg.style.background = '#2ecc71'; 
-    pg.style.color = '#fff';
-    pg.style.pointerEvents = 'auto';
-    pg.innerHTML = `✅ 대원 배치 완료!<br><span style="font-size:10px">출발 버튼이나 스페이스바를 누르세요.</span>`;
-    pg.onclick = () => { if (!isBattle && isPlacing) toggleBattle(); };
+    // 1. 모든 대원이 배치되었을 때
+    if (autoStart) {
+      // 자동 진행 ON이라면 메시지를 숨김
+      pg.style.display = 'none'; 
+    } else {
+      // 자동 진행 OFF라면 초록색 배경 + 하얀색 글씨 표시
+      pg.style.display = 'block'; 
+      pg.style.background = '#2ecc71'; 
+      pg.style.color = '#fff';
+      pg.style.pointerEvents = 'auto';
+      pg.innerHTML = `✅ 대원 배치 완료!<br><span style="font-size:10px; color:#fff;">출발 버튼이나 스페이스바를 누르세요.</span>`;
+      pg.onclick = () => { if (!isBattle && isPlacing) toggleBattle(); };
+    }
   } else {
-    // 배치 중일 때 -> 노란색으로 대상 안내
+    // 2. 배치 중일 때 -> 노란색 배경 + 검은색 글씨
     const clsColor = BASE_ROLES[ud[0].classKey || ud[0].baseRole]?.color || '#a855f7';
     pg.style.display = 'block';
     pg.style.background = '#f1c40f';
-    pg.style.color = '#111';
+    pg.style.color = '#111'; // 검은색 글씨 유지
     pg.style.pointerEvents = 'none';
-    pg.innerHTML = `<span style="color:${clsColor}">📍 ${ud[0].name}</span> 배치 중<br><span style="font-size:10px">보라색 영역을 터치하세요.</span>`;
+    
+    // [수정] "보라색 영역" 텍스트를 보라색(#a855f7)으로 변경
+    pg.innerHTML = `
+      <span style="color:${clsColor}">📍 ${ud[0].name}</span> 배치 중<br>
+      <span style="font-size:10px">
+        <span style="color:#a855f7; font-weight:bold;">보라색 영역</span>을 터치하세요.
+      </span>`;
   }
 }
 
@@ -1189,13 +1192,24 @@ function onDown(e){
       savedPositions[u.id]={x:u.x,y:u.y};
       if(!initialPositions[u.id])initialPositions[u.id]={x:u.x,y:u.y};
       alog(`✅ ${u.name} 배치`);addFloat(u.x,u.y,u.name,'#a855f7');updatePG();
-      // [수정] 대원 배치가 끝났을 때 자동으로 숨기지 않고 상태만 업데이트합니다.
+      
+      // [수정] 대원 배치가 끝났을 때 로직
       const remaining = allies.filter(a => !a.dead && !a.inStandby && !a.garrisoned && !a.isDeployed);
 
       if (remaining.length === 0) {
-          // 0.6초 뒤에 사라지게 하던 setTimeout을 제거했습니다.
-          updatePG(); // 안내창을 초록색(배치 완료) 상태로 갱신하여 유지합니다.
+          updatePG(); // 안내창 상태 갱신 (자동시작 ON이면 여기서 알아서 숨겨집니다)
           setBadge('배치 완료', 'b-re'); 
+
+          // [핵심 추가] 자동 진행 모드라면 0.6초 후 즉시 출정!
+          if (autoStart && !isBattle) {
+            setTimeout(() => {
+              // 실행 시점에 다시 한번 상태를 체크 (혹시 모를 중복 실행 방지)
+              const finalCheck = allies.filter(a => !a.dead && !a.inStandby && !a.garrisoned && !a.isDeployed);
+              if (autoStart && !isBattle && finalCheck.length === 0) {
+                toggleBattle();
+              }
+            }, 600); // 0.6초의 여유는 지휘관님이 "아, 배치가 끝났구나"라고 인지할 시간입니다.
+          }
       }
 
       markDirty();
@@ -1702,7 +1716,7 @@ function toggleBattle(){
     // [삭제] paBtn.style.display = 'inline-block'; 부분을 지웠습니다.
 
     const isHunt = currentZone.tier === 'hunt' || currentZone.tier === 'pred';
-    setBadge(isHunt ? '사냥 중' : '전투 중', 'b-ba');
+    setBadge(`사냥 ${stage}일차`, 'b-ba');
     alog(`${isHunt ? '🌿 사냥' : '⚔️ 전투'} 시작!`);
   }
 
@@ -1718,7 +1732,7 @@ function togglePause() {
   }
   
   const isHunt = currentZone.tier === 'hunt' || currentZone.tier === 'pred';
-  setBadge(isPaused ? '잠시 멈춤' : (isHunt ? '사냥 중' : '전투 중'), isPaused ? 'b-pa' : 'b-ba');
+  setBadge(isPaused ? '잠시 멈춤' : `사냥 ${stage}일차`, isPaused ? 'b-pa' : 'b-ba');
 }
 function toggleAutoStart(){
   autoStart=!autoStart;
