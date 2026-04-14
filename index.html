@@ -8,7 +8,7 @@
 .rv { font-size:0.82em; } .rv span { color:#f1c40f; font-weight:bold; }
 .rv span.g { color:#2ecc71; } .rv span.r { color:#e74c3c; } .rv span.fo { color:#e67e22; }
 /* 상단 자원바 - v6 11 원본 */
-#top { width:100%; max-width:1380px; background:#0f1923; border:1px solid #1e3a5f; border-radius:7px; padding:7px 14px; display:flex; gap:14px; align-items:center; margin-bottom:5px; flex-wrap:wrap; }
+#top { width:100%; max-width:1380px; background:#0f1923; border:1px solid #1e3a5f; border-radius:7px; padding:7px 14px; display:flex; gap:14px; align-items:center; margin-bottom:5px; flex-wrap:wrap; position: sticky; top: 0; z-index: 100;}
 .logo { color:#f1c40f; font-weight:bold; font-size:0.95em; }
 .hint { margin-left:auto; font-size:9px; color:#374151; }
 
@@ -38,7 +38,7 @@ body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #cc
 .bl { font-size:9px; color:#374151; }
 .sk-row { display:flex; gap:3px; flex-wrap:wrap; margin:3px 0; }
 .skb { padding:2px 5px; border-radius:3px; border:1px solid #1e2d3d; background:#0f1923; color:#6b7280; font-size:9px; cursor:pointer; transition:all 0.1s; }
-.skb:hover { border-color:#f1c40f; color:#f1c40f; } .skb.act { background:#f1c40f; color:#000; border-color:#f1c40f; font-weight:bold; }
+.skb:hover { border-color:#f1c40f; color:#f1c40f; } .skb.act { background:#f1c40f; color:#000; border-color:#f1c40f; font-weight:bold; } .skb.act span { color: #000 !important; }
 .sl { font-size:9px; color:#374151; margin-bottom:2px; }
 .ur { display:flex; gap:2px; margin-top:4px; flex-wrap:wrap; }
 .ub { flex:1; min-width:calc(33% - 3px); padding:3px 1px; border-radius:3px; border:1px solid #1e2d3d; background:#0f1923; color:#6b7280; font-size:8px; cursor:pointer; text-align:center; transition:all 0.12s; }
@@ -52,7 +52,16 @@ body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #cc
 /* ── 지도 ── */
 #mw { flex:1; position:relative; border:1px solid #1e2d3d; border-radius:7px; overflow:hidden; background:#060a0d; }
 canvas { display:block; touch-action:none; }
-#pg { position:absolute; top:7px; left:50%; transform:translateX(-50%); background:rgba(91,45,130,0.93); color:#fff; padding:4px 13px; border-radius:14px; font-size:10px; font-weight:bold; z-index:10; pointer-events:none; display:none; white-space:nowrap; }
+#pg {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  background:#f1c40f; color:#111;
+  padding:10px 18px; border-radius:10px;
+  font-size:11px; font-weight:bold;
+  z-index:10; display:none;
+  text-align:center; line-height:1.6;
+  max-width:85%; pointer-events:none;
+  box-shadow:0 2px 12px rgba(0,0,0,0.5);
+}
 /* ── 모달 ── */
 .overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.87); z-index:100; align-items:center; justify-content:center; }
 .overlay.show { display:flex; }
@@ -84,8 +93,20 @@ canvas { display:block; touch-action:none; }
 .gz-unit { padding:2px 6px; border-radius:3px; font-size:9px; border:1px solid #1e2d3d; background:#0f1923; cursor:grab; user-select:none; }
 .gz-unit:hover { border-color:#f1c40f; }
 .gz-unit.standby { border-color:#5b2d82; color:#a855f7; }
-.gz-promote { border-color:#f1c40f !important; background:#1a1400 !important; color:#f1c40f !important; animation:pulse-gold 1.5s infinite; }
-@keyframes pulse-gold { 0%,100%{box-shadow:0 0 4px #f1c40f44} 50%{box-shadow:0 0 8px #f1c40faa} }
+.gz-promote {
+  animation: gz-pulse 1.5s infinite;
+  background: rgba(241, 196, 15, 0.1) !important;
+}
+
+@keyframes gz-pulse {
+  0% { box-shadow: 0 0 2px #f1c40f; border-color: #f1c40f; }
+  50% { box-shadow: 0 0 8px #f1c40f; border-color: #fff; }
+  100% { box-shadow: 0 0 2px #f1c40f; border-color: #f1c40f; }
+}
+.gz-unit[draggable="true"]:active {
+  opacity: 0.5;
+  cursor: grabbing;
+}
 .gz-unit.dead-10 { border-color:#e74c3c; color:#e74c3c; }
 .gz-unit.dead-perm { border-color:#333; color:#555; opacity:0.6; }
 .gz-income { font-size:9px; color:#2ecc71; margin-bottom:3px; }
@@ -101,22 +122,59 @@ button, .cb, .skb, .ub, .class-btn, .zone-btn, .gz-unit, .gz-add { touch-action:
 .compact-mode .sk-row,.compact-mode .ur,.compact-mode .sl { display:none !important; }
 .compact-mode .uc { padding:4px 7px !important; margin-bottom:3px !important; }
 .compact-mode .bw { margin:1px 0 !important; }
-#panel-ally-body { overflow-y:auto; }
-/* ── 모바일 ── */
+/* --- 유닛 리스트 내부 레이아웃 --- */
+#panel-ally-body { 
+    overflow-y: auto; 
+    position: relative; /* 스크롤 기준점 */
+}
+
+/* [수정] 1번 요청: '함께하는 동료' 헤더가 유닛 카드 위로 올라오도록 설정 */
+#panel-ally .pt {
+    position: sticky;
+    top: 0;
+    z-index: 30; /* 유닛 카드(기본 z-index)보다 높게 */
+    background: #0f1923; /* 뒤쪽 유닛이 보이지 않게 불투명 배경 설정 */
+    margin: -9px -9px 7px -9px; /* 부모 패딩 상쇄 */
+    padding: 10px 9px;
+    border-bottom: 1px solid #1e2d3d;
+}
+
+/* ── 모바일 (화면 너비 800px 이하) ── */
 @media (max-width:800px){
-  body { padding:3px; }
-  #top { padding:4px 8px; gap:8px; }
+  body { padding:3px; padding-top: 60px; /* [3번 요청] 자원바 고정으로 인한 겹침 방지 여백 */ }
+  
+  /* [수정] 3번 요청: 상단 자원바 고정 */
+  #top { 
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    z-index: 1000; 
+    border-radius: 0; 
+    margin-bottom: 0;
+  }
+
   #ctrl { gap:3px; flex-wrap:wrap; }
   .cb { padding:5px 7px; font-size:0.72em; }
   #lay { flex-direction:column; gap:4px; }
   #center-col { width:100%; order:1 !important; }
-  #panel-ally { width:100%; order:2 !important; max-height:220px; }
+
+  /* [수정] 2번 요청: 동료창 내 유닛을 2열(Grid)로 배치 */
+  #al { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 5px; 
+  }
+
+  #panel-ally { width:100%; order:2 !important; max-height:400px; /* 2열이므로 높이를 조금 더 확보 */ }
   #panel-enemy { width:100%; order:3 !important; max-height:180px; }
   #mw { width:100% !important; }
   canvas { width:100% !important; height:auto !important; }
   .sp-collapsed { display:none; }
   .sp { max-height:none; }
 }
+
+/* ── 데스크탑 (801px 이상) ── */
 @media (min-width:801px){
   .sp-mob-toggle { display:none; }
   #lay { flex-direction:row; }
@@ -131,13 +189,10 @@ button, .cb, .skb, .ub, .class-btn, .zone-btn, .gz-unit, .gz-add { touch-action:
 <div id="top">
   <span class="logo">⚔️ 왕국 연대기</span>
   <span class="rv">🍖<span class="fo" id="fd">50</span></span>
-  <span class="rv" style="color:#90a4ae">돌<span id="r-stone">0</span></span>
-  <span class="rv" style="color:#8d6e63">나무<span id="r-wood">0</span></span>
-  <span class="rv" style="color:#78909c">철<span id="r-iron">0</span></span>
-  <span class="rv" style="color:#66bb6a">🌿<span id="r-herb">0</span></span>
+  <span class="rv" style="color:#90a4ae">🔘<span id="r-stone">0</span></span> <span class="rv" style="color:#8d6e63">🌲<span id="r-wood">0</span></span> 
+  <span class="rv" style="color:#78909c">⚒️<span id="r-iron">0</span></span>  <span class="rv" style="color:#66bb6a">🌿<span id="r-herb">0</span></span>
   <span class="rv">💰<span id="gd">100</span></span>
-  <span class="rv" style="color:#b3e5fc">💠<span id="r-diamond">0</span></span>
-  <span class="rv" id="day-label" style="color:#f1c40f;font-weight:bold">사냥 1일차</span>
+  <span class="rv" style="color:#b3e5fc">💎<span id="r-diamond">0</span></span> <span class="rv" id="day-label" style="color:#f1c40f;font-weight:bold">사냥 1일차</span>
   <span class="rv">적 <span class="r" id="ed">0</span>명</span>
   <span class="rv" id="area-label" style="color:#a855f7;font-weight:bold"></span>
 </div>
@@ -146,10 +201,10 @@ button, .cb, .skb, .ub, .class-btn, .zone-btn, .gz-unit, .gz-add { touch-action:
   <div class="badge b-pl" id="sb">출발 준비</div>
   <button class="cb cb-go" id="btn-go" onclick="toggleBattle()">▶ 출발!</button>
   <button class="cb cb-pa" id="btn-pa" onclick="togglePause()" style="display:none">⏸ 휴식</button>
-  <button class="cb cb-zo" onclick="showZoneModal()">🗺 사냥터 선택</button>
+  <button class="cb" id="btn-auto" onclick="toggleAutoStart()" style="background:#1a4030">🔄 자동 진행: OFF</button>
   <button class="cb cb-fo" onclick="showRefugeeModal()">🍖 피난민 합류</button>
   <button class="cb cb-hi" onclick="hireGold()">💰 용병 고용 (100G)</button>
-  <button class="cb" id="btn-auto" onclick="toggleAutoStart()" style="background:#1a4030">🔄 자동 진행: OFF</button>
+  <button class="cb cb-zo" onclick="showZoneModal()">🗺 사냥터 선택</button>
   <span id="battle-timer" style="font-size:0.75em;color:#f1c40f;font-weight:bold;padding:4px 8px;display:none;vertical-align:top">⏱ 0:00</span>
 </div>
 
@@ -202,7 +257,7 @@ button, .cb, .skb, .ub, .class-btn, .zone-btn, .gz-unit, .gz-add { touch-action:
     <div class="modal-title" style="color:#f1c40f" id="shop-title">🛒 상인의 거래</div>
     <div id="shop-sub" style="font-size:10px;color:#9ca3af;margin-bottom:12px;text-align:center"></div>
     <div id="shop-items" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
-    <button class="cb" style="width:100%;background:#374151" onclick="document.getElementById('shop-modal').classList.remove('show')">떠나보내기</button>
+    <button class="cb" style="width:100%;background:#374151" onclick="document.getElementById('shop-modal').classList.remove('show')">나가기</button>
   </div>
 </div>
 
@@ -327,7 +382,7 @@ const BASE_SKILLS={
 };
 const CLASS5_SKILLS={
   Fortress: {name:'요새화',   desc:'이동불가, 방어+60%, 인근 방어+25%',  type:'passive_def'},
-  Taunt:    {name:'도발',     desc:'적의 공격을 자신에게 집중',            type:'active_taunt',  range:120},
+  Taunt:    {name:'도발',     desc:'적의 공격을 자신에게 집중',            type:'active_taunt',  range:60},
   Ambush:   {name:'매복',     desc:'숲에서 공격력 2배, 이동속도+20%',    type:'passive_forest'},
   Cleave:   {name:'회전베기', desc:'주변 적 모두 공격',                    type:'active_aoe',    range:75},
   Volley:   {name:'연사',     desc:'3회 연속 공격',                         type:'active_multi',  range:220},
@@ -352,14 +407,14 @@ const CLASS10={
   Berserker2:{name:'광전사',   base:'Warrior', skills:['Slash','Whirlwind','Rush','Cleave'],     desc:'광포한 근접 전투.'},
   Duelist:   {name:'결투사',   base:'Warrior', skills:['Slash','Rush','Ambush','Strike'],        desc:'단일 강타 전문.'},
 };
-const BASE_ROLES={
-  Tank:    {name:'탱커',   mark:'T',  color:'#4fc3f7', range:58,  atk:20,  spd:1.1, def:0.40, atkSpd:0.50, castDelay:0}, // 파란 계열, 방어 전담
-  Melee:   {name:'전사',   mark:'M',  color:'#a0785a', range:65,  atk:52,  spd:1.7, def:0.12, atkSpd:1.2,  castDelay:0}, // 갈색 계열, 밸런스
-  Warrior: {name:'전투가', mark:'W',  color:'#fdd835', range:75,  atk:72,  spd:1.9, def:0.04, atkSpd:1.4,  castDelay:0}, // 노란 계열, 공격 특화
-  Ranged:  {name:'궁수',   mark:'R',  color:'#66bb6a', range:230, atk:35,  spd:1.5, def:0.0,  atkSpd:0.75, castDelay:0}, // 초록 계열
-  Heal:    {name:'힐러',   mark:'H',  color:'#f0f4f8', range:210, atk:18,  spd:1.3, def:0.0,  atkSpd:0.6,  castDelay:0}, // 흰색 계열
-  Mage:    {name:'마법사', mark:'Ma', color:'#ce93d8', range:190, atk:90,  spd:1.2, def:0.0,  atkSpd:0.4,  castDelay:80},// 보라 계열
-  Refugee: {name:'피난민', mark:'P',  color:'#90a4ae', range:100, atk:22,  spd:1.5, def:0.05, atkSpd:0.8,  castDelay:0}, // 회색
+const BASE_ROLES = {
+  Tank:    {name:'탱커',   mark:'T',  color:'#8d6e63', range:58,  atk:20,  spd:1.1, def:0.40, atkSpd:0.50, castDelay:0}, // 갈색
+  Melee:   {name:'전사',   mark:'M',  color:'#a855f7', range:65,  atk:52,  spd:1.7, def:0.12, atkSpd:1.2,  castDelay:0}, // 보라색
+  Warrior: {name:'전투가', mark:'W',  color:'#fdd835', range:75,  atk:72,  spd:1.9, def:0.04, atkSpd:1.4,  castDelay:0}, 
+  Ranged:  {name:'궁수',   mark:'R',  color:'#66bb6a', range:230, atk:35,  spd:1.5, def:0.0,  atkSpd:0.75, castDelay:0}, 
+  Heal:    {name:'힐러',   mark:'H',  color:'#f0f4f8', range:210, atk:18,  spd:1.3, def:0.0,  atkSpd:0.6,  castDelay:0}, 
+  Mage:    {name:'마법사', mark:'Ma', color:'#4fc3f7', range:190, atk:90,  spd:1.2, def:0.0,  atkSpd:0.4,  castDelay:80},// 하늘색
+  Refugee: {name:'피난민', mark:'P',  color:'#90a4ae', range:100, atk:22,  spd:1.5, def:0.05, atkSpd:0.8,  castDelay:0}, 
 };
 
 // ── 전투 장소 ──
@@ -407,16 +462,16 @@ const ZONES={
            desc:'차원의 틈. 극한의 도전과 최고의 보상.', finalStage:15, minLv:28, unlockPhase:3},
 };
 
-// 강화 항목
+// 강화 항목 (순서: 체력 - 방어 - 공격 - 이속 - 마법)
 const UPGRADES={
-  atk:  {label:'공격',  cost:lv=>20+lv*8,  apply:u=>{u.bonusAtk+=8;},
-         cur:u=>`${(BASE_ROLES[u.classKey||u.baseRole]?.atk||30)+u.bonusAtk}`,  gain:'+8',  unit:''},
+  hp: {label:'체력',  cost:lv=>20+lv*8,  apply:u=>{u.bonusHp=(u.bonusHp||0)+100; u.maxHp+=30; u.hp=Math.min(u.hp+30,u.maxHp);},
+         cur:u=>`${u.maxHp}`,                                                   gain:'+30', unit:''},
   def:  {label:'방어',  cost:lv=>22+lv*9,  apply:u=>{u.bonusDef=Math.min(u.bonusDef+0.05,0.6);},
          cur:u=>`${Math.floor(u.bonusDef*100)}`,                                gain:'+5',  unit:'%'},
+  atk:  {label:'공격',  cost:lv=>20+lv*8,  apply:u=>{u.bonusAtk+=8;},
+         cur:u=>`${(BASE_ROLES[u.classKey||u.baseRole]?.atk||30)+u.bonusAtk}`,  gain:'+8',  unit:''},
   spd:  {label:'속도',  cost:lv=>18+lv*7,  apply:u=>{u.bonusSpd+=0.1;},
          cur:u=>`${u.spd.toFixed(1)}`,                                          gain:'+0.1',unit:''},
-  mana: {label:'체력',  cost:lv=>20+lv*8,  apply:u=>{u.bonusMana+=50;u.maxHp+=30;u.hp=Math.min(u.hp+30,u.maxHp);},
-         cur:u=>`${u.maxHp}`,                                                   gain:'+30', unit:''},
   magic:{label:'마법',  cost:lv=>28+lv*11, apply:u=>{u.bonusMagic+=10;},
          cur:u=>`${u.bonusMagic||0}`,                                           gain:'+10', unit:''},
 };
@@ -525,16 +580,44 @@ function showZoneModal(){
   document.getElementById('zone-modal').classList.add('show');
 }
 function closeZoneModal(){document.getElementById('zone-modal').classList.remove('show');}
-window.selectZone=function(id){
-  currentZone=ZONES[id];
-  zoneStage=1; stage=1; window._prevBattleTime=0;
-  savedPositions={}; initialPositions={}; // 배치 위치 초기화
-  buildMap(); spawnEnemies();
-  document.getElementById('area-label').innerText=currentZone.name;
-  document.getElementById('area-label').style.color=currentZone.color;
+window.selectZone = function(id) {
+  currentZone = ZONES[id];
+  zoneStage = 1; 
+  stage = 1; 
+  window._prevBattleTime = 0;
+  
+  // 1. 저장된 배치 데이터 및 순차 배치 인덱스 초기화
+  savedPositions = {}; 
+  initialPositions = {};
+  deploymentIndex = 0; // 첫 번째 캐릭터부터 다시 배치하도록 설정
+
+  // 2. 모든 아군 유닛을 맵 밖으로 이동 및 배치 해제
+  allies.forEach(a => {
+    a.isDeployed = false;
+    a.x = -300;
+    a.y = -300;
+    a.wx = null; // 이동 경로 초기화
+    a.wy = null;
+  });
+
+  // 3. 맵 재구축 및 적군 생성
+  buildMap(); 
+  spawnEnemies();
+  
+  // 4. UI 갱신
+  document.getElementById('area-label').innerText = currentZone.name;
+  document.getElementById('area-label').style.color = currentZone.color;
   closeZoneModal();
-  alog(`🗺 전투지: ${currentZone.name} — Stage 1 부터 시작!`);
+  
+  // 5. 배치 단계(isPlacing=true)로 진입하여 안내 메시지 출력
+  enterPlacement(); 
+  
+  alog(`🗺 새 전투지: ${currentZone.name} — 배치를 새로 시작하세요!`);
   alog(`🎯 목표: Stage ${currentZone.finalStage} (파이널)`);
+
+  // 6번 요청: 새 배치가 필요할 때 순서 안내
+  alog('📋 <b>자동 배치 순서</b>: 탱커 → 힐러 → 전사 → 전투가 → 원거리 → 마법사 → 피난민');
+  alog('🌅 자, 이제 새로운 전략으로 유닛을 배치해보세요!');
 };
 
 // ══════════════════════════════════════════════════════
@@ -742,11 +825,11 @@ function mkAlly(name){
     bonusAtk:baseAtk-22, // 기본 atk와의 차이를 bonusAtk에 흡수
     bonusDef:+Math.max(0,baseDef-0.05).toFixed(3),
     bonusSpd:0,bonusCDR:0,
-    bonusMana:0,bonusMagic:baseMag,bonusMaxHp:baseHp-500,
+    bonusHp:0,bonusMagic:baseMag,bonusMaxHp:baseHp-500,
     totalHeal:0,totalAbsorb:0,
     atkCd:0,atkSpd:1.0,
     bonusRange:0,
-    upgCount:{atk:0,def:0,spd:0,cdr:0,mana:0,magic:0}, // 강화 횟수
+    upgCount:{atk:0,def:0,spd:0,cdr:0,hp:0,magic:0}, // 강화 횟수
     skillUse:{}, // 스킬별 사용 횟수 → 레벨업 기준
     skillLv:{},  // 스킬별 현재 레벨 (1~5)
   };
@@ -955,10 +1038,17 @@ function getEnemyFormation(s,tier){
 // ══════════════════════════════════════════════════════
 
 // 배치 우선순위: 탱→힐→근딜(전사/전투가)→원딜→마법사→피난민
-function deployPriority(a){
-  const role=a.classKey||a.baseRole;
-  const order={Tank:0,Heal:1,Melee:2,Warrior:3,Ranged:4,Mage:5,Refugee:6};
-  return order[role]??7;
+function deployPriority(a) {
+  const role = a.classKey || a.baseRole;
+  // 순서: 탱커(0) -> 힐러(1) -> 원거리(2) -> 전사/전투가/마법사(3) -> 피난민(4)
+  const order = {
+    Tank: 0, 
+    Heal: 1, 
+    Ranged: 2, 
+    Melee: 3, Warrior: 3, Mage: 3, // 근딜 및 마법사는 3순위
+    Refugee: 4
+  };
+  return order[role] ?? 5;
 }
 function getSortedUd(){
   return allies
@@ -988,12 +1078,22 @@ function enterPlacement(){
 function updatePG(){
   const ud=getSortedUd();
   const pg=document.getElementById('pg');
-  if(ud.length===0){pg.innerText='✅ 대원 배치 완료! 출발 신호 대기 중';pg.style.background='rgba(20,100,45,0.93)';}
+  if(ud.length===0){
+    pg.innerHTML=`✅ 대원 배치 완료!<br><span style="font-size:10px;color:#333">▶ 출발 버튼 또는 스페이스바를 눌러 시작하세요</span>`;
+    pg.style.background='#2ecc71';
+    pg.style.color='#fff';
+    pg.style.pointerEvents='auto';
+    pg.style.cursor='pointer';
+    pg.onclick=()=>{if(!isBattle&&isPlacing)toggleBattle();};
+  }
   else{
-    const rdU=BASE_ROLES[ud[0].classKey||ud[0].baseRole];
-    const clsColor=rdU?.color||'#a855f7';
-    pg.style.background='rgba(91,45,130,0.93)';
-    pg.innerHTML=`<span style="color:${clsColor}">📍 ${ud[0].name}</span> 배치 (${ud.length}명 남음) — 탱→힐→근딜→원딜→마법→피난민`;
+    const clsColor=BASE_ROLES[ud[0].classKey||ud[0].baseRole]?.color||'#a855f7';
+    pg.style.background='#f1c40f';
+    pg.style.color='#111';
+    pg.style.pointerEvents='none';
+    pg.style.cursor='default';
+    pg.onclick=null;
+    pg.innerHTML=`<span style="color:${clsColor}">📍 ${ud[0].name}</span> 배치 중</br>(${ud.length}명 남음)</span>`;
   }
 }
 
@@ -1061,43 +1161,48 @@ function onUp(e){
         if(!initialPositions[dragUnit.id])initialPositions[dragUnit.id]={x:cx,y:cy};
         alog(`📍 ${dragUnit.name} 이동`);addFloat(cx,cy,dragUnit.name,'#a855f7');
       } else {
-        // 전투 중 드래그: wx/wy 이동명령만 설정 (savedPositions 변경 안 함)
+        // 전투 중 드래그: 이동 명령
         const wasOnHold=dragUnit.onHold;
         dragUnit.wx=x; dragUnit.wy=y;
         dragUnit.onHold=false;
         dragUnit._reholdAfterMove=wasOnHold;
-        // ★ savedPositions는 배치 단계에서만 저장 — 전투 중 덮어쓰지 않음
         alog(`🎯 ${dragUnit.name} 이동 명령${wasOnHold?' (홀드 예약)':''}`);
         addFloat(x,y,'🎯','#f1c40f');
       }
     } else {
       const now=Date.now();
-      if(lastClickUnit===dragUnit&&now-lastClickTime<DBL_CLICK_MS){
+      if(lastClickUnit===dragUnit && now-lastClickTime < DBL_CLICK_MS){
+        // 더블 클릭: 홀드 토글
         dragUnit.onHold=!dragUnit.onHold;
         if(dragUnit.onHold){dragUnit.wx=null;dragUnit.wy=null;}
         alog(dragUnit.onHold?`⚑ ${dragUnit.name} 홀드 ON`:`▶ ${dragUnit.name} 홀드 OFF`);
         lastClickUnit=null;lastClickTime=0;
       } else {
-        lastClickUnit=dragUnit;lastClickTime=now;
-        // 지도 유닛 단일 클릭 → 동료 패널 강조
+        // 단일 클릭: 선택 및 동료창 자동 스크롤
+        lastClickUnit=dragUnit; lastClickTime=now;
         _selectedUnitId=dragUnit.id;
         markDirty();
-        setTimeout(()=>{
-          const panel=document.getElementById('panel-ally-body');
-          const el=document.getElementById('uc-'+dragUnit.id);
-          if(panel&&el){
-            const panelRect=panel.getBoundingClientRect();
-            const elRect=el.getBoundingClientRect();
-            // 카드 상단이 패널 상단에 오도록
-            if(elRect.top<panelRect.top||elRect.bottom>panelRect.bottom){
-              panel.scrollTop+=elRect.top-panelRect.top-4;
-            }
+
+        // [4번 요청] 해당 유닛 카드로 부드럽게 스크롤 이동
+        setTimeout(() => {
+          const unitCard = document.getElementById('uc-' + dragUnit.id);
+          if (unitCard) {
+            unitCard.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'center' // 화면 중앙에 오도록 배치
+            });
+            
+            // 시각적 강조 효과 (테두리 반짝임)
+            unitCard.style.transition = "0.3s";
+            unitCard.style.boxShadow = "0 0 15px #f1c40f";
+            setTimeout(() => { unitCard.style.boxShadow = ""; }, 800);
           }
-        },80);
+        }, 50);
       }
     }
     markDirty();
   }
+
   dragUnit=null;isDragging=false;
 }
 
@@ -1175,7 +1280,7 @@ function showClassModal(unit){
 
   // 15초 타임아웃 — 선택 없으면 '나중에'로 자동 닫기
   if(_classModalTimer)clearTimeout(_classModalTimer);
-  let countdown=15;
+  let countdown=20;
   const closeBtn=document.querySelector('#modal .modal-box button[onclick*="modal"]');
   function tick(){
     const btn=document.querySelector('#modal .modal-box button');
@@ -1219,39 +1324,81 @@ window.selectClass=function(key){
   markDirty();
 };
 
-// ── 이름 부여 모달 ──
-let _renameUnit=null;
-const NAME_POOL={
-  Tank:    ['철벽','반석','요새','수호신','든든','철갑','방패왕','강철','불굴','성채'],
-  Melee:   ['폭풍','번개','화염','질풍','강철검','검왕','날카로움','전쟁신','격투','파도'],
-  Warrior: ['격노','폭발','피의검','미치광이','광풍','붉은날','분노','격렬','질주','파괴자'],
-  Ranged:  ['예리','매의눈','조준','바람','섬광','천리','조용한죽음','백발','정밀','독수리'],
-  Heal:    ['온기','치유','여명','빛','온화','성광','희망의손','재생','자비','새벽'],
-  Mage:    ['별빛','신비','고요한폭풍','마력','현자','허공의손','불꽃술사','얼음','번개술사','심연'],
-  Refugee: ['희망','새벽','용기','의지','기적','도전','끈기','별','빛','씨앗'],
+// ── 이름 부여 및 별명 시스템 ──
+let _renameUnit = null;
+
+// 5레벨 전직 시 추천 이름
+const NAME_POOL = {
+  Tank:    ['철벽', '반석', '요새', '수호신', '든든', '철갑', '방패왕', '강철', '불굴', '성채', '태산', '거북', '바위', '장벽', '보호자'],
+  Melee:   ['폭풍', '번개', '화염', '질풍', '강철검', '검왕', '날카로움', '전쟁신', '격투', '파도', '칼날', '살수', '투사', '검사', '용맹'],
+  Warrior: ['격노', '폭발', '피의검', '미치광이', '광풍', '붉은날', '분노', '격렬', '질주', '파괴자', '학살자', '맹수', '아수라', '투신', '광전사'],
+  Ranged:  ['예리', '매의눈', '조준', '바람', '섬광', '천리', '조용한죽음', '백발', '정밀', '독수리', '그늘', '시야', '화살', '저격', '추적자'],
+  Heal:    ['온기', '치유', '여명', '빛', '온화', '성광', '희망의손', '재생', '자비', '새벽', '생명', '안식', '구원', '성자', '약손'],
+  Mage:    ['별빛', '신비', '고요한폭풍', '마력', '현자', '허공의손', '불꽃술사', '얼음', '번개술사', '심연', '지혜', '비전', '폭발', '원소', '주술사'],
+  Refugee: ['희망', '새벽', '용기', '의지', '기적', '도전', '끈기', '별', '빛', '씨앗', '생존자', '꿈', '믿음', '동료', '함께']
 };
+
+// [추가] 10레벨 전직 시 추천 별명 (이름 앞에 붙음)
+const PREFIX_POOL = [
+    "지옥의", "천상의", "천둥의", "불타는", "강철의", "심연의", "공포의", "영광스러운", "고요한", "그림자",
+    "피의", "전설의", "불멸의", "대지의", "서리 내린", "광기 어린", "신성한", "타락한", "고결한", "잔혹한",
+    "신비로운", "황금빛", "은빛", "강인한", "날카로운", "거대한", "작은", "빠른", "빛나는", "어둠의"
+];
+
 function showRenameModal(u){
-  _renameUnit=u;
-  const cls=u.classKey||u.baseRole||'Refugee';
-  const pool=NAME_POOL[cls]||NAME_POOL.Refugee;
-  const clsName=u.class10Key?CLASS10[u.class10Key]?.name:u.classKey||'피난민';
-  document.getElementById('rename-sub').innerText=`${clsName} 전직을 축하합니다! 이 영웅의 이름을 정해주세요.`;
-  document.getElementById('rename-input').value=u.name;
-  document.getElementById('rename-suggestions').innerHTML=
-    pool.map(n=>`<span onclick="document.getElementById('rename-input').value='${n}'" style="cursor:pointer;padding:4px 10px;border-radius:4px;border:1px solid #1e2d3d;background:#111d2b;font-size:10px;color:#f1c40f">${n}</span>`).join('');
+  _renameUnit = u;
+  const isLv10 = u.lv >= 10;
+  const cls = u.classKey || u.baseRole || 'Refugee';
+  
+  // 전체 풀 결정
+  const fullPool = isLv10 ? PREFIX_POOL : (NAME_POOL[cls] || NAME_POOL.Refugee);
+  
+  // [9번 요청] 전체 풀에서 무작위로 5개만 추출
+  const shuffled = [...fullPool].sort(() => 0.5 - Math.random());
+  const selectedPool = shuffled.slice(0, 5);
+
+  const clsName = u.class10Key ? CLASS10[u.class10Key]?.name : (u.classKey || '피난민');
+  
+  document.getElementById('rename-sub').innerText = isLv10 ? 
+    `${u.name}의 10레벨 전직을 축하합니다! 이름 앞에 붙일 별명을 선택하세요.` : 
+    `${clsName} 전직을 축하합니다! 이 영웅의 이름을 정해주세요.`;
+  
+  document.getElementById('rename-input').value = u.name;
+  
+  document.getElementById('rename-suggestions').innerHTML =
+    selectedPool.map(n => `<span onclick="applyRename('${n}')" style="cursor:pointer;padding:4px 10px;border-radius:4px;border:1px solid #1e2d3d;background:#111d2b;font-size:10px;color:#f1c40f">${n}</span>`).join('');
+  
   document.getElementById('rename-modal').classList.add('show');
 }
+
+// [추가] 별명 또는 이름을 입력창에 적용하는 헬퍼 함수
+window.applyRename = function(val) {
+  if(!_renameUnit) return;
+  const input = document.getElementById('rename-input');
+  
+  if(_renameUnit.lv >= 10) {
+    // 10레벨은 별명 + 기존 이름 (중복 방지 로직 포함 시 좋음)
+    if(!input.value.includes(val)) {
+        input.value = val + " " + input.value;
+    }
+  } else {
+    // 5레벨은 이름 자체를 변경
+    input.value = val;
+  }
+};
+
 function confirmRename(){
-  if(!_renameUnit)return;
-  const v=document.getElementById('rename-input').value.trim();
-  if(v) _renameUnit.name=v;
+  if(!_renameUnit) return;
+  const v = document.getElementById('rename-input').value.trim();
+  if(v) _renameUnit.name = v;
   document.getElementById('rename-modal').classList.remove('show');
-  _renameUnit=null;
+  _renameUnit = null;
   markDirty();
 }
+
 function skipRename(){
   document.getElementById('rename-modal').classList.remove('show');
-  _renameUnit=null;
+  _renameUnit = null;
 }
 
 // 클래스별 전직 보너스
@@ -1306,19 +1453,25 @@ window.toggleSkill=function(id,sk){
 // ══════════════════════════════════════════════════════
 // 강화 (전투 전/일시정지 중 가능, 실제 골드 소모)
 // ══════════════════════════════════════════════════════
-window.upgradeUnit=function(id,stat){
-  const u=allies.find(a=>a.id===id);if(!u){alog('❌ 유닛 없음');return;}
-  const upg=UPGRADES[stat];if(!upg)return;
-  const cost=upg.cost(u.lv);
-  res.gold=gold; // 동기화
-  if(res.gold<cost){alog(`❌ 금화 부족 (필요:${cost}G 보유:${res.gold}G)`);return;}
-  res.gold-=cost; gold=res.gold;
+window.upgradeUnit = function(id, stat) {
+  const u = allies.find(a => a.id === id);
+  if (!u) { alog('❌ 유닛 없음'); return; }
+  const upg = UPGRADES[stat];
+  if (!upg) return;
+  
+  const cost = upg.cost(u.lv);
+  if (res.gold < cost) { alog(`❌ 금화 부족 (필요:${cost}G 보유:${res.gold}G)`); return; }
+  
+  res.gold -= cost; gold = res.gold;
   upg.apply(u);
-  if(!u.upgCount)u.upgCount={atk:0,def:0,spd:0,cdr:0,mana:0,magic:0};
-  u.upgCount[stat]=(u.upgCount[stat]||0)+1;
-  if(stat==='spd')u.spd=u.baseSpd+u.bonusSpd;
+  
+  if (!u.upgCount) u.upgCount = {atk:0, def:0, spd:0, hp:0, magic:0};
+  u.upgCount[stat] = (u.upgCount[stat] || 0) + 1;
+  
+  if (stat === 'spd') u.spd = u.baseSpd + u.bonusSpd;
+  
   alog(`${upg.label} ${u.name} 강화! (−${cost}G) → ${upg.cur(u)}${upg.unit} ${upg.gain}${upg.unit}`);
-  addFloat(u.x>0?u.x:200,u.y>0?u.y:200,`${upg.label}↑`,'#f1c40f');
+  addFloat(u.x > 0 ? u.x : 200, u.y > 0 ? u.y : 200, `${upg.label}↑`, '#f1c40f');
   markDirty();
 };
 
@@ -1418,6 +1571,7 @@ function toggleBattle(){
   isPlacing=false;document.getElementById('pg').style.display='none';
   if(!isBattle){
     isBattle=true;isPaused=false;_battleStartTime=Date.now();
+    document.getElementById('pg').style.display='none';
     // 튜토리얼: 첫 전투 시작
     if(window._tutorialStep==='deploy'&&zoneStage===1){
       window._tutorialStep='battle';
@@ -1701,8 +1855,8 @@ function battleTick(){
     const isH=currentZone.tier==='hunt'||currentZone.tier==='pred';
     const fR=Math.floor(base*(currentZone.rFood||0)/3); // 식량 1/3로 축소
     const gR=Math.floor(base*(currentZone.rGold||0));
-    const sR=Math.floor(base*(currentZone.rStone||0));
-    const wR=Math.floor(base*(currentZone.rWood||0));
+    const sR=Math.floor(base*(currentZone.rStone||0)*0.1);
+    const wR=Math.floor(base*(currentZone.rWood||0)*0.2);
     const iR=Math.floor(base*(currentZone.rIron||0));
     const hR=Math.floor(base*(currentZone.rHerb||0));
     const dR=Math.floor(base*(currentZone.rDiamond||0));
@@ -1774,7 +1928,25 @@ function battleTick(){
       return;
     }
 
-    zoneStage++; stage=zoneStage; isBattle=false;
+    zoneStage++; 
+    stage = zoneStage; 
+    isBattle = false;
+
+    // [수정된 일차별 안내 로직]
+    if (zoneStage === 2) {
+      // 1일차 완료 후 (2일차 시작 전) 안내: 4번 요청
+      setTimeout(() => {
+        alog('⚔️ <b>전투 조작</b>: 대원 드래그로 이동, 더블 클릭 시 그 자리에 <b>홀드</b>합니다.');
+        alog('💀 <b>빈사 주의</b>: HP가 0이 된 대원은 7초 내에 힐러가 살리지 못하면 무덤으로 갑니다.');
+      }, 600);
+    } 
+    else if (zoneStage === 3) {
+      // 2일차 완료 후 (3일차 시작 전) 안내: 5번 요청
+      setTimeout(() => {
+        alog('🏕 <b>거점 활성화</b>: 15일차 성공 시 거점이 활성화되어 자동으로 자원을 채집합니다.');
+        alog('📊 자동 사냥 효율은 클리어 기록에 따라 50%~100%까지 결정됩니다.');
+      }, 600);
+    }
     // 누적 전투 시간 저장
     window._prevBattleTime=(window._prevBattleTime||0)+Math.floor((Date.now()-(_battleStartTime||Date.now()))/1000);
     resetDeployment(); buildMap(); spawnEnemies();
@@ -1910,11 +2082,12 @@ function useSkill(u,sk){
   u.skillUse[sk]=(u.skillUse[sk]||0)+1;
   const uses=u.skillUse[sk];
   const curLv=u.skillLv[sk]||1;
-  if(curLv<5&&uses>=SKILL_LV_THRESHOLDS[curLv]){
-    u.skillLv[sk]=curLv+1;
-    addFloat(u.x,u.y-24,`${sk} Lv${curLv+1}↑`,'#f1c40f');
-    alog(`⭐ ${u.name}의 [${sk}] 스킬이 Lv${curLv+1}로 성장!`);
-  }
+  if (curLv < 5 && uses >= SKILL_LV_THRESHOLDS[curLv]) {
+    u.skillLv[sk] = curLv + 1;
+    const nextLvDisplay = u.skillLv[sk] >= 5 ? "MAX" : "Lv" + u.skillLv[sk];
+    addFloat(u.x, u.y - 24, `${sk} ${nextLvDisplay}↑`, '#f1c40f');
+    alog(`⭐ ${u.name}의 [${sk}] 스킬이 ${nextLvDisplay}(으)로 성장!`);
+  } 
 }
 // 스킬 레벨에 따른 배율 (공격/힐 공통)
 function skillMult(u,sk){
@@ -2279,11 +2452,11 @@ let _merchantPresent=false;
 
 const SHOP_ITEMS_POOL=[
   {key:'food',   label:'🍖 식량',   buy:2,   sell:1,  res:'food'},
-  {key:'wood',   label:'나무',      buy:4,   sell:2,  res:'wood'},
-  {key:'stone',  label:'돌',        buy:4,   sell:2,  res:'stone'},
-  {key:'iron',   label:'철',        buy:8,   sell:4,  res:'iron'},
+  {key:'wood',   label:'🌲 나무',   buy:4,   sell:2,  res:'wood'},
+  {key:'stone',  label:'🔘 돌',     buy:4,   sell:2,  res:'stone'},  
+  {key:'iron',   label:'⚒️ 철',     buy:8,   sell:4,  res:'iron'},  
   {key:'herb',   label:'🌿 약초',   buy:10,  sell:6,  res:'herb'},
-  {key:'diamond',label:'💠 다이아', buy:50,  sell:30, res:'diamond'},
+  {key:'diamond',label:'💎 다이아', buy:50,  sell:30, res:'diamond'}, 
 ];
 
 // 마을 단계(phase 1)부터 목재·석재 거래 가능, 도시부터 철도 추가
@@ -2297,31 +2470,27 @@ function generateShopItems(){
   const pool=[...getShopPool()];
   const cnt=Math.min(3+Math.floor(Math.random()*2), pool.length);
   const picked=[];
+  // 마을 전: ±50% 변동, 마을 후: ±20%
+  const varyBase=civPhase>=1?0.8:0.5;
+  const varyMax=civPhase>=1?0.4:1.0;
   for(let i=0;i<cnt&&pool.length;i++){
     const idx=Math.floor(Math.random()*pool.length);
     const item=pool.splice(idx,1)[0];
-    const vary=0.7+Math.random()*0.6;
-    picked.push({
-      ...item,
-      buy:Math.max(1,Math.round(item.buy*vary)),
-      sell:Math.max(1,Math.round(item.sell*vary)),
-    });
+    const vary=varyBase+Math.random()*varyMax;
+    picked.push({...item,buy:Math.max(1,Math.round(item.buy*vary)),sell:Math.max(1,Math.round(item.sell*vary))});
   }
   return picked;
 }
 
-let _merchantDepartTime=0; // 상인 떠나는 시각
+let _merchantDepartTime=0;
 
 function spawnMerchant(){
   _merchantPresent=true;
   _currentShopItems=generateShopItems();
-  _merchantDepartTime=Date.now()+180000; // 3분 체류
+  _merchantDepartTime=Date.now()+60000; // 1분 체류
   const btn=document.getElementById('shop-btn');
-  if(btn){
-    btn.style.display='inline';
-    updateMerchantBtn();
-  }
-  alog('🛒 상인이 나타났습니다! 거점 현황에서 거래할 수 있어요.');
+  if(btn){btn.style.display='inline';updateMerchantBtn();}
+  alog('🛒 상인이 나타났습니다! (1분 체류)');
 }
 
 function updateMerchantBtn(){
@@ -2343,38 +2512,51 @@ function dismissMerchant(){
 function startMerchantSchedule(){
   if(_shopTimer)clearTimeout(_shopTimer);
   function schedule(){
-    const delay=civPhase>=2?180000:(300000+Math.random()*180000);
-    window._merchantNextTime=Date.now()+delay; // 다음 도착 시각
+    let delay;
+    if(civPhase>=2) delay=180000;           // 도시: 3분 상주
+    else if(civPhase>=1) delay=240000+Math.random()*120000; // 마을: 4~6분 주기적
+    else delay=300000+Math.random()*420000; // 피난민: 5~12분 완전 랜덤
+    window._merchantNextTime=Date.now()+delay;
     _shopTimer=setTimeout(()=>{
       window._merchantNextTime=0;
       spawnMerchant();
-      if(civPhase<2){
-        setTimeout(()=>{
-          dismissMerchant();
-          schedule();
-        },180000);
-      }
+      if(civPhase<2){setTimeout(()=>{dismissMerchant();schedule();},60000);}
     },delay);
   }
   schedule();
 }
 
-window.openShop=function(ev){
-  if(ev)ev.stopPropagation();
-  if(!_merchantPresent&&civPhase<2){alog('상인이 없습니다.');return;}
-  if(!_currentShopItems.length)_currentShopItems=generateShopItems();
-  document.getElementById('shop-title').innerText=civPhase>=2?'🏪 상설 상점':'🛒 방문 상인';
-  document.getElementById('shop-sub').innerText=civPhase>=2?'도시에 상설 상점이 열렸습니다.':'상인이 잠시 들렀습니다. 거래하시겠어요?';
-  const itemsHtml=_currentShopItems.map((it,i)=>{
-    const cur=it.res==='food'?res.food:(it.res==='gold'?res.gold:res[it.res]||0);
-    return `<div style="background:#111d2b;border:1px solid #1e3a5f;border-radius:6px;padding:8px;display:flex;align-items:center;gap:8px">
-      <span style="flex:1;font-size:11px;color:#e2e8f0">${it.label}</span>
-      <span style="font-size:9px;color:#6b7280">보유: ${cur}</span>
-      <button onclick="shopBuy(${i},10)" style="font-size:9px;padding:3px 7px;background:#1a3d1a;border:1px solid #2ecc71;color:#2ecc71;border-radius:3px;cursor:pointer;touch-action:manipulation">구입 ×10<br><span style="color:#f1c40f">${it.buy*10}G</span></button>
-      <button onclick="shopSell(${i},10)" style="font-size:9px;padding:3px 7px;background:#1a1a3d;border:1px solid #60a5fa;color:#60a5fa;border-radius:3px;cursor:pointer;touch-action:manipulation">판매 ×10<br><span style="color:#f1c40f">${it.sell*10}G</span></button>
+window.openShop = function(ev) {
+  if (ev) ev.stopPropagation();
+  if (!_merchantPresent && civPhase < 2) { alog('상인이 없습니다.'); return; }
+  
+  // 1. 현재 보유 재원을 보여주는 그리드 바 생성
+  const resLine = `<div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:5px; background:#080c10; padding:8px; border-radius:5px; margin-bottom:10px; font-size:10px; border:1px solid #1e3a5f;">
+    <span>🍖 ${res.food}</span> <span>💰 ${res.gold}</span> <span>🌿 ${res.herb}</span>
+    <span>돌 ${res.stone}</span> <span>나무 ${res.wood}</span> <span>철 ${res.iron}</span>
+  </div>`;
+
+  // 2. 상점 제목 및 설명 설정 (설명 부분에 위에서 만든 재원 바 삽입)
+  if (!_currentShopItems.length) _currentShopItems = generateShopItems();
+  document.getElementById('shop-title').innerText = civPhase >= 2 ? '🏪 상설 상점' : '🛒 방문 상인';
+  
+  // innerHTML을 사용하여 재원 바(resLine)를 함께 출력합니다.
+  document.getElementById('shop-sub').innerHTML = resLine + 
+    (civPhase >= 2 ? '도시에 상설 상점이 열렸습니다.' : '상인이 잠시 들렀습니다. 거래하시겠어요?');
+
+  // 3. 상점 아이템 리스트 생성
+  const itemsHtml = _currentShopItems.map((it, i) => {
+    const cur = it.res === 'food' ? res.food : (it.res === 'gold' ? res.gold : res[it.res] || 0);
+    return `<div style="background:#111d2b; border:1px solid #1e3a5f; border-radius:6px; padding:8px; display:flex; align-items:center; gap:8px">
+      <span style="flex:1; font-size:11px; color:#e2e8f0">${it.label}</span>
+      <span style="font-size:9px; color:#6b7280">보유: ${cur}</span>
+      <button onclick="shopBuy(${i},10)" style="font-size:9px; padding:3px 7px; background:#1a3d1a; border:1px solid #2ecc71; color:#2ecc71; border-radius:3px; cursor:pointer; touch-action:manipulation">구입 ×10<br><span style="color:#f1c40f">${it.buy*10}G</span></button>
+      <button onclick="shopSell(${i},10)" style="font-size:9px; padding:3px 7px; background:#1a1a3d; border:1px solid #60a5fa; color:#60a5fa; border-radius:3px; cursor:pointer; touch-action:manipulation">판매 ×10<br><span style="color:#f1c40f">${it.sell*10}G</span></button>
     </div>`;
   }).join('');
-  document.getElementById('shop-items').innerHTML=itemsHtml;
+
+  // 4. 모달 표시
+  document.getElementById('shop-items').innerHTML = itemsHtml;
   document.getElementById('shop-modal').classList.add('show');
 };
 
@@ -2411,51 +2593,149 @@ let nextChapters=[]; // {id, name, tier, diffMult, finalStage, rFood, rGold}
 let _chapterAutoTimer=null;
 
 // 15일 클리어 후 자동으로 같은 컨셉 다른 지형의 새 지역 생성
-const _TERRAIN_CYCLE={hunt:['pred','hunt','bandit'],pred:['hunt','bandit','pred'],bandit:['raider','bandit','army'],raider:['army','bandit','raider'],army:['raider','army','pred']};
-let _autoZoneSeq={}; // zoneId → 다음 지형 인덱스
+// 자동 다음 지역 이름 풀
+const _NEXT_ZONE_NAMES={
+  hunt: ['🌿 들판 II','🌾 황야 초원','🌄 석양 들판','🌻 넓은 목초지','🌱 새벽 들판'],
+  pred: ['🌑 어둠의 숲 II','🦅 독수리 고개','🌲 고목 숲','🍄 깊은 밀림','🐺 야수의 영역'],
+  bandit:['⚔️ 산적 요새 II','🏚 폐허 소굴 II','🗡 약탈자 진지','🔥 불타는 마을','💀 적의 본거지'],
+  raider:['🔥 전쟁 폐허 II','💀 해골 협곡','⚡ 번개 평원','🌋 용암 지대','🌀 혼돈 전장'],
+  army:  ['🌋 마그마 지대 II','🌀 혼돈의 땅','👁️ 감시탑','🔱 성역 전장','✨ 심연 결전'],
+};
+const _TERRAIN_CYCLE={
+  hunt:  ['hunt','pred','hunt','bandit','pred'],
+  pred:  ['pred','hunt','bandit','pred','hunt'],
+  bandit:['bandit','raider','army','bandit','raider'],
+  raider:['raider','army','bandit','army','raider'],
+  army:  ['army','raider','army','pred','army'],
+};
+let _autoZoneSeq={};
 
-function autoStartNextZone(clearedZid){
-  const cleared=ZONES[clearedZid]||Object.values(ZONES).find(z=>z.id===clearedZid);
-  if(!cleared)return;
-  const seq=(_autoZoneSeq[clearedZid]||0)+1;
-  _autoZoneSeq[clearedZid]=seq;
-  const prevMult=cleared.diffMult||1.0;
-  const newMult=+(prevMult*1.15).toFixed(2); // 난이도 15% 상승
-  // 지형 순환
-  const terrainPool=_TERRAIN_CYCLE[cleared.tier]||['hunt','pred','bandit'];
-  const newTerrain=terrainPool[seq%terrainPool.length];
-  // 이름 생성
-  const namePool={hunt:['🌿 황야 들판','🌾 넓은 초원','🌄 석양 평야'],pred:['🌑 어둠의 숲','🦅 독수리 고개','🌲 고목 숲'],bandit:['⚔️ 산적 요새','🏚 폐허 소굴','🗡 약탈자 진지'],raider:['🔥 전쟁 폐허','💀 해골 협곡','⚡ 번개 평원'],army:['🌋 마그마 지대','🌀 혼돈의 땅','👁️ 감시탑']};
-  const nameArr=namePool[cleared.tier]||namePool.bandit;
-  const newName=nameArr[seq%nameArr.length];
-  const newId=`auto_${clearedZid}_${seq}`;
-  ZONES[newId]={
-    id:newId, name:newName,
-    tier:cleared.tier, terrain:newTerrain,
-    color:cleared.color,
-    rFood:cleared.rFood||0, rWood:cleared.rWood||0,
-    rStone:Math.min((cleared.rStone||0)+1,8),
-    rGold:Math.min((cleared.rGold||0)+1,8),
-    rIron:Math.min((cleared.rIron||0)+1,6),
-    rHerb:Math.min((cleared.rHerb||0)+1,6),
-    rDiamond:cleared.rDiamond||0,
-    desc:`${cleared.name} 클리어 후 새로운 도전 (×${newMult})`,
-    finalStage:15, minLv:cleared.minLv||0,
-    unlockPhase:cleared.unlockPhase||0,
-    diffMult:newMult,
+function showDay1Tutorial(){
+  // garrison-modal 재사용
+  document.getElementById('garrison-title').innerText='🎉 1일차 완료!';
+  document.getElementById('garrison-sub').innerText='';
+  document.getElementById('garrison-body').innerHTML=`
+    <div style="font-size:11px;color:#ccc;line-height:1.7;margin-bottom:14px">
+      <div style="margin-bottom:8px">👥 <b style="color:#f1c40f">피난민 합류</b>: 식량으로 피난민을 영입합니다.<br>
+      💰 <b style="color:#f1c40f">용병 고용</b>: 금화 100G로 전직한 용병을 고용합니다.</div>
+      <div style="margin-bottom:8px">🔄 <b style="color:#2ecc71">자동 진행 ON</b>: 전투 후 바로 다음 스테이지를 시작합니다.<br>
+      대기 시간 없이 연속으로 사냥할 수 있어요!</div>
+      <div style="color:#9ca3af;font-size:10px">15일차까지 완료하면 해당 지역이 거점이 됩니다.</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="document.getElementById('garrison-modal').classList.remove('show');toggleAutoStart();" style="flex:1;padding:10px;background:#1a5c32;border:none;border-radius:5px;color:#fff;font-weight:bold;cursor:pointer;touch-action:manipulation">🔄 자동 진행 ON</button>
+      <button onclick="document.getElementById('garrison-modal').classList.remove('show')" style="flex:1;padding:10px;background:#374151;border:none;border-radius:5px;color:#fff;cursor:pointer;touch-action:manipulation">닫기</button>
+    </div>`;
+  document.getElementById('garrison-modal').classList.add('show');
+}
+
+function autoStartNextZone(clearedZid) {
+  const cleared = ZONES[clearedZid];
+  if (!cleared) return;
+
+  // 1. 진행 단계(Sequence) 계산
+  const seq = (_autoZoneSeq[clearedZid] || 0) + 1;
+  _autoZoneSeq[clearedZid] = seq;
+
+  // 2. 이름 결정 (II, III 로마 숫자 부여)
+  const romans = ["", "I", "II", "III", "IV", "V", "VI"];
+  const suffix = romans[seq] || seq;
+  // 기존 이름에서 이미 붙어있을지 모르는 로마 숫자 제거 후 새 숫자 부착
+  const baseName = cleared.name.replace(/\s[IVX]+$/g, "");
+  const newName = `${baseName} ${suffix}`;
+
+  // 3. 스케일링 계수 설정 (III 단계가 다음 컨셉 수준이 되도록 조정)
+  const diffStep = 0.3;   // 단계당 난이도 30% 증가 (III은 약 1.6배)
+  const rewardStep = 0.2; // 단계당 보상 20% 증가
+  const expStep = 0.35;   // 단계당 경험치 35% 증가 (성장 가속)
+
+  const newMult = +( (cleared.diffMult || 1.0) * (1 + (seq - 1) * diffStep) ).toFixed(2);
+
+  const newId = `auto_${clearedZid}_${seq}`;
+  
+  // 4. 새로운 구역 데이터 생성
+  ZONES[newId] = {
+    ...cleared, // 기본 지형 정보 및 티어 복사
+    id: newId,
+    name: newName,
+    // 보상 스케일링
+    rFood: Math.floor((cleared.rFood || 1) * (1 + (seq - 1) * rewardStep)),
+    rGold: Math.floor((cleared.rGold || 1) * (1 + (seq - 1) * rewardStep)),
+    // 자원 상한선 소폭 상승
+    rStone: Math.min((cleared.rStone || 0) + Math.floor(seq / 2), 12),
+    rWood: Math.min((cleared.rWood || 0) + Math.floor(seq / 2), 12),
+    rIron: Math.min((cleared.rIron || 0) + Math.floor(seq / 3), 10),
+    rHerb: Math.min((cleared.rHerb || 0) + Math.floor(seq / 3), 10),
+    rDiamond: cleared.rDiamond,
+    // 난이도 및 경험치 배율 적용
+    diffMult: newMult,
+    expMult: +(1 + (seq - 1) * expStep).toFixed(2),
+    desc: `${baseName}의 더 깊은 곳, ${suffix} 단계 도전!`,
+    finalStage: 15
   };
-  currentZone=ZONES[newId];
-  zoneStage=1; stage=1;
-  delete _fixedMaps[newId];
-  savedPositions={}; initialPositions={};
-  window._prevBattleTime=0;
-  buildMap(); spawnEnemies();
-  resetDeployment();
-  alog(`🗺 새로운 도전: ${newName} (난이도 ×${newMult})`);
-  autoStart=true;
-  const btn=document.getElementById('btn-auto');
-  if(btn){btn.innerText='🔄 자동 진행: ON';btn.style.background='#1a5c32';}
-  setTimeout(()=>{enterPlacement();if(autoStart)setTimeout(()=>{if(!isBattle)toggleBattle();},1200);},300);
+
+  currentZone = ZONES[newId];
+  zoneStage = 1; 
+  stage = 1;
+  delete _fixedMaps[newId]; // 매 단계 새로운 무작위 지형 생성
+  window._prevBattleTime = 0;
+  
+  buildMap(); 
+  spawnEnemies();
+
+  // 5. 이전 배치 유지 로직
+  allies.forEach(a => {
+    if (a.permanentlyDead) return;
+    a.dead = false; 
+    a.deathTime = null; 
+    a.atkCd = 0;
+    
+    if (savedPositions[a.id]) {
+      a.x = savedPositions[a.id].x;
+      a.y = savedPositions[a.id].y;
+      a.isDeployed = true;
+    } else {
+      a.isDeployed = false;
+      a.x = -300;
+      a.y = -300;
+    }
+  });
+
+  alog(`🗺 구역 확장: ${newName} (난이도 ×${newMult})`);
+  
+  // 자동 진행 처리
+  autoStart = true;
+  const abtn = document.getElementById('btn-auto');
+  if (abtn) {
+    abtn.innerText = '🔄 자동 진행: ON';
+    abtn.style.background = '#1a5c32';
+  }
+  
+  enterPlacement(); 
+  renderGarrisonBar(); 
+  markDirty();
+
+  // 5초 카운트다운 후 자동 시작 가이드 표시
+  let sec = 5;
+  const pg = document.getElementById('pg');
+  if (pg) {
+    pg.style.display = 'block';
+    pg.style.background = '#f1c40f';
+    pg.style.color = '#111';
+    pg.style.pointerEvents = 'none';
+    pg.innerHTML = `${newName} 준비!<br><span style="font-size:10px">${sec}초 후 자동 사냥 시작...</span>`;
+    
+    const tid = setInterval(() => {
+      sec--;
+      if (pg && pg.style.display !== 'none') {
+        pg.innerHTML = `${newName} 준비!<br><span style="font-size:10px">${sec}초 후 자동 사냥 시작...</span>`;
+      }
+      if (sec <= 0 || isBattle) {
+        clearInterval(tid);
+        if (autoStart && !isBattle) toggleBattle();
+      }
+    }, 1000);
+  }
 }
 
 function showNextChapterModal(clearedZid){
@@ -2595,23 +2875,29 @@ function closeNextChapterModal(){
   document.getElementById('next-chapter-modal').classList.remove('show');
 }
 
-// 주둔 수익 계산: 클리어 시간 기준, 유닛 수·레벨에 비례, 절반 수익
+// 주둔 수익 계산: 최소 1명 이상 있어야 하며, 레벨 합이 임계점에 도달하면 100% 효율
 function garrisonEfficiency(rec, zid){
-  // 동물 사냥터(hunt/pred): 레벨 한계 10, 총합 60 = 100%, 10 이하 = 50%
-  // 전투 지역: 레벨 한계 없음, 총합 60 = 100%
-  const zone=ZONES[zid]||ZONES.hunt;
-  const isHunt=zone.tier==='hunt';
-  const isPred=zone.tier==='pred';
-  const maxLvPerUnit=isHunt?10:isPred?15:999;
-  if(!rec.garrison||rec.garrison.length===0)return 0.5;
-  const totalLv=rec.garrison.reduce((s,g)=>{
-    const u=allies.find(a=>a.id===g.id);
-    const lv=Math.min(u?u.lv:g.lv, maxLvPerUnit);
-    return s+lv;
-  },0);
-  const minLv=10, maxLv=60;
-  const eff=0.5+0.5*Math.max(0,Math.min(1,(totalLv-minLv)/(maxLv-minLv)));
-  return Math.round(eff*100)/100;
+  const zone = ZONES[zid] || ZONES.hunt;
+  const isHunt = zone.tier === 'hunt';
+  const isPred = zone.tier === 'pred';
+  const maxLvPerUnit = isHunt ? 10 : isPred ? 15 : 30;
+  
+  // [수정] 주둔 인원이 0명이면 효율은 즉시 0이 됩니다.
+  if(!rec.garrison || rec.garrison.length === 0) return 0;
+
+  const totalLv = rec.garrison.reduce((s, g) => {
+    const u = allies.find(a => a.id === g.id);
+    const lv = Math.min(u ? u.lv : g.lv, maxLvPerUnit);
+    return s + lv;
+  }, 0);
+
+  // 효율 기준점: (최대 레벨 * 6명) * 0.8
+  const threshold = (maxLvPerUnit * 6) * 0.8;
+  
+  // 1명이라도 있으면 기본 50%(0.5) 효율에서 시작하여, 레벨 합에 따라 100%(1.0)까지 상승
+  const eff = 0.5 + 0.5 * Math.max(0, Math.min(1, totalLv / threshold));
+
+  return Math.round(eff * 100) / 100;
 }
 
 function garrisonIncomePerMin(rec){
@@ -2860,8 +3146,10 @@ function drawUnit(u){
 // ══════════════════════════════════════════════════════
 // UI 패널
 // ══════════════════════════════════════════════════════
-function renderAllyPanel(){
-  const activeAllies=allies.filter(a=>!a.garrisoned&&!a.inStandby&&!a.permanentlyDead);
+function renderAllyPanel() {
+  const activeAllies = allies
+    .filter(a => !a.garrisoned && !a.inStandby && !a.permanentlyDead)
+    .sort((a, b) => deployPriority(a) - deployPriority(b)); // 리스트 순서 고정
   const pc=document.getElementById('party-count');
   if(pc)pc.innerText=`(${activeAllies.length}/${PARTY_LIMIT})`;
   const canChange=!isBattle||isPaused;
@@ -2876,18 +3164,24 @@ function renderAllyPanel(){
     const className=a.class10Key?CLASS10[a.class10Key].name:
       a.classKey?(BASE_ROLES[a.classKey]?.name||a.classKey):
       (BASE_ROLES[a.baseRole]?.name||a.baseRole);
-    const skillBtns=a.availableSkills.map(sk=>{
-      const sd=BASE_SKILLS[sk]||CLASS5_SKILLS[sk]||{name:sk};
-      const isAct=a.activeSkills.includes(sk);
-      const slv=getSkillLv(a,sk);
-      const lvStr=slv>1?` <span style="color:#f1c40f;font-size:8px">Lv${slv}</span>`:'';
-      return `<button class="skb${isAct?' act':''}" onclick="event.stopPropagation();toggleSkill(${a.id},'${sk}')" title="${sd.desc||''}">${sd.name}${lvStr}</button>`;
-    }).join('');
+    const skillBtns = a.availableSkills.map(sk => {
+      const sd = BASE_SKILLS[sk] || CLASS5_SKILLS[sk] || { name: sk };
+      const isAct = a.activeSkills.includes(sk);
+      const slv = getSkillLv(a, sk);
+      
+      // 5레벨이면 MAX, 그 외에는 Lv.N 표시 (1레벨부터 상시 표시)
+      const lvText = slv >= 5 ? "MAX" : "Lv" + slv;
+      const lvStr = ` <span style="color:#f1c40f; font-size:8px; margin-left:2px;">${lvText}</span>`;
+      
+      return `<button class="skb${isAct ? ' act' : ''}" 
+              onclick="event.stopPropagation();toggleSkill(${a.id},'${sk}')" 
+              title="${sd.desc || ''}">${sd.name}${lvStr}</button>`;
+  }).join('');
     const baseAtk=(rd?.atk||30)+a.bonusAtk;
     const baseDef=Math.floor((a.bonusDef)*100);
     const baseSpd=(a.spd).toFixed(1);
     const baseCDR=Math.floor((a.bonusCDR||0)*100);
-    const baseMana=a.bonusMana||0;
+    const baseHpBonus = a.bonusHp || 0;
     const baseMagic=a.bonusMagic||0;
 
     // 강화 버튼: 항목명 | 현재 → +증가량 | 비용G
@@ -2935,7 +3229,9 @@ function renderAllyPanel(){
       </div>
       <div style="display:flex;align-items:center;gap:4px;margin:2px 0">
         <span class="bl">HP ${Math.floor(a.hp)}/${a.maxHp}</span>
-        <div class="bw" style="flex:1;margin:0"><div class="bf hf" style="width:${(a.hp/a.maxHp)*100}%"></div></div>
+        <div class="bw" style="flex:1;margin:0">
+          <div class="bf" style="width:${(a.hp/a.maxHp)*100}%; background:${unitColor}"></div>
+        </div>
       </div>
       <div style="display:flex;align-items:center;gap:4px;margin:2px 0">
         <span class="bl">EXP ${a.exp}/${a.maxExp}</span>
@@ -2966,8 +3262,13 @@ function renderEnemyPanel(){
       </div>
       <div style="color:#374151;font-size:8px;margin-bottom:2px">ATK:${e.atk} RNG:${e.range} DEF:${Math.floor((e.def||0)*100)}% SPD:${e.spd.toFixed(1)}</div>
       <div style="display:flex;align-items:center;gap:4px">
-        <div class="bw" style="height:4px;flex:1;margin:0"><div class="bf" style="width:${Math.max(0,(e.hp/e.maxHp)*100)}%;background:${col}"></div></div>
-        <span style="font-size:8px;color:#6b7280;white-space:nowrap">${Math.max(0,Math.floor(e.hp))}/${e.maxHp}</span>
+        <span style="font-size:8px;color:#6b7280;white-space:nowrap">
+          ${Math.max(0,Math.floor(e.hp))}/${e.maxHp}
+        </span>
+        
+        <div class="bw" style="height:4px;flex:1;margin:0">
+          <div class="bf" style="width:${Math.max(0,(e.hp/e.maxHp)*100)}%;background:${col}"></div>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -3012,9 +3313,11 @@ function renderGarrisonBar(){
         const canPromote=(a.lv>=5&&!a.classKey)||(a.lv>=10&&a.classKey&&!a.class10Key);
         const rd=BASE_ROLES[a.classKey||a.baseRole];
         return `<div class="gz-unit standby${canPromote?' gz-promote':''}" draggable="true"
-          ondragstart="standbyDragStart(event,${a.id})">
-          <span onclick="clickStandbyUnit(${a.id},event)" style="cursor:pointer;color:${rd?.color||'#a855f7'}">${a.name}</span>
-          ${canPromote?`<span onclick="showClassModal(allies.find(x=>x.id===${a.id}))" style="cursor:pointer;font-size:7px;color:#f1c40f;margin-left:3px">전직</span>`:''}
+          ondragstart="standbyDragStart(event,${a.id})"
+          onclick="clickStandbyUnit(${a.id},event)"
+          style="cursor:pointer;padding:4px 6px">
+          <span style="color:${rd?.color||'#a855f7'};font-weight:bold">${a.name}</span>
+          ${canPromote?`<span onclick="event.stopPropagation();showClassModal(allies.find(x=>x.id===${a.id}))" style="cursor:pointer;font-size:7px;color:#f1c40f;border:1px solid #f1c40f;border-radius:2px;padding:0 2px;margin-left:3px">전직</span>`:''}
           <br><span style="font-size:7px;color:#9ca3af">Lv.${a.lv} ${a.classKey?BASE_ROLES[a.classKey]?.name||'':'피난민'}</span>
         </div>`;
       }).join('')||'<span style="font-size:9px;color:#374151;grid-column:1/-1">없음</span>'}
@@ -3033,18 +3336,43 @@ function renderGarrisonBar(){
     const effColor=effPct>=90?'#2ecc71':effPct>=70?'#f1c40f':'#e67e22';
     const expPerMin=Math.floor((rec.garrison||[]).reduce((s,g)=>{
       const u=allies.find(a=>a.id===g.id);return s+(u?15+u.lv*2:15);},0)*2);
-    const unitItems=(rec.garrison||[]).map(g=>{
-      const u=allies.find(a=>a.id===g.id);
-      if(!u) return '';
-      const canPromote=(u.lv>=5&&!u.classKey)||(u.lv>=10&&u.classKey&&!u.class10Key);
-      const rd=BASE_ROLES[u.classKey||u.baseRole];
-      return `<div class="gz-unit${canPromote?' gz-promote':''}" draggable="true"
-        ondragstart="garrisonDragStart(event,'${zid}',${g.id})">
-        <span onclick="clickGarrisonUnit('${zid}',${g.id})" title="클릭: 대기실로" style="cursor:pointer;color:${rd?.color||'#9ca3af'}">${u.name}</span>
-        ${canPromote?`<span onclick="showClassModal(allies.find(x=>x.id===${u.id}))" style="cursor:pointer;font-size:7px;color:#f1c40f;margin-left:3px">전직</span>`:''}
-        <br><span style="font-size:7px;color:#9ca3af">Lv.${u.lv} ${u.classKey?BASE_ROLES[u.classKey]?.name||'':'피난민'}</span>
+    const unitItems = (rec.garrison || []).map(g => {
+  const u = allies.find(a => a.id === g.id);
+  if (!u) return '';
+  
+  // 전직 가능 여부 판정 (5레벨 이상 첫 전직, 10레벨 이상 두 번째 전직)
+  const canPromote = (u.lv >= 5 && !u.classKey) || (u.lv >= 10 && u.classKey && !u.class10Key);
+    const rd = BASE_ROLES[u.classKey || u.baseRole];
+    
+    // [수정 포인트] 
+    // 1. gz-promote 클래스를 통해 테두리 강조
+    // 2. 전직 버튼 클릭 시 showClassModal 호출
+    // 3. 전체 항목에 드래그 시작 이벤트 설정
+    return `
+      <div class="gz-unit ${canPromote ? 'gz-promote' : ''}" 
+          draggable="true" 
+          ondragstart="garrisonDragStart(event, '${zid}', ${u.id})"
+          style="${canPromote ? 'border: 1px solid #f1c40f; cursor: grab;' : 'cursor: grab;'}">
+        
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <span onclick="clickGarrisonUnit('${zid}', ${u.id})" 
+                title="클릭: 대기실로" 
+                style="cursor: pointer; color: ${rd?.color || '#9ca3af'}; font-weight: bold;">
+            ${u.name}
+          </span>
+          ${canPromote ? 
+            `<span onclick="event.stopPropagation(); showClassModal(allies.find(x => x.id === ${u.id}))" 
+                  style="cursor: pointer; font-size: 8px; background: #f1c40f; color: #111; padding: 1px 3px; border-radius: 2px; font-weight: bold;">
+              전직
+            </span>` : ''
+          }
+        </div>
+        
+        <span style="font-size: 7px; color: #9ca3af;">
+          Lv.${u.lv} ${u.classKey ? BASE_ROLES[u.classKey]?.name || '' : '피난민'}
+        </span>
       </div>`;
-    }).join('');
+  }).join('');
     return `<div class="gz" ondragover="event.preventDefault()" ondrop="zoneFrameDrop(event,'${zid}')">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div class="gz-title" style="color:${zone.color}">${zone.name}</div>
@@ -3089,6 +3417,8 @@ window.standbyFrameDrop=function(e){
 // 주둔 프레임 드롭: 통솔유닛 or 다른주둔유닛 → 해당 주둔지
 window.zoneFrameDrop=function(e,zid){
   e.preventDefault();
+  const standbyId=parseInt(e.dataTransfer.getData('standby-uid'));
+  if(standbyId){standbyToZone(standbyId,zid);return;}
   const allyId=parseInt(e.dataTransfer.getData('ally-id'));
   const gzid=e.dataTransfer.getData('garrison-zid');
   const guid=parseInt(e.dataTransfer.getData('garrison-uid'));
@@ -3254,6 +3584,12 @@ window.garrisonDragStart=function(e,zid,uid){
   e.dataTransfer.setData('garrison-zid',zid);
   e.dataTransfer.setData('garrison-uid',uid);
 };
+
+window.openPromoteFromGarrison = function(uid) {
+  const u = allies.find(a => a.id === uid);
+  if (u) showClassModal(u);
+};
+
 window.garrisonDrop=function(e,toZid){
   const fromZid=e.dataTransfer.getData('garrison-zid');
   const uid=parseInt(e.dataTransfer.getData('garrison-uid'));
@@ -3439,8 +3775,9 @@ function loop(){
   }
   if(_frameCount%20===0){
     if(_frameCount%120===0){checkCivUpgrade();}
+    
+    // 1. 상인 관련 시간 표시 (마을 단계 미만)
     if(_frameCount%60===0&&civPhase<2&&!_merchantPresent){
-      // 마을 단계: 상인 대기 시간 표시 갱신
       const sb=document.getElementById('shop-btn');
       if(sb&&window._merchantNextTime){
         const left=Math.max(0,Math.ceil((window._merchantNextTime-Date.now())/1000));
@@ -3450,70 +3787,84 @@ function loop(){
       }
     }
     if(_frameCount%60===0&&_merchantPresent&&civPhase<2) updateMerchantBtn();
+
+    // 2. 기본 재원(골드/식량) 수치 갱신
     document.getElementById('gd').innerText=gold;
     document.getElementById('fd').innerText=food;
-    var ri=document.getElementById('r-stone');if(ri)ri.innerText=res.stone||0;
-    ri=document.getElementById('r-wood');if(ri)ri.innerText=res.wood||0;
-    ri=document.getElementById('r-iron');if(ri)ri.innerText=res.iron||0;
-    ri=document.getElementById('r-herb');if(ri)ri.innerText=res.herb||0;
-    ri=document.getElementById('r-diamond');if(ri)ri.innerText=res.diamond||0;
-    var dl=document.getElementById('day-label');
+
+    // 3. 문명 단계별 재원 가시성 제어 (7번 요청 반영)
+    const toggleDisplay = (id, condition) => {
+      const el = document.getElementById(id);
+      if (el && el.parentElement) {
+        el.parentElement.style.display = condition ? 'inline' : 'none';
+      }
+    };
+
+    // Phase 0 (피난민): 식량, 돌, 나무, 골드만 노출
+    // Phase 1 (마을): + 철, 약초 추가
+    // Phase 2 (도시): + 다이아몬드 추가
+    toggleDisplay('r-iron', civPhase >= 1);
+    toggleDisplay('r-herb', civPhase >= 1);
+    toggleDisplay('r-diamond', civPhase >= 2);
+
+    // 4. 각 재원 수치 갱신
+    const setVal = (id, val) => { 
+    const el = document.getElementById(id); 
+    if(el) el.innerText = Math.floor(val || 0); };
+    setVal('r-stone', res.stone);
+    setVal('r-wood', res.wood);
+    setVal('r-iron', res.iron);
+    setVal('r-herb', res.herb);
+    setVal('r-diamond', res.diamond);
+
+    // 5. 날짜 레이블 갱신
+    var dl = document.getElementById('day-label');
     if(dl){
-      var isH=currentZone.tier==='hunt'||currentZone.tier==='pred';
-      dl.innerText=(isH?'🌿 사냥 ':'⚔️ 전투 ')+zoneStage+'일차';
+      var isH = currentZone.tier==='hunt' || currentZone.tier==='pred';
+      dl.innerText = (isH ? '🌿 사냥 ' : '⚔️ 전투 ') + zoneStage + '일차';
     }
   }
   requestAnimationFrame(loop);
 }
 
 // ── 스토리 인트로 ──
-var _introStep=0;
-var _introData=[
+var _introStep = 0;
+var _introData = [
   {t:'🌍 낯선 대륙의 첫날',
-   b:'과학 문명의 세계에서 살던 나는 탐험대의 일원으로 이 대륙에 발을 들였다.<br><br>그런데 돌아가야 할 배가... <b style="color:#e74c3c">사라졌다.</b><br><br>방황하던 중, 언덕 너머에서 연기가 피어오르는 걸 발견했다.',
+   b:'과학 문명의 세계에서 살던 나는 탐험대의 일원으로 이 대륙에 발을 들였다.<br><br>그런데 돌아가야 할 배가... <b style="color:#e74c3c">사라졌다.</b><br><br>방황하던 중, 연대기 너머에서 연기가 피어오르는 걸 발견했다.',
    btn:'다가가다...'},
   {t:'👥 피난민 집단과의 만남',
    b:'수십 명의 사람들이 모여 있었다. 전쟁을 피해 도망쳐 온 피난민들.<br><br><b style="color:#f1c40f">리더가 없다.</b> 각자 제멋대로 행동하고, 식량은 바닥을 보이고 있다.<br><br>누군가 나를 보더니 말했다: <em style="color:#2ecc71">"당신, 뭔가 달라 보여요..."</em>',
    btn:'상황을 파악하다'},
   {t:'🍖 첫 번째 결단: 식량 확보',
-   b:'<b style="color:#e74c3c">3일치 식량밖에 남지 않았다.</b><br><br>저 들판에 사냥감이 있다. 싸울 수 있는 사람을 데리고 나가면 당장 굶어죽는 건 막을 수 있어.<br><br><b style="color:#f1c40f">🎯 목표: 마을 → 도시 → 왕국</b><br>🌿 사냥 → 🍖 식량 → 👥 영입 → ⚔️ 전투 → 🏘️ 건설',
-   btn:'게임 방법 알아보기 ▶'},
-  {t:'🗺️ 게임 방법 ①: 배치',
-   b:'<b style="color:#a855f7">보라색 영역</b>을 터치하면 대원이 순서대로 배치됩니다.<br>배치 순서: <b style="color:#4fc3f7">탱커</b> → <b style="color:#f0f4f8">힐러</b> → <b style="color:#a0785a">전사</b> → <b style="color:#fdd835">전투가</b> → <b style="color:#66bb6a">원거리</b> → <b style="color:#ce93d8">마법사</b> → <b style="color:#90a4ae">피난민</b> 순으로 자동 배치됩니다.<br><br>배치된 대원을 <b>꾹 누른 채 드래그</b>하면 위치를 바꿀 수 있습니다.<br><br>모든 대원을 배치하면 <b style="color:#e74c3c">▶ 출발!</b>을 눌러 시작하세요.',
-   btn:'다음 ▶'},
-  {t:'⚔️ 게임 방법 ②: 전투 조작',
-   b:'전투는 <b>자동으로 진행</b>됩니다.<br><br>• 지도의 대원을 <b>터치 후 드래그</b> → 이동 명령<br>• 대원 <b>더블탭</b> → <b style="color:#a855f7">홀드</b> (그 자리에서 움직이지 않고 전투)<br><br><b style="color:#f1c40f">🔄 자동 진행 ON</b>: 전투 후 대기 없이 즉시 다음 전투를 시작합니다.<br>자동 진행 중에도 경험치와 자원을 획득해요.',
-   btn:'다음 ▶'},
-  {t:'🏕 게임 방법 ③: 거점 활성화',
-   b:'<b style="color:#2ecc71">15일차 사냥 성공</b> = 해당 사냥터 <b>거점 활성화!</b><br><br>거점이 활성화되면 유닛을 배치해 <b>자동으로 자원</b>을 얻을 수 있어요.<br><br>자동 사냥 효율은 <b>15일간의 기록</b>(클리어 속도·보상량)으로 결정됩니다.<br>• 초기: 기준치의 <b style="color:#e74c3c">50%</b> 수준<br>• 시간이 지나면서 점차 안정화 → 최대 <b style="color:#2ecc71">100%</b><br><br>당신은 새 사냥터를 개척하고, 동료들이 거점을 지킵니다.',
-   btn:'다음 ▶'},
-  {t:'💀 게임 방법 ④: 빈사와 부활',
-   b:'대원의 HP가 0이 되면 <b style="color:#e74c3c">빈사 상태</b>로 쓰러집니다.<br><br>• <b style="color:#2ecc71">7초 이내</b>: 힐러의 응급 소생 스킬로 되살릴 수 있어요<br>• <b>전투 승리</b> 시: 빈사 대원 자동 회복<br>• <b style="color:#e74c3c">7초 초과</b>: 무덤으로 → 다음 전투 참여 불가<br><br>힐러를 꼭 데려가세요! 한 명이 여럿을 살릴 수 있습니다.',
-   btn:'사냥에 나서다! 🌿'},
+   b:'<b style="color:#e74c3c">3일치 식량밖에 남지 않았다.</b><br><br>저 들판에 사냥감이 있다. 싸울 수 있는 사람을 데리고 나가면 당장 굶어죽는 건 막을 수 있어.<br><br><b style="color:#f1c40f">🎯 목표: 마을 → 도시 → 왕국</b>',
+   btn:'왕국 세우기, 시작!'}, // 1번 요청: 버튼 문구 수정
 ];
 
-window.introNext=function(){
+// 인트로 완료 시 안내 (3번 요청: 배치 방법만 안내)
+function finishIntro() {
+  document.getElementById('intro-modal').classList.remove('show');
+  alog('👆 지도 위 <b style="color:#a855f7">보라색 영역</b>을 클릭하면 대원이 배치됩니다.');
+  alog('📍 배치된 대원을 <b>드래그</b>하면 위치를 변경할 수 있습니다.');
+  window._tutorialStep = 'deploy';
+}
+
+window.introNext = function() {
   _introStep++;
-  if(_introStep>=_introData.length){
-    document.getElementById('intro-modal').classList.remove('show');
-    // 인트로 완료 후 배치 안내 메시지
-    alog('👆 지도 위 <b style="color:#a855f7">보라색 부분</b>을 클릭하면 대원이 배치됩니다.');
-    alog('🌅 자, 이제 유닛을 배치해보세요!');
-    // 첫 배치 완료 감지 → 다음 안내
-    window._tutorialStep='deploy';
+  if (_introStep >= _introData.length) {
+    finishIntro();
     return;
   }
-  var d=_introData[_introStep];
-  document.getElementById('intro-title').innerText=d.t;
-  document.getElementById('intro-body').innerHTML=d.b;
-  document.getElementById('intro-btn').innerText=d.btn;
+  var d = _introData[_introStep];
+  document.getElementById('intro-title').innerText = d.t;
+  document.getElementById('intro-body').innerHTML = d.b;
+  document.getElementById('intro-btn').innerText = d.btn;
 };
-window.skipIntro=function(){
-  document.getElementById('intro-modal').classList.remove('show');
-  alog('👆 지도 위 <b style="color:#a855f7">보라색 부분</b>을 클릭하면 대원이 배치됩니다.');
-  alog('🌅 자, 이제 유닛을 배치해보세요!');
-  window._tutorialStep='deploy';
+
+window.skipIntro = function() {
+  finishIntro();
 };
+
 function showIntro(){
   _introStep=0;
   var d=_introData[0];
@@ -3586,6 +3937,44 @@ window.onload=function(){
   setTimeout(showIntro,600);
   startMerchantSchedule();
 };
+// 드래그 시작 시 유닛 ID 저장
+window.garrisonDragStart = function(e, fromZid, uid) {
+  e.dataTransfer.setData("text/plain", JSON.stringify({ fromZid, uid }));
+  e.dataTransfer.effectAllowed = "move";
+};
+
+// 드롭 처리 (사냥터 구역으로 이동)
+window.onDropToZone = function(e, toZid) {
+  e.preventDefault();
+  const data = JSON.parse(e.dataTransfer.getData("text/plain"));
+  const { fromZid, uid } = data;
+  const u = allies.find(a => a.id === uid);
+  if (!u) return;
+
+  // 1. 기존 주둔지에서 제거 (있을 경우)
+  if (fromZid && ZONES[fromZid]) {
+    ZONES[fromZid].garrison = ZONES[fromZid].garrison.filter(g => g.id !== uid);
+  }
+
+  // 2. 새 주둔지에 추가
+  if (!ZONES[toZid].garrison) ZONES[toZid].garrison = [];
+  if (ZONES[toZid].garrison.length < 6) {
+    ZONES[toZid].garrison.push({ id: u.id, lv: u.lv });
+    u.garrisoned = true;
+    u.inStandby = false;
+    u.isDeployed = false;
+    alog(`🚚 ${u.name} → ${ZONES[toZid].name} 이동`);
+  } else {
+    alog("⚠️ 해당 지역 주둔 인원이 가득 찼습니다!");
+    // 인원이 꽉 찼으면 원래대로 (대기로 보내는 등 처리)
+    u.inStandby = true;
+  }
+  
+  renderGarrisonBar();
+  renderAllyPanel();
+  markDirty();
+};
+
 </script>
 </body>
 </html>
