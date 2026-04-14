@@ -8,16 +8,39 @@
 .rv { font-size:0.82em; } .rv span { color:#f1c40f; font-weight:bold; }
 .rv span.g { color:#2ecc71; } .rv span.r { color:#e74c3c; } .rv span.fo { color:#e67e22; }
 /* 상단 자원바 - v6 11 원본 */
-#top { width:100%; max-width:1380px; background:#0f1923; border:1px solid #1e3a5f; border-radius:7px; padding:7px 14px; display:flex; gap:14px; align-items:center; margin-bottom:5px; flex-wrap:wrap; position: sticky; top: 0; z-index: 100;}
-.logo { color:#f1c40f; font-weight:bold; font-size:0.95em; }
+#top {
+    width: 98%;           /* 양옆에 아주 미세한 여백만 남기고 꽉 채움 */
+    max-width: 100% !important; /* 기존 1380px 제한을 강제로 해제 */
+    margin: 0 auto 5px auto;
+    background: #0f1923;
+    border: 1px solid #1e3a5f;
+    border-radius: 7px;
+    padding: 10px 14px;
+    display: flex;
+    flex-wrap: wrap;           /* 공간 부족 시 자동 줄바꿈 */
+    justify-content: center;   /* [기본/모바일] 중앙 정렬 */
+    align-items: center;
+    gap: 10px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.top-info-group {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
 
 .top-res-group {
-    margin-left: auto;      /* 핵심: 왼쪽 여백을 자동으로 채워 우측으로 밀어냄 */
-    display: flex;          /* 자원 아이콘들을 가로로 나열 */
-    gap: 12px;              /* 자원 사이의 간격 */
-    align-items: center;    /* 세로 중앙 정렬 */
-    justify-content: flex-end; /* 내부 아이템들도 우측 정렬 유지 */
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
 }
+
+.logo { color:#f1c40f; font-weight:bold; font-size:0.95em; }
 
 /* 추가로 각 자원(rv)의 간격을 미세 조정하고 싶다면 */
 .rv {
@@ -39,8 +62,9 @@ body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #cc
   display: flex;
   flex-direction: column;   /* 모바일: 위아래(2줄) 배치 */
   gap: 8px;
-  width: 100%;
-  max-width: 1380px;
+  width: 98%;           /* 양옆에 아주 미세한 여백만 남기고 꽉 채움 */
+  max-width: 100% !important; /* 기존 1380px 제한을 강제로 해제 */
+  margin: 0 auto 5px auto;
   background: #0f1923;
   border: 1px solid #1e3a5f;
   border-radius: 7px;
@@ -106,13 +130,23 @@ body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #cc
 .cb:hover { filter:brightness(1.3); }
 .cb-go{background:#7b1d1d} .cb-pa{background:#7d5a00} .cb-hi{background:#1a5c32} .cb-zo{background:#1a3d5c} .cb-fo{background:#5a3010}
 /* ── 메인 레이아웃 ── */
-#lay { width:100%; max-width:1380px; display:flex; gap:6px; align-items:flex-start; }
+
+#lay {
+    width: 98%;           /* 양옆에 아주 미세한 여백만 남기고 꽉 채움 */
+    max-width: 100% !important; /* 기존 1380px 제한을 강제로 해제 */
+    margin: 0 auto 5px auto;
+    display: flex;
+    gap: 6px;
+    align-items: flex-start;
+    justify-content: center;
+}
+
 #center-col {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-width: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
 }
 .sp { width:270px; flex-shrink:0; background:#0f1923; border:1px solid #1e2d3d; border-radius:7px; padding:9px; max-height:700px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
 .pt { font-size:0.82em; font-weight:bold; color:#f1c40f; margin-bottom:7px; border-bottom:1px solid #1e2d3d; padding-bottom:4px; }
@@ -139,8 +173,29 @@ body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #cc
 .log { height:75px; overflow-y:auto; background:#080c10; border:1px solid #1e2d3d; border-radius:3px; padding:4px; font-size:9px; color:#4ade80; margin-top:5px; }
 .log.el { color:#f87171; } .ll { padding:1px 0; }
 /* ── 지도 ── */
-#mw { flex:1; position:relative; border:1px solid #1e2d3d; border-radius:7px; overflow:hidden; background:#060a0d; }
-canvas { display:block; touch-action:none; }
+/* [수정] 지도 컨테이너와 캔버스의 유연한 크기 조절 */
+/* [수정] 지도와 거점 바의 최대 너비를 확장 */
+/* [수정] 지도 프레임과 거점 바의 제한도 해제 */
+#mw, #garrison-bar {
+    width: 100% !important;
+    max-width: 100% !important; /* 1000px 제한 해제 */
+}
+
+#mw {
+    position: relative;
+    border: 1px solid #1e2d3d;
+    border-radius: 7px;
+    overflow: hidden;
+    background: #060a0d;
+    display: flex;
+    justify-content: center;
+}
+
+canvas {
+    width: 100% !important;
+    height: auto !important;
+    display: block;
+}
 #pg {
   position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
   background:#f1c40f; color:#111;
@@ -187,10 +242,9 @@ canvas { display:block; touch-action:none; }
 .zr-hunt{background:#1a3d20;color:#2ecc71} .zr-bandit{background:#3d1010;color:#e74c3c}
 /* ── 거점 현황 ── */
 #garrison-bar {
-  width: 100%; /* 지도(mw)와 동일한 너비 확보 */
-  background: #0a1520;
-  border: 1px solid #1e3a5f;
-  border-radius: 7px;
+    background: #0a1520;
+    border: 1px solid #1e3a5f;
+    border-radius: 7px;
 }
 #garrison-bar-header { display:flex; align-items:center; gap:10px; padding:6px 12px; cursor:pointer; background:#0f1923; }
 #garrison-bar-header:hover { background:#111d2b; }
@@ -248,91 +302,48 @@ button, .cb, .skb, .ub, .class-btn, .zone-btn, .gz-unit, .gz-add { touch-action:
     border-bottom: 1px solid #1e2d3d;
 }
 
-/* PC 환경(1000px 이상)에서의 컨트롤 바 가로 정렬 */
+/* -------------------------------------------------- */
+/* ---------------- 브레이크포인트 구간 ---------------- */
+
+/* (A) 850px 이상: 자원바가 한 줄로 들어오면 좌우로 찢어짐 */
+@media (min-width: 850px) { 
+    #top {
+        justify-content: space-between; 
+    }
+}
+
+/* (B) 1000px 이상: 컨트롤 버튼들을 가로로 한 줄 배치 */
 @media (min-width: 1000px) {
   #ctrl {
-    flex-direction: row;           /* 한 줄로 배치 */
-    justify-content: space-between; /* 좌우 끝 정렬 */
+    flex-direction: row;
+    justify-content: space-between;
     padding: 8px 20px;
   }
-
   .ctrl-row {
     width: auto;
     gap: 8px;
     justify-content: flex-start;
   }
-
   .ctrl-row .cb, .ctrl-row .badge {
     padding: 5px 12px;
     font-size: 11px;
   }
 }
 
-/* [2, 3번 요청] 메인 레이아웃 및 프레임 너비 통일 */
-#lay {
-  width: 100%;
-  max-width: 1380px;
-  display: flex;
-  gap: 6px;
-  align-items: flex-start;
-  justify-content: center;
-}
-
-/* 중앙 기둥: 지도와 거점 현황을 묶음 */
-#center-col {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-width: 0; /* flex 박스 깨짐 방지 */
-}
-
-/* 지도와 거점 바의 너비를 부모(#center-col)에 100% 맞춤 */
-#mw, #garrison-bar {
-  width: 100%;
-  box-sizing: border-box;
-}
-
-#mw {
-  position: relative;
-  border: 1px solid #1e2d3d;
-  border-radius: 7px;
-  overflow: hidden;
-  background: #060a0d;
-  display: flex;
-  justify-content: center;
-}
-
-#garrison-bar {
-  background: #0a1520;
-  border: 1px solid #1e3a5f;
-  border-radius: 7px;
-}
-
-/* [3번 요청] 화면이 좁아지면 사이드 패널을 하단으로 이동 */
+/* (C) 1100px 이하: 모바일/패드 모드 (사이드바가 아래로 이동) */
 @media (max-width: 1100px) {
   #lay {
-    flex-direction: column; /* 세로 배열 */
+    flex-direction: column;
     align-items: center;
   }
-
-  #center-col { 
-    order: 1; /* 지도/거점이 맨 위 */
-    width: 100%; 
-  }
-  
+  #center-col { order: 1; width: 100%; }
   #panel-ally { 
-    order: 2; /* 동료창이 그 다음 */
+    order: 2; 
     width: 100% !important; 
     max-height: none !important; 
   }
-  
-  #panel-enemy { 
-    order: 3; /* 적 정보가 맨 아래 */
-    width: 100% !important; 
-  }
+  #panel-enemy { order: 3; width: 100% !important; }
 
-  /* 모바일 동료창 2열 정렬 */
   #al {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -686,11 +697,17 @@ let _panelDirty=true,_frameCount=0;
 // 초기화
 // ══════════════════════════════════════════════════════
 function init(){
-  canvas=document.getElementById('gc');
-  ctx=canvas.getContext('2d');
-  canvas.width=CW; canvas.height=CH;
-  document.getElementById('mw').style.width=CW+'px';
-  document.getElementById('mw').style.height=CH+'px';
+  canvas = document.getElementById('gc');
+  ctx = canvas.getContext('2d');
+
+  // 1. 캔버스의 내부 논리 해상도(좌표 계산용)는 고정합니다.
+  canvas.width = CW; 
+  canvas.height = CH;
+
+  // 2. [교체 포인트] 고정된 style.width 대신 리사이즈 함수를 호출합니다.
+  // 이 한 줄이 지도와 거점 현황의 너비를 칼같이 맞춰줍니다.
+  resizeCanvas();
+  
   currentZone=ZONES.hunt;
   buildMap(); spawnAllies(); spawnEnemies(); enterPlacement();
   canvas.addEventListener('mousedown',onDown);
@@ -1307,9 +1324,8 @@ let _selectedUnitId=null; // 지도에서 클릭한 유닛 강조용
 const DBL_CLICK_MS=300;
 
 function getPos(e){
-  const r=canvas.getBoundingClientRect();
-  // CSS로 캔버스가 축소된 경우 스케일 보정
-  // 캔버스 내부 해상도(CW×CH) vs 실제 화면 표시 크기(r.width×r.height)
+  const r = canvas.getBoundingClientRect();
+  // 실제 픽셀(CW)과 화면에 보이는 크기(r.width)의 비율을 계산하여 좌표 보정
   const scaleX = CW / r.width;
   const scaleY = CH / r.height;
   return {
@@ -1732,58 +1748,40 @@ function hireFood(){
   alog(`👤 피난민 ${_refCount}명 영입 (−${cost}🍖)`);
 }
 function hireGold(){
-  // 1. 금화 보유량 체크 (동기화 포함)
+  // 1. 금화 체크 (기존과 동일)
   if(res.gold < 100){ alog('❌ 금화 부족 (필요: 100G)'); return; }
-  res.gold -= 100; syncFromRes(); // 자원 차감
+  res.gold -= 100; syncFromRes();
 
-  // 2. Refugee(피난민)를 제외한 전투 직업군 중에서 무작위 선택
-  const combatRoles = Object.keys(BASE_ROLES).filter(r => r !== 'Refugee');
-  const selectedRoleKey = combatRoles[Math.floor(Math.random() * combatRoles.length)];
-  const roleData = BASE_ROLES[selectedRoleKey];
-
-  // 3. 유닛 생성 (변경된 직업 이름을 기본 이름으로 사용)
-  const u = mkAlly(roleData.name + (allies.length + 1));
-  
-  // 4. 용병 스펙 설정 (5레벨 시작 및 전직 상태)
+  // 2. 용병 생성 (직업을 미리 정하지 않고 '미전직' 상태로 생성)
+  const u = mkAlly('용병' + (allies.length + 1));
   u.lv = 5; 
-  u.maxExp = Math.floor(100 * Math.pow(1.55, 4)); // 5레벨에 맞는 필요 경험치
-  u.classKey = selectedRoleKey; // 즉시 해당 직업으로 전직된 상태
-  u.maxSkillSlots = 2; // 전직자이므로 스킬 슬롯 2개
-  
-  // 5. 직업 유형에 따른 초기 스킬 자동 셋팅
-  if(selectedRoleKey === 'Tank') {
-    u.activeSkills = ['Guard', 'Fortress'];
-  } else if(selectedRoleKey === 'Heal') {
-    u.activeSkills = ['Mend', 'Barrier'];
-  } else if(selectedRoleKey === 'Mage') {
-    u.activeSkills = ['Fireball', 'Blizzard'];
-  } else {
-    u.activeSkills = ['Strike', 'Arrow'];
-  }
-  
-  // 보유 스킬 목록 갱신
-  u.availableSkills = [...new Set([...u.availableSkills, ...u.activeSkills])];
+  u.maxExp = Math.floor(100 * Math.pow(1.55, 4));
+  u.classKey = null;      // [수정] 미리 정하지 않음! 그래야 선택창이 뜹니다.
+  u.maxSkillSlots = 1;    // 전직 전이므로 슬롯 1개
 
-  // 6. 5레벨 성장치 반영 (레벨업 4회 분량 스탯 가산)
+  // 3. 5레벨 성장치 (기존 로직 유지)
   for(let i=0; i<4; i++){
     const trait = TRAITS[u.traitKey || 'balanced'];
     u.maxHp += Math.floor(trait.growHp * 30);
     u.bonusAtk += Math.floor(trait.growAtk * 5);
-    u.bonusDef = Math.min(u.bonusDef + 0.02, 0.6); // 방어력 상한선 체크
+    u.bonusDef = Math.min(u.bonusDef + 0.02, 0.6);
   }
-  u.hp = u.maxHp; // 고용 시 체력 완치
+  u.hp = u.maxHp;
   
-  // 7. 파티 리스트 추가 및 UI 업데이트
   allies.push(u);
   isPlacing = true; 
   document.getElementById('pg').style.display = 'block'; 
   updatePG(); 
   markDirty();
 
-  alog(`💰 강력한 [${roleData.name}] 용병이 합류했습니다! (-100G)`);
+  alog(`💰 용병 후보가 도착했습니다! 보직을 결정하세요. (-100G)`);
   
-  // 8. 이름 부여 모달 표시 (지휘관님이 설정하신 6개 추천 아이디가 뜹니다)
-  setTimeout(() => showRenameModal(u), 300);
+  // 4. [핵심 수정] 이름 짓기 대신 '전직 선택 창'을 띄웁니다.
+  setTimeout(() => {
+    if (typeof showClassModal === 'function') {
+      showClassModal(u); // 여기서 지휘관님이 직접 직업을 클릭하게 됩니다!
+    }
+  }, 300);
 }
 function spawnRefugee(){
   const u=mkAlly('피난민'+(allies.length+1));
@@ -4059,37 +4057,32 @@ window.allyPanelDrop=function(e){
   }
 };
 
-// [2번 요청] 지도와 거점 현황 너비 동기화 및 확대/축소 로직
 function resizeCanvas() {
   const mw = document.getElementById('mw');
   const gBar = document.getElementById('garrison-bar');
-  
-  // 부모 컨테이너의 현재 가용한 너비를 가져옴
-  const availableWidth = mw.parentElement.clientWidth;
-  
-  // 비율 계산 (원본 너비 CW 기준)
-  const scale = availableWidth / CW;
+  if (!mw || !canvas) return;
 
-  if (availableWidth > 0 && availableWidth < CW) {
-    // 1. 캔버스 시각적 크기 조정
-    canvas.style.width = availableWidth + 'px';
-    canvas.style.height = Math.floor(CH * scale) + 'px';
-    
-    // 2. 지도 컨테이너 높이 동기화
-    mw.style.height = canvas.style.height;
-    
-    // 3. 거점 현황 바 너비 강제 동기화
-    if(gBar) gBar.style.width = availableWidth + 'px';
-  } else {
-    // 원본 크기 유지
-    canvas.style.width = CW + 'px';
-    canvas.style.height = CH + 'px';
-    mw.style.height = CH + 'px';
-    if(gBar) gBar.style.width = '100%';
+  // 1. 부모 요소(center-col)의 실제 너비를 그대로 가져옵니다.
+  const parentWidth = mw.parentElement.clientWidth;
+  
+  // 2. [수정] CW(고정 해상도) 제한을 완전히 제거합니다. 
+  // 이제 모니터가 넓으면 넓은 대로 타겟 너비가 설정됩니다.
+  const targetWidth = parentWidth; 
+  
+  // 3. 비율(Scale) 계산 및 지도 높이 설정
+  const scale = targetWidth / CW;
+  const targetHeight = Math.floor(CH * scale);
+
+  // 4. 지도 프레임과 거점 바를 너비에 맞게 확장
+  mw.style.width = targetWidth + 'px';
+  mw.style.height = targetHeight + 'px';
+  
+  if (gBar) {
+    gBar.style.width = targetWidth + 'px';
   }
 }
 
-// 윈도우 크기 변경 이벤트에 등록
+// 윈도우 크기가 바뀔 때마다 즉시 실행
 window.addEventListener('resize', resizeCanvas);
 
 function garrisonExpTick(){
