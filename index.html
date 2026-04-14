@@ -34,7 +34,15 @@ body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #cc
 .cb:hover { filter:brightness(1.3); }
 .cb-go{background:#7b1d1d} .cb-pa{background:#7d5a00} .cb-hi{background:#1a5c32} .cb-zo{background:#1a3d5c} .cb-fo{background:#5a3010}
 /* ── 메인 레이아웃 ── */
-#lay { width:100%; max-width:1380px; display:flex; gap:6px; align-items:flex-start; }
+#lay { 
+    display: flex; 
+    flex-wrap: wrap; /* 공간 부족 시 자동으로 줄바꿈 */
+    gap: 15px; 
+    justify-content: center; 
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden; /* 가로 스크롤 방지 */
+}
 #center-col { flex:1; display:flex; flex-direction:column; gap:5px; min-width:0; }
 .sp { width:270px; flex-shrink:0; background:#0f1923; border:1px solid #1e2d3d; border-radius:7px; padding:9px; max-height:700px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
 .pt { font-size:0.82em; font-weight:bold; color:#f1c40f; margin-bottom:7px; border-bottom:1px solid #1e2d3d; padding-bottom:4px; }
@@ -151,49 +159,47 @@ button, .cb, .skb, .ub, .class-btn, .zone-btn, .gz-unit, .gz-add { touch-action:
     border-bottom: 1px solid #1e2d3d;
 }
 
-/* ── 모바일 (화면 너비 800px 이하) ── */
-@media (max-width:800px){
-  body { padding:3px; padding-top: 60px; /* [3번 요청] 자원바 고정으로 인한 겹침 방지 여백 */ }
-  
-  /* [수정] 3번 요청: 상단 자원바 고정 */
-  #top { 
-    position: fixed; 
-    top: 0; 
-    left: 0; 
-    width: 100%; 
-    z-index: 1000; 
-    border-radius: 0; 
-    margin-bottom: 0;
-  }
+/* [수정] 아이패드 및 태블릿 대응 (1200px 이하일 때) */
+@media (max-width: 1200px) {
+    body { padding-top: 70px !important; }
 
-  #ctrl { gap:3px; flex-wrap:wrap; }
-  .cb { padding:5px 7px; font-size:0.72em; }
-  #lay { flex-direction:column; gap:4px; }
-  #center-col { width:100%; order:1 !important; }
+    /* 지도를 감싸는 중앙 컬럼을 100%로 확장 */
+    #center-col { 
+        width: 100% !important; 
+        max-width: 100% !important;
+        flex: none !important;
+        order: 1 !important; 
+    }
 
-  /* [수정] 2번 요청: 동료창 내 유닛을 2열(Grid)로 배치 */
-  #al { 
-    display: grid; 
-    grid-template-columns: 1fr 1fr; 
-    gap: 5px; 
-  }
+    /* 지도 자체(Canvas)가 화면 폭에 맞춰 줄어들게 함 */
+    #mw { 
+        width: 100% !important; 
+        max-width: 100% !important;
+        margin: 0 auto;
+    }
+    canvas { 
+        width: 100% !important; 
+        height: auto !important; /* 가로 세로 비율 유지하며 축소 */
+    }
 
-  #panel-ally { 
-    width: 100%; 
-    order: 2 !important; 
-    max-height: 450px; /* 2열 배치를 고려해 높이를 넉넉히 확보 */
-    
-    /* 틈새 제거 핵심 코드 */
-    padding-top: 0 !important; 
-    display: flex;
-    flex-direction: column;
-    overflow: hidden; /* 부모 자체 스크롤은 막고 내부 바디만 스크롤하게 설정 */
-}
-  #panel-enemy { width:100%; order:3 !important; max-height:180px; }
-  #mw { width:100% !important; }
-  canvas { width:100% !important; height:auto !important; }
-  .sp-collapsed { display:none; }
-  .sp { max-height:none; }
+    /* 파티창을 지도 아래로 확실하게 보냄 */
+    #panel-ally { 
+        width: 100% !important; 
+        max-width: 100% !important;
+        flex: none !important;
+        order: 2 !important; 
+        margin-top: 10px;
+        max-height: 500px; 
+    }
+
+    /* 동료 리스트를 2열로 배치하여 공간 효율 극대화 */
+    #al { 
+        display: grid; 
+        grid-template-columns: 1fr 1fr; 
+        gap: 8px; 
+    }
+
+    #panel-enemy { width: 100%; order: 3 !important; }
 }
 
 /* ── 데스크탑 (801px 이상) ── */
@@ -517,6 +523,8 @@ let allies=[],enemies=[],floats=[];
 // 자원 시스템 - Safari 안전 (Object.defineProperty 미사용)
 let res={food:50,stone:0,wood:0,iron:0,gold:100,diamond:0,herb:0};
 let stage=1;
+// 1. 전역 변수 추가
+let _tutorialShown = false; 
 // 문명 단계: 0=피난민, 1=마을, 2=도시, 3=왕국
 let civPhase=0;
 let hasTavern=false, hasSmith=false, hasAlchemy=false; // 건물 보유
@@ -922,6 +930,7 @@ function spawnEnemies(){
   enemies=[];
   const tier=currentZone.tier;
   const diff=currentZone.diffMult||1.0; // 다음 챕터 난이도 배율
+  
   getEnemyFormation(stage,tier).forEach(f=>{
     if(diff>1.0){
       f=Object.assign({},f,{
@@ -2045,12 +2054,12 @@ function battleTick(){
     stage = zoneStage; 
     isBattle = false;
 
-    // [수정] 1일차(Stage 1) 완료 후 튜토리얼 팝업 트리거
-    if (zoneStage === 2) {
-        setTimeout(() => {
-            // 기존 alog 대신 팝업 함수 호출
-            showDay1Tutorial(); 
-        }, 600);
+    // 2. battleTick 함수 내 조건 수정
+    if (zoneStage === 2 && !_tutorialShown) {
+      _tutorialShown = true; // 이제 다시는 안 뜸
+      setTimeout(() => {
+        showDay1Tutorial();
+      }, 600);
     }
     else if (zoneStage === 3) {
       // 2일차 완료 후 (3일차 시작 전) 안내: 5번 요청
@@ -2329,28 +2338,30 @@ function moveAlly(a,ae,aa,baseTerrSpd){
 // ══════════════════════════════════════════════════════
 // 파이널 스테이지 & 주둔 시스템
 // ══════════════════════════════════════════════════════
-let _garrisonZoneId=null;
+let _garrisonTimer = null; // 자동 진행 타이머
+let globalDifficulty = 1.0; // 전역 난이도 (상단에 이미 있다면 제외)
 
-function showGarrisonModal(zid){
-  _garrisonZoneId=zid;
-  const zone=ZONES[zid];
-  const rec=zoneRecords[zid]||{};
-  const secs=rec.clearTime?Math.floor(rec.clearTime/1000):0;
-  const GARRISON_LIMIT=6;
+function showGarrisonModal(zid) {
+  _garrisonZoneId = zid;
+  const zone = ZONES[zid];
+  const rec = zoneRecords[zid] || {};
+  const secs = rec.clearTime ? Math.floor(rec.clearTime / 1000) : 0;
+  const GARRISON_LIMIT = 6;
 
-  document.getElementById('garrison-title').innerText=`🏕 ${zone.name} — 자동 사냥 개시`;
-  document.getElementById('garrison-sub').innerText=
-    `파이널 클리어! 피난민을 고용해 이 사냥터에 배치하세요. 이들이 자동으로 자원을 수집합니다.`;
+  // 1. 기본 고용 인원을 6명으로 초기 설정
+  window._garrisonHireCount = GARRISON_LIMIT;
 
-  // 고용할 피난민 수 (기본 0)
-  window._garrisonHireCount=0;
+  document.getElementById('garrison-title').innerText = `🚩 ${zone.name} — 거점 활성화`;
+  document.getElementById('garrison-sub').innerText = `사냥터 정복 완료! 5초 후 자동으로 6명이 배치됩니다.`;
 
-  function renderGarrisonBody(){
-    const cnt=window._garrisonHireCount||0;
-    const foodCost=cnt*30;
-    const canAfford=res.food>=foodCost||food>=foodCost;
-    const atLimit=cnt>=GARRISON_LIMIT;
-    const body=`
+  // UI 그리기 함수
+  function renderGarrisonBody() {
+    const cnt = window._garrisonHireCount || 0;
+    const foodCost = cnt * 30;
+    const canAfford = res.food >= foodCost;
+    const atLimit = cnt >= GARRISON_LIMIT;
+    
+    const body = `
       <div style="font-size:10px;color:#9ca3af;margin-bottom:10px">
         클리어 시간: <b style="color:#f1c40f">${secs}초</b> &nbsp;|&nbsp;
         사냥터 최대 배치: <b style="color:#f1c40f">${GARRISON_LIMIT}명</b>
@@ -2363,67 +2374,90 @@ function showGarrisonModal(zid){
           <button onclick="garrisonChangeHire(1)" style="font-size:1.4em;width:36px;height:36px;border-radius:50%;border:2px solid ${atLimit?'#374151':'#1e3a5f'};background:#0f1923;color:${atLimit?'#555':'#60a5fa'};cursor:pointer;touch-action:manipulation" ${atLimit?'disabled':''}>+</button>
         </div>
         <div style="font-size:11px;color:${canAfford?'#2ecc71':'#e74c3c'};margin-top:8px">
-          비용: 🍖${foodCost} &nbsp; 보유: 🍖${Math.floor(res.food||food)}
+          비용: 🍖${foodCost} &nbsp; 보유: 🍖${Math.floor(res.food)}
         </div>
       </div>
       <div style="font-size:10px;color:#6b7280;text-align:center;margin-bottom:6px">
-        고용된 피난민은 이 사냥터에 자동 배치됩니다.<br>레벨이 오를수록 수익 효율이 증가합니다.
+        ※ 아무 조작이 없으면 5초 후 자동으로 최대 인원이 고용됩니다.
       </div>`;
-    document.getElementById('garrison-body').innerHTML=body;
+    document.getElementById('garrison-body').innerHTML = body;
   }
+
   renderGarrisonBody();
-  window._renderGarrisonBody=renderGarrisonBody;
+  window._renderGarrisonBody = renderGarrisonBody;
+  
+  const footer = document.getElementById('garrison-footer');
+  if(footer) footer.style.display = 'flex';
   document.getElementById('garrison-modal').classList.add('show');
+
+  // 2. 5초 자동 승인 타이머 작동
+  clearTimeout(_garrisonTimer);
+  _garrisonTimer = setTimeout(() => {
+    if (document.getElementById('garrison-modal').classList.contains('show')) {
+      confirmGarrison(); // 자동으로 수락 버튼 클릭 효과
+    }
+  }, 5000);
 }
 
-window.garrisonChangeHire=function(delta){
-  const GARRISON_LIMIT=6;
-  window._garrisonHireCount=Math.max(0,Math.min(GARRISON_LIMIT,(window._garrisonHireCount||0)+delta));
-  if(window._renderGarrisonBody)window._renderGarrisonBody();
+// 인원 조절 시 타이머 해제 (수동 조작 시 자동 진행 멈춤)
+window.garrisonChangeHire = function(delta) {
+  clearTimeout(_garrisonTimer); // 유저가 클릭하면 자동 타이머 취소
+  const next = (window._garrisonHireCount || 0) + delta;
+  if (next >= 0 && next <= 6) {
+    window._garrisonHireCount = next;
+    if (window._renderGarrisonBody) window._renderGarrisonBody();
+  }
 };
 
-let _garrisonSelected=new Set();
-window.toggleGarrisonUnit=function(id){
-  const GARRISON_LIMIT=6;
-  if(_garrisonSelected.has(id)){
-    _garrisonSelected.delete(id);
-  }else{
-    if(_garrisonSelected.size>=GARRISON_LIMIT){
-      alog(`❌ 최대 ${GARRISON_LIMIT}명까지만 배치 가능`);return;
-    }
-    _garrisonSelected.add(id);
+// 확인 버튼 로직 (난이도 상승 및 재출발 포함)
+function confirmGarrison() {
+  clearTimeout(_garrisonTimer);
+  const cnt = window._garrisonHireCount || 0;
+  const cost = cnt * 30;
+
+  if (res.food < cost) {
+    window._garrisonHireCount = Math.max(0, Math.floor(res.food / 30));
   }
-  if(window._renderGarrisonBody)window._renderGarrisonBody();
-};
 
-function confirmGarrison(){
-  const zid=_garrisonZoneId; if(!zid)return;
-  const cnt=window._garrisonHireCount||0;
-  const foodCost=cnt*30;
-  if((res.food||food)<foodCost){alog(`❌ 식량 부족 (필요: 🍖${foodCost})`);return;}
-  res.food-=foodCost; food=res.food;
+  // 자원 차감 및 거점 등록
+  res.food -= (window._garrisonHireCount * 30);
+  garrisons[_garrisonZoneId] = { count: window._garrisonHireCount, lastTime: Date.now() };
 
-  const rec=zoneRecords[zid]||{cleared:true,garrison:[],totalReward:{food:0,gold:0},clearTime:0,lastTick:Date.now()};
-  if(!rec.garrison)rec.garrison=[];
+  document.getElementById('garrison-modal').classList.remove('show');
+  alog(`🚩 ${_garrisonZoneId} 거점 배치 완료! (인원: ${window._garrisonHireCount}명)`);
 
-  // 고용된 피난민 생성 및 주둔 배치
-  for(let i=0;i<cnt;i++){
-    const u=mkAlly('주둔병'+(allies.length+1));
-    u.activeSkills=['Arrow'];
-    u.isDeployed=false; u.x=-300; u.y=-300;
-    u.garrisoned=zid; u.inStandby=false;
-    allies.push(u);
-    rec.garrison.push({id:u.id,name:u.name,lv:u.lv,classKey:u.classKey,baseRole:u.baseRole});
+  // 3. 난이도 상승 및 자동 재시작 로직
+  globalDifficulty += 0.2; // 난이도 20% 상승
+  zoneStage = 1; 
+  stage = 1;
+  
+  alog(`⚔️ 난이도가 상승했습니다! (Lv.${Math.round(globalDifficulty * 5)}) 재출정합니다.`);
+
+  // 자동 진행 ON 상태라면 즉시 전투 시작
+  if (autoStart) {
+    setTimeout(() => {
+      if (!isBattle) toggleBattle(); // 유닛 배치는 이전 상태 그대로 유지됨
+    }, 1000);
   }
-  rec.lastTick=Date.now();
-  zoneRecords[zid]=rec;
-  window._garrisonHireCount=0;
-  startGarrisonTick();
-  const r=garrisonIncomePerMin(rec);
-  if(cnt>0)alog(`🏰 ${ZONES[zid]?.name||zid}: 피난민 ${cnt}명 배치 🍖${r.food}/분 💰${r.gold}/분`);
-  else alog(`🏰 ${ZONES[zid]?.name||zid} 주둔 설정 완료`);
-  closeGarrisonModal();
-  markDirty();renderGarrisonBar();
+}
+
+function proceedToNextDifficulty() {
+  // 난이도 상승 (적 체력/공격력 20% 증가)
+  globalDifficulty += 0.2; 
+  
+  // 스테이지 리셋
+  zoneStage = 1; 
+  stage = 1;
+  
+  alog(`⚔️ 난이도가 상승했습니다! (Lv.${Math.round(globalDifficulty * 5)}) 다시 전장으로 이동합니다.`);
+
+  // 4. 자동 전투 ON일 경우, 이전 배치 그대로 즉시 시작
+  if (autoStart) {
+    setTimeout(() => {
+      // 이미 유닛들이 배치되어 있다면 바로 전투 시작
+      if (!isBattle) toggleBattle();
+    }, 1500);
+  }
 }
 
 function closeGarrisonModal(){
@@ -3237,11 +3271,6 @@ function draw(){
     }
     drawUnit(u);
   });
-  floats=floats.filter(f=>f.life-->0);
-  floats.forEach(f=>{ctx.save();ctx.globalAlpha=Math.min(1,f.life/18);ctx.font='bold 11px Arial';ctx.textAlign='center';ctx.fillStyle=f.color;ctx.fillText(f.text,f.x,f.y-=0.6);ctx.restore();});
-  ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(4,4,220,17);
-  ctx.fillStyle='#f1c40f';ctx.font='10px Arial';ctx.textAlign='left';
-  ctx.fillText(`💰${gold}G  🍖${food}  Stage${stage}  적${enemies.filter(e=>!e.dead&&e.hp>0).length}`,8,16);
 }
 function drawUnit(u){
   const isAlly=u.type==='ally',R=13;
