@@ -8,15 +8,38 @@
 .rv { font-size:0.82em; } .rv span { color:#f1c40f; font-weight:bold; }
 .rv span.g { color:#2ecc71; } .rv span.r { color:#e74c3c; } .rv span.fo { color:#e67e22; }
 /* 상단 자원바 - v6 11 원본 */
-#top { width:100%; max-width:1380px; background:#0f1923; border:1px solid #1e3a5f; border-radius:7px; padding:7px 14px; display:flex; gap:14px; align-items:center; margin-bottom:5px; flex-wrap:wrap; position: sticky; top: 0; z-index: 100;}
+#top { width:100%; max-width:1380px; background:#0f1923; border:1px solid #1e3a5f; border-radius:7px; padding:4px 12px; display:flex; gap:14px; align-items:center; margin-bottom:3px; flex-wrap:wrap; position: sticky; top: 0; z-index: 100;}
 .logo { color:#f1c40f; font-weight:bold; font-size:0.95em; }
 
+/* 1. 기존 .top-res-group 설정을 아래와 같이 수정 (justify-content 제거) */
 .top-res-group {
-    margin-left: auto;      /* 핵심: 왼쪽 여백을 자동으로 채워 우측으로 밀어냄 */
-    display: flex;          /* 자원 아이콘들을 가로로 나열 */
-    gap: 12px;              /* 자원 사이의 간격 */
-    align-items: center;    /* 세로 중앙 정렬 */
-    justify-content: flex-end; /* 내부 아이템들도 우측 정렬 유지 */
+    margin-left: auto;      /* PC에서는 여전히 우측 정렬 */
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;        /* 자원 항목이 많을 경우 내부 줄바꿈 허용 */
+}
+/* 2. 모바일/태블릿용 반응형 설정 추가 (약 800px 이하일 때) */
+@media (max-width: 800px) {
+    #top {
+        flex-direction: column;    /* 세로로 쌓기 (두 줄 만들기) */
+        justify-content: center;
+        align-items: center;       /* 중앙 정렬 */
+        gap: 8px;                  /* 첫 줄과 둘째 줄 사이 간격 */
+        padding: 10px;
+    }
+
+    .top-info-group {
+        width: 100%;
+        justify-content: center;
+        display: flex;
+    }
+
+    .top-res-group {
+        margin-left: 0;            /* [핵심] 우측 정렬 해제 */
+        width: 100%;
+        justify-content: center;   /* 자원 아이콘들을 중앙으로 */
+    }
 }
 
 /* 추가로 각 자원(rv)의 간격을 미세 조정하고 싶다면 */
@@ -32,21 +55,63 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #ccc; display: flex; flex-direction: column; align-items: center; padding: 6px; user-select: none; }
 /* ── 상단 자원바 ── */
-/* ── 컨트롤 바 ── */
+/* 기본 설정 (PC/넓은 화면): 양 끝 정렬 */
 #ctrl {
-  display: flex;       /* 요소를 가로로 배치 */
-  align-items: center; /* 높이 정렬 */
-  gap: 5px;            /* 버튼 사이 간격 */
+  display: flex;
+  flex-direction: column; /* 모바일: 위아래(줄 단위) 배치 */
+  gap: 8px;
   width: 100%;
+  padding: 5px 0;
+  align-items: center;    /* 모바일: 중앙 정렬 */
 }
 
-/* 6번째 자식(피난민 합류 버튼)부터 오른쪽 끝으로 밀어내기 */
-#ctrl > :nth-child(6) {
-  margin-left: auto !important;
+.ctrl-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center; /* 모바일: 중앙 정렬 */
+  width: 100%;             /* 모바일: 한 줄을 다 차지함 */
+}
+
+/* [수정] 화면 넓이가 충분할 때 (PC/태블릿 가로) */
+@media (min-width: 801px) {
+  #ctrl {
+    flex-direction: row;        /* 한 줄로 배치 */
+    justify-content: space-between; /* 양 끝 정렬 (좌/우) */
+    align-items: center;        /* 수직 중앙 정렬 */
+  }
+
+  .ctrl-row {
+    width: auto;                /* 필요한 만큼만 너비 차지 */
+    justify-content: flex-start; /* 내부 버튼들은 왼쪽부터 나열 */
+  }
+}
+
+#battle-timer {
+  display: none;          /* 기본은 숨김 (JS에서 flex로 켬) */
+  flex-direction: column; /* 위아래로 배치 */
+  justify-content: center;
+  align-items: flex-start;
+  margin-left: 8px;
+  height: 28px;           /* 배지(멈춤 버튼) 높이와 통일 */
+  line-height: 1.2;       /* 줄 간격 좁게 */
+}
+
+#timer-enemy {
+  font-size: 9px;         /* 작은 글씨 */
+  color: #f87171;         /* 적군은 붉은색 계열 */
+  font-weight: bold;
+}
+
+#timer-clock {
+  font-size: 9px;         /* 작은 글씨 */
+  color: #f1c40f;         /* 시간은 노란색 계열 */
+  font-weight: bold;
 }
 
 .badge { padding:4px 12px; border-radius:4px; font-weight:bold; font-size:0.75em; min-width:80px; text-align:center; }
 .b-pl{background:#5b2d82} .b-ba{background:#7b1d1d} .b-pa{background:#7d5a00} .b-re{background:#1a3d5c}
+.b-ba { background: #f1c40f !important; color: #111 !important; }
 .cb { padding:5px 10px; border:none; border-radius:4px; color:#fff; font-weight:bold; cursor:pointer; font-size:0.75em; transition:filter 0.12s; white-space:nowrap; }
 .cb:hover { filter:brightness(1.3); }
 .cb-go{background:#7b1d1d} .cb-pa{background:#7d5a00} .cb-hi{background:#1a5c32} .cb-zo{background:#1a3d5c} .cb-fo{background:#5a3010}
@@ -170,7 +235,9 @@ button, .cb, .skb, .ub, .class-btn, .zone-btn, .gz-unit, .gz-add { touch-action:
 
 /* [수정] 기존 @media (max-width:800px)를 1100px로 변경 */
 @media (max-width: 1100px) {
-  body { padding-top: 70px !important; }
+  body { 
+    padding-top: 10px !important; /* 70px에서 10px로 대폭 축소 */
+  }
   
   #lay { 
     flex-direction: column !important; /* 가로 배열 대신 세로 배열로 강제 */
@@ -219,22 +286,26 @@ button, .cb, .skb, .ub, .class-btn, .zone-btn, .gz-unit, .gz-add { touch-action:
     <span class="rv" style="color:#66bb6a">🌿<span id="r-herb">0</span></span>
     <span class="rv">💰<span id="gd">100</span></span>
     <span class="rv" style="color:#b3e5fc">💎<span id="r-diamond">0</span></span>
-    <span class="rv" style="font-size:0.75em">적 <span class="r" id="ed">0</span>명</span>
   </div>
 </div>
 
 <div id="ctrl">
-  <button class="cb cb-go" id="btn-go" onclick="toggleBattle()">▶ 출발!</button>
-  <button class="cb cb-pa" id="btn-pa" onclick="togglePause()" style="display:none">❚❚ 휴식</button>
-  <button class="cb" id="btn-auto" onclick="toggleAutoStart()" style="background:#1a4030">🔄 자동 진행: OFF</button>
-  <div class="badge b-pl" id="sb">출발 준비</div>
-  
-  <span id="battle-timer" style="font-size:0.75em;color:#f1c40f;font-weight:bold;padding:4px 8px;display:none;vertical-align:top">⏱ 0:00</span>
+  <div class="ctrl-row">
+    <button class="cb cb-go" id="btn-go" onclick="toggleBattle()">▶ 출발!</button>
+    <button class="cb" id="btn-auto" onclick="toggleAutoStart()" style="background:#1a4030">🔄 자동 진행: OFF</button>
+    <div class="badge b-pl" id="sb">출발 준비</div>
+    <button class="cb cb-pa" id="btn-pa" onclick="togglePause()" style="display:none">❚❚ 휴식</button>
+    <div id="battle-timer" style="display:none;">
+      <span id="timer-clock">⏱ 0:00</span>
+      <span id="timer-enemy">적 0명</span>
+    </div>
+  </div>
 
-  <button class="cb cb-fo" onclick="showRefugeeModal()">🍖 피난민 합류</button>
-  <button class="cb cb-hi" onclick="hireGold()">💰 용병 고용 (100G)</button>
-  <button class="cb cb-zo" onclick="showZoneModal()">📍 사냥터 선택</button>
-  
+  <div class="ctrl-row">
+    <button class="cb cb-fo" onclick="showRefugeeModal()">🍖 피난민 합류</button>
+    <button class="cb cb-hi" onclick="hireGold()">💰 용병 고용 (100G)</button>
+    <button class="cb cb-zo" onclick="showZoneModal()">📍 사냥터 선택</button>
+  </div>
 </div>
 
 <div id="lay">
@@ -1122,39 +1193,27 @@ function enterPlacement() {
   markDirty();
 }
 function updatePG() {
-  // 현재 배치해야 할 유닛 리스트를 가져옵니다.
   const ud = getSortedUd(); 
   const pg = document.getElementById('pg');
-  if (!pg) return;
+  if (!pg || isBattle) { // 전투 중이면 안내창 무조건 숨김
+    if (pg) pg.style.display = 'none';
+    return;
+  }
 
   if (ud.length === 0) {
-    // 1. 모든 대원이 배치되었을 때
-    if (autoStart) {
-      // 자동 진행 ON이라면 메시지를 숨김
-      pg.style.display = 'none'; 
-    } else {
-      // 자동 진행 OFF라면 초록색 배경 + 하얀색 글씨 표시
-      pg.style.display = 'block'; 
-      pg.style.background = '#2ecc71'; 
+    if (autoStart) pg.style.display = 'none';
+    else {
+      pg.style.display = 'block';
+      pg.style.background = '#2ecc71';
       pg.style.color = '#fff';
-      pg.style.pointerEvents = 'auto';
-      pg.innerHTML = `✅ 대원 배치 완료!<br><span style="font-size:10px; color:#fff;">출발 버튼이나 스페이스바를 누르세요.</span>`;
-      pg.onclick = () => { if (!isBattle && isPlacing) toggleBattle(); };
+      pg.innerHTML = `✅ 대원 배치 완료!<br><span style="font-size:10px">출발 버튼을 누르세요.</span>`;
     }
   } else {
-    // 2. 배치 중일 때 -> 노란색 배경 + 검은색 글씨
-    const clsColor = BASE_ROLES[ud[0].classKey || ud[0].baseRole]?.color || '#a855f7';
     pg.style.display = 'block';
     pg.style.background = '#f1c40f';
-    pg.style.color = '#111'; // 검은색 글씨 유지
-    pg.style.pointerEvents = 'none';
-    
-    // [수정] "보라색 영역" 텍스트를 보라색(#a855f7)으로 변경
-    pg.innerHTML = `
-      <span style="color:${clsColor}">📍 ${ud[0].name}</span> 배치 중<br>
-      <span style="font-size:10px">
-        <span style="color:#a855f7; font-weight:bold;">보라색 영역</span>을 터치하세요.
-      </span>`;
+    pg.style.color = '#111';
+    // "보라색 영역" 텍스트 보라색으로 강조
+    pg.innerHTML = `📍 <b>${ud[0].name}</b> 배치 중<br><span style="font-size:10px"><span style="color:#a855f7; font-weight:bold;">보라색 영역</span>을 터치하세요.</span>`;
   }
 }
 
@@ -1661,14 +1720,18 @@ function spawnRefugee(){
 // 전투 제어
 // ══════════════════════════════════════════════════════
 function toggleBattle(){
+  // [추가] 이미 전투 중이라면 일시정지 기능을 실행합니다.
+  if(isBattle) {
+    togglePause();
+    return;
+  }
+
   // 1. 자원 동기화
   res.food = food; 
   res.gold = gold;
 
-  // 2. 파티 구성 확인
   const activeAllies = allies.filter(a => !a.dead && !a.permanentlyDead && !a.garrisoned && !a.inStandby);
   
-  // 모든 통솔 유닛이 배치되었는지 확인
   if(isPlacing && activeAllies.some(a => !a.isDeployed)){
     alog('❌ 통솔 중인 모든 유닛을 배치하거나 대기실로 이동시켜야 출발할 수 있습니다.');
     return;
@@ -1676,11 +1739,10 @@ function toggleBattle(){
 
   const party = activeAllies.filter(a => a.isDeployed);
 
-  // 파티 인원 제한 확인
   if(party.length > PARTY_LIMIT){
     const excess = party.slice(PARTY_LIMIT);
     excess.forEach(a => { a.inStandby = true; a.isDeployed = false; a.x = -300; a.y = -300; });
-    alog(`❗ 파티 인원(${PARTY_LIMIT}명) 초급! ${excess.length}명을 대기실로 보냈습니다.`);
+    alog(`❗ 파티 인원(${PARTY_LIMIT}명) 초과! ${excess.length}명을 대기실로 보냈습니다.`);
     markDirty(); renderGarrisonBar(); return;
   }
 
@@ -1689,14 +1751,12 @@ function toggleBattle(){
     return;
   }
 
-  // 3. 식량 소모 및 전투 시작 준비
   const foodCost = party.length;
   if(res.food < foodCost){
     alog(`❌ 식량이 부족합니다. (필요: ${foodCost}🍖 / 보유: ${res.food}🍖)`);
     return;
   }
 
-  // 출발 확정 시점
   if(!isBattle){
     res.food -= foodCost; 
     food = res.food;
@@ -1709,12 +1769,13 @@ function toggleBattle(){
     isPaused = false;
     _battleStartTime = Date.now();
 
-    // [중요] 기존 버튼의 글자만 바꿔서 일시정지 기능을 수행하게 합니다.
+    // 버튼의 텍스트를 일시정지로 변경
     const goBtn = document.getElementById('btn-go');
-    if(goBtn) goBtn.innerText = '❚❚ 일시정지';
+    if(goBtn) {
+        goBtn.innerText = '❚❚ 일시정지';
+        goBtn.style.background = '#8b0000'; // 빨간색 배경
+    }
     
-    // [삭제] paBtn.style.display = 'inline-block'; 부분을 지웠습니다.
-
     const isHunt = currentZone.tier === 'hunt' || currentZone.tier === 'pred';
     setBadge(`사냥 ${stage}일차`, 'b-ba');
     alog(`${isHunt ? '🌿 사냥' : '⚔️ 전투'} 시작!`);
@@ -1722,18 +1783,32 @@ function toggleBattle(){
 
   markDirty();
 }
+
 function togglePause() {
+  if (!isBattle) return;
   isPaused = !isPaused;
+  
+  // 현재 사용 중인 버튼(btn-go)을 가져옵니다.
   const goBtn = document.getElementById('btn-go');
-  
-  if (goBtn) {
-    // 일시정지 중이면 '▶ 재개', 아니면 다시 '⏸ 일시정지'
-    goBtn.innerText = isPaused ? '▶ 재개' : '⏸ 일시정지';
+  const sb = document.getElementById('sb');
+
+  if (isPaused) {
+    if(goBtn) {
+        goBtn.innerText = '▶ 재개하기';
+        goBtn.style.background = '#27ae60'; // 초록색 배경
+    }
+    if (sb) sb.innerText = '잠시 멈춤';
+    setBadge('잠시 멈춤', 'b-pa');
+  } else {
+    if(goBtn) {
+        goBtn.innerText = '❚❚ 일시정지';
+        goBtn.style.background = '#8b0000'; // 빨간색 배경
+    }
+    if (sb) sb.innerText = `${stage}일차`;
+    setBadge(`${stage}일차`, 'b-ba'); // 노란색 배경 적용
   }
-  
-  const isHunt = currentZone.tier === 'hunt' || currentZone.tier === 'pred';
-  setBadge(isPaused ? '잠시 멈춤' : `사냥 ${stage}일차`, isPaused ? 'b-pa' : 'b-ba');
 }
+
 function toggleAutoStart(){
   autoStart=!autoStart;
   const btn=document.getElementById('btn-auto');
@@ -2092,15 +2167,31 @@ function battleTick(){
       if(autoStart){setTimeout(()=>{if(!isBattle&&autoStart)toggleBattle();},1500);}
     },300);
 
-  }else if(aa.every(a=>a.hp<=0||a.dead)){
-    alog('☠️ 모두 쓰러졌습니다...'); isBattle=false;
-    aa.forEach(a=>gainExp(a,5));
-    allies.forEach(a=>{
-      if(a.dead&&!a.permanentlyDead){
-        a.hp=Math.floor(a.maxHp*0.1); a.dead=false; a.deathTime=null;
+  } else if(aa.every(a => a.hp <= 0 || a.dead)) {
+    // 1. 즉시 전투 및 배치 상태 해제 (중복 실행 방지)
+    isBattle = false;
+    isPlacing = false;
+
+    // 2. 마지막 생존 유닛까지 확실하게 '사망' 처리 (무덤/전멸 모달 연결 핵심)
+    allies.forEach(a => {
+      if (a.isDeployed && !a.permanentlyDead) {
+        a.dead = true;
+        // 사망 시점이 기록되어야 무덤 카운트다운이나 빈사 로직이 작동합니다.
+        if (!a.deathTime) a.deathTime = Date.now();
       }
     });
-    setTimeout(()=>showDefeatModal(),300);
+
+    // 3. 화면 중앙 안내창(pg) 즉시 숨김
+    const pg = document.getElementById('pg');
+    if (pg) pg.style.display = 'none';
+
+    alog('☠️ 모두 쓰러졌습니다...');
+
+    // 4. 전멸 시에도 약간의 경험치 부여
+    aa.forEach(a => gainExp(a, 5));
+
+    // 5. 전멸 모달 호출 (유닛 상태 복구는 이제 showDefeatModal 이후 confirmDefeat에서 처리됨)
+    setTimeout(() => showDefeatModal(), 300);
   }
 }
 
@@ -2776,7 +2867,7 @@ function showDay1Tutorial() {
   const footer = document.getElementById('garrison-footer');
   if(footer) footer.style.display = 'none'; // 하단 기본 버튼 숨김
 
-  document.getElementById('garrison-title').innerText = '⚔️ 전투 지휘 안내 (1/2)';
+  document.getElementById('garrison-title').innerText = '⚔️ 전투 지휘 안내 (1/3)';
   document.getElementById('garrison-body').innerHTML = `
     <div style="font-size:11px;color:#ccc;line-height:1.7;margin-bottom:14px">
       <div style="margin-bottom:10px">👆 <b style="color:#f1c40f">드래그 이동</b>: 전투 중 대원을 드래그하여 실시간으로 위치를 바꿀 수 있습니다. 위험한 상황에서 대원을 구출하거나 적의 뒤를 잡으세요!</div>
@@ -2790,9 +2881,54 @@ function showDay1Tutorial() {
   document.getElementById('garrison-modal').classList.add('show');
 }
 
-// [수정] 1일차 완료 안내 - 2단계: 성장의 기초 (순서 변경)
+// [수정] 1일차 완료 안내 - 2단계: 전투 기술 변경 안내 (기존 드래그 안내 대체)
 function showTutorialStep2() {
-  document.getElementById('garrison-title').innerText = '🎊 성장의 기초 (2/2)';
+  document.getElementById('garrison-title').innerText = '💡 전투 스킬 변경 안내 (2/3)';
+  document.getElementById('garrison-body').innerHTML = `
+    <div style="font-size:11px;color:#ccc;line-height:1.7;margin-bottom:14px">
+      <div style="margin-bottom:10px">★ <b style="color:#f1c40f">스킬 변경</b>: 대기 중이거나 전투 중에 동료 카드의 <b>스킬 버튼</b>을 클릭하면 사용할 기술을 실시간으로 바꿀 수 있습니다.</div>
+      
+      <div style="background:rgba(0,0,0,0.3); padding:10px; border-radius:5px; border:1px solid #1e3a5f">
+        <div style="color:#f1c40f; font-weight:bold; margin-bottom:5px">📢 추천 설정</div>
+        <div style="margin-bottom:5px">◈ <b style="color:#8d6e63">탱킹</b>: <span style="color:#2ecc71">[몸으로 막기]</span>를 켜서 인근 동료의 방어력을 높이세요.</div>
+        <div>🚑 <b style="color:#f0f4f8">치료</b>: <span style="color:#2ecc71">[상처 처치]</span>를 켜서 부상당한 대원들을 보살피세요.</div>
+      </div>
+    </div>
+    
+    <button onclick="showTutorialStep3()" 
+      style="width:100%;padding:12px;background:#1a5c32;border:none;border-radius:5px;color:#fff;font-weight:bold;cursor:pointer;touch-action:manipulation">
+      다음 (성장의 기초) ▶
+    </button>`;
+    
+  document.getElementById('garrison-modal').classList.add('show');
+}
+
+// [수정] 1일차 완료 안내 - 3단계: 성장의 기초 (순서 변경)
+function showTutorialStep3() {
+  document.getElementById('garrison-title').innerText = '🎊 성장의 기초 (3/3)';
+  document.getElementById('garrison-body').innerHTML = `
+    <div style="font-size:11px;color:#ccc;line-height:1.7;margin-bottom:14px">
+      <div style="margin-bottom:8px">👥 <b style="color:#f1c40f">피난민 합류</b>: 식량 🍖30으로 새로운 인원을 보충합니다.</div>
+      <div style="margin-bottom:8px">💰 <b style="color:#f1c40f">용병 고용</b>: 금화 100G를 써서 이미 전직한 강력한 용병을 영입합니다.</div>
+      <div style="margin-bottom:8px">🔄 <b style="color:#2ecc71">자동 진행</b>: ON 설정 시 전투가 끝나면 대기 없이 즉시 다음 사냥을 시작합니다.</div>
+      <div style="color:#9ca3af;font-size:10px;border-top:1px solid #1e2d3d;padding-top:8px">
+        ※ 15일차까지 완료하면 해당 지역이 거점이 되어 자원을 생산합니다.
+      </div>
+    </div>
+    
+    <div style="display:flex;gap:8px">
+      <button onclick="document.getElementById('garrison-modal').classList.remove('show');toggleAutoStart();" 
+        style="flex:1;padding:12px;background:#1a5c32;border:none;border-radius:5px;color:#fff;font-weight:bold;cursor:pointer;touch-action:manipulation">
+        🔄 자동 진행 ON
+      </button>
+      <button onclick="document.getElementById('garrison-modal').classList.remove('show')" 
+        style="flex:1;padding:12px;background:#374151;border:none;border-radius:5px;color:#fff;cursor:pointer;touch-action:manipulation">
+        닫기
+      </button>
+    </div>`;
+}// [수정] 1일차 완료 안내 - 3단계: 성장의 기초
+function showTutorialStep3() {
+  document.getElementById('garrison-title').innerText = '🎊 성장의 기초 (3/3)';
   document.getElementById('garrison-body').innerHTML = `
     <div style="font-size:11px;color:#ccc;line-height:1.7;margin-bottom:14px">
       <div style="margin-bottom:8px">👥 <b style="color:#f1c40f">피난민 합류</b>: 식량으로 새로운 인원을 보충합니다.</div>
@@ -2804,7 +2940,7 @@ function showTutorialStep2() {
     </div>
     
     <div style="display:flex;gap:8px">
-      <button onclick="document.getElementById('garrison-modal').classList.remove('show');toggleAutoStart();" 
+      <button onclick="document.getElementById('garrison-modal').classList.remove('show'); enableAutoStartOnly();" 
         style="flex:1;padding:12px;background:#1a5c32;border:none;border-radius:5px;color:#fff;font-weight:bold;cursor:pointer;touch-action:manipulation">
         🔄 자동 진행 ON
       </button>
@@ -3456,7 +3592,6 @@ function renderEnemyPanel(){
       </div>
     </div>`;
   }).join('');
-  document.getElementById('ed').innerText=enemies.filter(e=>!e.dead&&e.hp>0).length;
 }
 function alog(m){const el=document.getElementById('alog');el.innerHTML=`<div class="ll">${m}</div>`+el.innerHTML;}
 function elog(m){const el=document.getElementById('elog');el.innerHTML=`<div class="ll">${m}</div>`+el.innerHTML;}
@@ -3965,17 +4100,25 @@ function loop(){
   res.gold=gold; res.food=food;
   syncFromRes();
   // 전투 타이머 (배치 대기 시간 제외 — isBattle 중일 때만 카운트)
-  var bt=document.getElementById('battle-timer');
-  if(bt){
-    if(isBattle&&!isPaused&&_battleStartTime){
-      bt.style.display='inline';
-      var elapsed=Math.floor((Date.now()-_battleStartTime)/1000);
-      // 누적 전투 시간 = 현재 elapsed + 이전 스테이지 시간
-      var total=elapsed+(window._prevBattleTime||0);
-      var mm=Math.floor(total/60),ss=total%60;
-      bt.innerText='⏱ '+mm+':'+(ss<10?'0':'')+ss;
-    }else if(!isBattle){
-      bt.style.display='none';
+  var bt = document.getElementById('battle-timer');
+  if (bt) {
+    if (isBattle && _battleStartTime) {
+      bt.style.display = 'flex'; // flex로 표시 전환
+
+      // 1. 남은 적 숫자 업데이트
+      var activeEnemies = enemies.filter(e => !e.dead && e.hp > 0).length;
+      document.getElementById('timer-enemy').innerText = '남은 적 ' + activeEnemies + '명';
+
+      // 2. 시간 계산 및 업데이트 (일시정지 중에는 멈춤)
+      if (!isPaused) {
+        var elapsed = Math.floor((Date.now() - _battleStartTime) / 1000);
+        var total = elapsed + (window._prevBattleTime || 0);
+        var mm = Math.floor(total / 60), ss = total % 60;
+        document.getElementById('timer-clock').innerText = '⏱ ' + mm + ':' + (ss < 10 ? '0' : '') + ss;
+        window._lastTotalTime = total; // 일시정지 시 마지막 시간 저장
+      }
+    } else if (!isBattle) {
+      bt.style.display = 'none';
     }
   }
   if(_frameCount%20===0){
@@ -4160,6 +4303,7 @@ window.onload=function(){
   window.garrisonDragStart=garrisonDragStart;
   window.zoneFrameDrop=zoneFrameDrop;
   window.toggleGarrisonUnit=toggleGarrisonUnit;
+  window.enableAutoStartOnly = enableAutoStartOnly;
   window.moveGarrisonUnit=moveGarrisonUnit;
   window.garrisonDrop=garrisonDrop;
   setTimeout(showIntro,600);
