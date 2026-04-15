@@ -212,7 +212,7 @@ canvas {
 #pg {
   position: absolute; 
   top: 50%; 
-  left: 50%; 
+  left: 72%; 
   transform: translate(-50%, -50%);
   
   /* 디자인 변경: 반투명 네이비 + 골드 테두리 */
@@ -524,7 +524,7 @@ button, .cb, .skb, .ub, .class-btn, .zone-btn, .gz-unit, .gz-add { touch-action:
   </div>
   <div class="sp" id="panel-enemy" style="order:3">
     <div class="pt" style="display:flex;justify-content:space-between;align-items:center">
-      <span>🐾 마주친 것들</span>
+      <span>🐾 마주친 적들</span>
       <button class="collapse-btn sp-mob-toggle" onclick="togglePanel('panel-enemy-body')">▲</button>
     </div>
     <div id="panel-enemy-body">
@@ -1208,21 +1208,28 @@ function spawnAllies(){
   savedPositions={}; initialPositions={};
 }
 
-// ★ 전투 후: 최초 배치 위치로 복귀
+/* --- resetDeployment 함수 전체 교체 --- */
 function resetDeployment() {
-  // [수정] 생존자들은 초기 위치로, 사망자들은 확실히 전장에서 제외
   allies.forEach(a => {
-    if (!a.dead) {
-      const pos = initialPositions[a.id] || { x: 50, y: 50 };
-      a.x = pos.x;
-      a.y = pos.y;
+    if (!a.dead && a.isDeployed) {
+      // 1. 기억된 위치를 먼저 찾습니다.
+      const pos = savedPositions[a.id] || initialPositions[a.id];
+      
+      if (pos) {
+        a.x = pos.x;
+        a.y = pos.y;
+      } else {
+        // 2. [수정] 기본 간격을 더 넓게(40px, 50px) 설정하여 뭉침을 확실히 방지합니다.
+        // (a.id % 4)를 사용해 가로 4줄씩 바둑판 모양으로 배치합니다.
+        a.x = 45 + (a.id % 4) * 40; 
+        a.y = 70 + Math.floor(a.id / 4) * 55;
+      }
       a.wx = null; a.wy = null;
     } else {
-      // 사망자는 무조건 배치를 해제하여 지도에 나타나지 않게 함
-      a.isDeployed = false;
+      a.isDeployed = false; // 사망자는 전장에서 확실히 제외합니다.
     }
   });
-  markDirty();
+  markDirty(); // 화면 갱신 신호를 보냅니다.
 }
 
 function spawnEnemies(){
@@ -1447,7 +1454,7 @@ function updatePG() {
     } else {
       pg.style.display = 'block';
       pg.style.border = '1px solid #2ecc71'; // 성공의 초록 테두리
-      pg.innerHTML = `✅ <b style="color:#2ecc71">전원 배치 완료!</b><br><span style="font-size:11px; color:#fff;">이제 상단의 <b style="color:#e74c3c">▶ 출발!</b> 버튼을 누르세요.</span>`;
+      pg.innerHTML = `✅ <b style="color:#2ecc71">배치 완료!</b><br><span style="font-size:11px; color:#fff;">상단의 <b style="color:#e74c3c">▶ 출발!</b> or <b style="color:#e74c3c">스페이스 바</b>를 누르세요.</span>`;
     }
   } 
   // 2. 유닛 배치가 진행 중일 때
@@ -1456,6 +1463,10 @@ function updatePG() {
     const roleKey = u.classKey || u.baseRole;
     const classColor = BASE_ROLES[roleKey]?.color || '#f1c40f';
 
+    // [추가] 전체 인원수와 남은 인원수 계산
+    const totalToDeploy = allies.filter(a => !a.dead && !a.permanentlyDead && !a.garrisoned && !a.inStandby).length;
+    const remaining = ud.length;
+
     pg.style.display = 'block';
     pg.style.border = '1px solid #f1c40f'; // 경고/안내의 금색 테두리
     
@@ -1463,8 +1474,8 @@ function updatePG() {
     pg.innerHTML = `
       📍 <b style="color:${classColor}; text-shadow: 1px 1px 2px #000;">${u.name}</b> 배치 중<br>
       <span style="font-size:11px; color:#ddd;">
-        지도 왼쪽의 <b style="color:#a855f7">보라색 영역</b>을 터치하세요.<br>
-        <span style="font-size:10px; color:#9ca3af;">(배치 후 자동으로 다음 인원으로 넘어갑니다)</span>
+        왼쪽의 <b style="color:#a855f7">보라색 영역</b>을 터치하세요.
+        <span style="font-size:10px; color:#f1c40f;">(${remaining}/${totalToDeploy}) 배치 중</span>
       </span>`;
   }
 }
@@ -1495,47 +1506,73 @@ function onDown(e){
   const clickedAlly = allies.find(a => a.isDeployed && !a.dead && dist(a, {x,y}) < 25);
   
   if (clickedAlly) {
-    selAllyId = clickedAlly.id; // 선택된 유닛 ID 저장
-    dragUnit = clickedAlly;    // 드래그 대상 설정
+    // [수정] _selectedUnitId로 변수명을 통일합니다.
+    _selectedUnitId = clickedAlly.id; 
+    dragUnit = clickedAlly;    
     
-    // 파티창 하이라이트 및 지도 갱신
     renderAllyPanel(); 
     markDirty();
-    return; // 유닛을 선택했으므로 배치 로직은 건너뜀
+    return; 
   }
 
-  // [2] 유닛을 선택하지 않았을 때: 배치 대기 유닛이 있다면 배치 시도
+  // [2] 유닛 배치를 위한 클릭 로직 (기존 유지)
   const ud = getSortedUd();
   const cell = nearestCell(x, y);
   const isPurpleZone = hexMap.some(row => row.slice(0, 7).some(h => h === cell));
 
   if(ud.length > 0 && isPurpleZone){
-    const isOccupied = allies.find(a => a.isDeployed && !a.dead && a.x === cell.x && a.y === cell.y);
-    if(!isOccupied){
+      const targetCell = nearestCell(x, y);
+      
+      // [핵심] 클릭한 칸이 다른 유닛의 복귀 지점으로 예약되어 있는지 확인
+      const reserved = allies.find(a => 
+        a.isDeployed && !a.dead && 
+        (savedPositions[a.id]?.x === targetCell.x && savedPositions[a.id]?.y === targetCell.y)
+      );
+
+      let finalCell = targetCell;
+
+      // 만약 자리가 이미 예약되어 있다면? 주변에서 가장 가까운 빈 칸을 검색!
+      if(reserved) {
+        let minD = Infinity;
+        let bestEmptyCell = null;
+        
+        for (let r = 0; r < ROWS; r++) {
+          for (let c = 0; c < 7; c++) { // 보라색 영역(0~6열) 탐색
+            const h = hexMap[r][c];
+            // 아무도 예약하지 않은 칸인지 확인
+            const isTaken = allies.some(a => 
+              a.isDeployed && !a.dead && 
+              (savedPositions[a.id]?.x === h.x && savedPositions[a.id]?.y === h.y)
+            );
+            
+            if(!isTaken) {
+              const d = Math.hypot(h.x - x, h.y - y);
+              if(d < minD) { minD = d; bestEmptyCell = h; }
+            }
+          }
+        }
+        if(bestEmptyCell) finalCell = bestEmptyCell;
+        else { alog("⚠️ 배치 가능한 빈 공간이 없습니다!"); return; }
+      }
+
       const u = ud[0];
-      u.x = cell.x; u.y = cell.y;
+      u.x = finalCell.x; u.y = finalCell.y;
       u.isDeployed = true; u.wx = null; u.wy = null;
       
-      selAllyId = u.id; // 새로 배치한 유닛을 즉시 선택 상태로 만듦
-      savedPositions[u.id] = {x:u.x, y:u.y};
+      // 최종 확정된 칸을 즉시 예약 목록에 등록
+      savedPositions[u.id] = {x: u.x, y: u.y};
+      initialPositions[u.id] = {x: u.x, y: u.y};
       
-      alog(`⚔️ ${u.name} 배치 및 선택 완료.`);
+      _selectedUnitId = u.id;
       updatePG(); 
-      renderAllyPanel(); // 파티창 갱신
-
-      // 자동 시작 체크
-      const remaining = getSortedUd();
-      if(remaining.length === 0 && autoStart && !isBattle) {
-        setTimeout(() => { if(!isBattle) toggleBattle(); }, 600);
-      }
+      renderAllyPanel();
       markDirty();
       return;
-    }
   }
 
   // [3] 빈 땅 클릭 시 선택 해제
-  if (selAllyId !== null) {
-    selAllyId = null;
+  if (_selectedUnitId !== null) {
+    _selectedUnitId = null;
     renderAllyPanel();
     markDirty();
   }
@@ -1553,49 +1590,51 @@ function onUp(e){
   if(dragUnit){
     if(isDragging){
       if(!isBattle){
-        // 1. 드롭한 위치에서 가장 가까운 칸 찾기
-        const cell = nearestCell(x, y); //
-        const isPurpleZone = hexMap.some(row => row.slice(0, 7).some(h => h === cell)); //
-        
-        if(isPurpleZone){
-          // 보라색 영역 내부라면 해당 칸에 배치
-          dragUnit.x = cell.x;
-          dragUnit.y = cell.y;
-        } else {
-          // [핵심 개선] 영역 밖이라면, 보라색 영역(0~6열) 중 가장 가까운 칸을 탐색
-          let bestCell = null;
-          let minD = Infinity;
+    const dropCell = nearestCell(x, y);
+    
+    // 드롭한 위치가 다른 유닛의 복귀 지점인지 체크
+    const isReserved = allies.find(a => 
+      a.id !== dragUnit.id && a.isDeployed && !a.dead &&
+      (savedPositions[a.id]?.x === dropCell.x && savedPositions[a.id]?.y === dropCell.y)
+    );
+
+    let finalDropCell = dropCell;
+
+    // 예약된 자리거나 영역 밖이라면 가장 가까운 빈 공간 탐색
+    if(isReserved || !hexMap.some(row => row.slice(0, 7).some(h => h === dropCell))) {
+      let minD = Infinity;
+      let bestEmpty = null;
+      
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < 7; c++) {
+          const h = hexMap[r][c];
+          const taken = allies.some(a => 
+            a.id !== dragUnit.id && a.isDeployed && !a.dead &&
+            (savedPositions[a.id]?.x === h.x && savedPositions[a.id]?.y === h.y)
+          );
+          if(taken) continue;
           
-          for (let r = 0; r < ROWS; r++) {
-            for (let c = 0; c < 7; c++) { // 보라색 영역 루프
-              const h = hexMap[r][c];
-              const d = Math.hypot(h.x - x, h.y - y); // 마우스 위치와 칸 사이의 거리 계산
-              if (d < minD) {
-                minD = d;
-                bestCell = h;
-              }
-            }
-          }
-          
-          if(bestCell){
-            dragUnit.x = bestCell.x;
-            dragUnit.y = bestCell.y;
-            addFloat(bestCell.x, bestCell.y, '경계 배치', '#a855f7');
-          }
+          const d = Math.hypot(h.x - x, h.y - y);
+          if(d < minD) { minD = d; bestEmpty = h; }
         }
-        // 최종 위치 저장
-        savedPositions[dragUnit.id] = {x: dragUnit.x, y: dragUnit.y}; //
-        
-      } else {
-        // [전투 중 이동] 기존 로직 유지 (경계 고정)
-        const margin = 20;
-        dragUnit.wx = Math.max(margin, Math.min(CW - margin, x));
-        dragUnit.wy = Math.max(margin, Math.min(CH - margin, y));
+      }
+      if(bestEmpty) finalDropCell = bestEmpty;
+    }
+
+    dragUnit.x = finalDropCell.x;
+    dragUnit.y = finalDropCell.y;
+    
+    // 위치 데이터 즉시 동기화
+    savedPositions[dragUnit.id] = {x: dragUnit.x, y: dragUnit.y};
+    initialPositions[dragUnit.id] = {x: dragUnit.x, y: dragUnit.y};
+  } else {
+        // 전투 중 이동 로직 (기존 유지)
+        dragUnit.wx = Math.max(20, Math.min(CW - 20, x));
+        dragUnit.wy = Math.max(20, Math.min(CH - 20, y));
         dragUnit.onHold = false;
-        addFloat(dragUnit.wx, dragUnit.wy, '🎯', '#f1c40f');
       }
     }
-    markDirty(); //
+    markDirty();
   }
   dragUnit = null; isDragging = false;
 }
@@ -1639,9 +1678,9 @@ function showClassModal(unit){
   if (unit.lv === 5) {
     title = `${unit.name} — 첫 번째 보직 선택`;
     
-    // Refugee(피난민)를 제외한 모든 기본 보직을 BASE_ROLES에서 자동으로 가져옵니다.
+    // BASE_ROLES 객체에서 Refugee를 제외한 모든 직업을 자동으로 버튼으로 만듭니다.
     options = Object.entries(BASE_ROLES)
-      .filter(([key]) => key !== 'Refugee') //
+      .filter(([key]) => key !== 'Refugee') 
       .map(([key, data]) => ({
         key: key,
         name: `${data.mark} ${data.name}`,
@@ -1693,27 +1732,30 @@ function showClassModal(unit){
   _classModalTimer=setTimeout(tick,1000);
 }
 window.selectClass = function(key) {
-  if(_classModalTimer){clearTimeout(_classModalTimer);_classModalTimer=null;}
+  if(_classModalTimer){clearTimeout(_classModalTimer); _classModalTimer=null;}
   const u = pendingClass; if(!u) return;
+  if(key === '__skip__'){document.getElementById('modal').classList.remove('show'); pendingClass=null; return;}
 
   if(u.lv === 5){
-    u.classKey = key; // 보직 키 먼저 설정
+    u.classKey = key;
     u.maxSkillSlots = 2;
 
-    // [핵심] 동일 직업을 가진 인원수를 파악하여 숫자 부여
-    const jobNum = allies.filter(a => a.classKey === key).length; //
-    const jobName = BASE_ROLES[key].name;
-    u.name = `${jobName}${jobNum}`; // 예: 방패잡이1, 방패잡이2
+    // [자동 이름 부여] 직업 이름 + 현재 해당 직업 인원수+1
+    const jobNum = allies.filter(a => a.classKey === key).length; 
+    u.name = `${BASE_ROLES[key].name}${jobNum}`; 
 
-    // 데이터 객체에서 스킬 가져오기
-    const ns = BASE_ROLES[key].initSkills || ['Guard', 'Arrow'];
+    // [자동 스킬 부여] BASE_ROLES에 미리 정의해둔 초기 스킬을 가져옵니다.
+    const ns = BASE_ROLES[key].initSkills || ['Arrow'];
     u.availableSkills = [...new Set([...u.availableSkills, ...ns])];
     u.activeSkills = ns.slice(0, 2);
     
     applyClassBonus(u, key, 1);
     alog(`🌟 ${u.name} 탄생! 전장에 투입할 준비가 되었습니다.`);
-  }
-  // ... (이후 10레벨 로직 및 모달 닫기 동일)
+  } 
+  
+  document.getElementById('modal').classList.remove('show');
+  setTimeout(() => showRenameModal(u), 200);
+  markDirty();
 };
 
 // ── 이름 부여 및 별명 시스템 ──
@@ -2098,22 +2140,6 @@ function battleTick(){
   const ae=enemies.filter(e=>e.hp>0&&!e.dead);
   const aa=allies.filter(a=>a.isDeployed&&a.hp>0&&!a.dead&&!a.permanentlyDead);
 
-  // 아군끼리 겹침 방지 (반경 26px 기준 밀어내기)
-  const SEP=26;
-  for(let i=0;i<aa.length;i++){
-    for(let j=i+1;j<aa.length;j++){
-      const a=aa[i],b=aa[j];
-      const dx=b.x-a.x, dy=b.y-a.y;
-      const d=Math.hypot(dx,dy);
-      if(d<SEP&&d>0.1){
-        const push=(SEP-d)*0.3;
-        const nx=dx/d*push, ny=dy/d*push;
-        a.x-=nx; a.y-=ny; b.x+=nx; b.y+=ny;
-        clampToMap(a); clampToMap(b);
-      }
-    }
-  }
-
   aa.forEach(a=>{
     const cell=nearestCell(a.x,a.y);
     const terrSpd=cell?TERRAIN[cell.type].spd:1.0;
@@ -2336,6 +2362,14 @@ function battleTick(){
     const goldReward=gR, foodReward=fR;
     const rlog=(fR?` 🍖+${fR}`:'')+(gR?` 💰+${gR}`:'')+(sR?` 돌+${sR}`:'')+(wR?` 나무+${wR}`:'')+(iR?` 철+${iR}`:'')+(hR?` 🌿+${hR}`:'')+(dR?` 💠+${dR}`:'');
     alog(`✅ ${isH?'사냥':'전투'} ${zoneStage}일차!${rlog}`);
+
+    // [추가] 1일차 클리어 시 튜토리얼 딱 한 번 실행
+    if (zoneStage === 1 && !_tutorialShown) {
+      _tutorialShown = true; 
+      setTimeout(() => {
+        if (typeof showDay1Tutorial === 'function') showDay1Tutorial();
+      }, 1000); 
+    }
 
     // 전투 종료: 빈사(5초 미경과) 대원 자동 회복
     allies.forEach(a=>{
@@ -3079,7 +3113,7 @@ function showDay1Tutorial() {
       <div style="margin-bottom:10px">👆 <b style="color:#f1c40f">드래그 이동</b>: 전투 중 대원을 드래그하여 실시간으로 위치를 바꿀 수 있습니다. 위험한 상황에서 대원을 구출하거나 유리한 지형으로 옮기세요!</div>
       <div style="margin-bottom:10px">🖱️ <b style="color:#a855f7">더블 클릭</b>: 대원을 더블 클릭하면 그 자리에 고정되는 <b style="color:#a855f7">홀드(Hold)</b> 상태가 되어 제자리에서 적을 맞이합니다.</div>
     </div>
-    <button onclick="showTutorialStep2()" 
+    <button onclick="window.showTutorialStep2()"
       style="width:100%;padding:12px;background:#1a5c32;border:none;border-radius:5px;color:#fff;font-weight:bold;cursor:pointer;touch-action:manipulation">
       다음 (기술과 생존) ▶
     </button>`;
@@ -4286,7 +4320,36 @@ function garrisonExpTick(){
 // ══════════════════════════════════════════════════════
 function markDirty(){_panelDirty=true;}
 
+// [추가] 아군 유닛 간 겹침 방지 (상시 작동용)
+function resolveOverlap() {
+  // 전장에 배치된 살아있는 아군들만 필터링합니다.
+  const aa = allies.filter(a => a.isDeployed && a.hp > 0 && !a.dead && !a.permanentlyDead);
+  const SEP = 26; // 분리 유지 거리
+
+  for (let i = 0; i < aa.length; i++) {
+    for (let j = i + 1; j < aa.length; j++) {
+      const a = aa[i], b = aa[j];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.hypot(dx, dy);
+
+      // 거리가 SEP보다 가까우면 서로 밀어냅니다.
+      if (d < SEP && d > 0.1) {
+        const push = (SEP - d) * 0.3; 
+        const nx = dx / d * push, ny = dy / d * push;
+        
+        a.x -= nx; a.y -= ny; 
+        b.x += nx; b.y += ny;
+        
+        clampToMap(a); clampToMap(b); // 맵 경계 밖으로 나가지 않게 고정
+        markDirty(); // 위치가 변했으므로 화면 갱신 요청
+      }
+    }
+  }
+}
+
 function loop(){
+  resolveOverlap();
+
   if(isBattle&&!isPaused)battleTick();
   draw();
   _frameCount++;
@@ -4453,7 +4516,7 @@ function showDeployGuide() {
     pg.style.display = 'block';
     pg.style.background = 'rgba(0,0,0,0.8)'; // 검은 반투명 배경으로 가독성 향상
     pg.style.color = '#f1c40f';
-    pg.innerHTML = '👆 <b style="color:#a855f7">보라색 영역</b>에 대원을 배치하고,</br>준비가 되면 <b style="color:#e74c3c">▶ 출발!</b> 버튼을 누르세요.';
+    pg.innerHTML = '👆 <b style="color:#a855f7">보라색 영역</b>에 대원을 배치하고,</br>준비가 되면 <b style="color:#e74c3c">▶ 출발!</b> or <b style="color:#e74c3c">스페이스 바</b>를 누르세요.';
     // setTimeout이 없으므로 출발 버튼을 누를 때까지 사라지지 않습니다.
   }
 }
@@ -4473,80 +4536,74 @@ function showIntro(){
   newBtn.addEventListener('touchend',function(e){e.preventDefault();window.introNext();});
 }
 
+/* --- index (14).html 맨 아래 window.onload 수정 버전 --- */
 window.onload = function() {
   if ('scrollRestoration' in history) {
-    history.scrollRestoration = 'manual'; // 브라우저의 스크롤 복원 기능 끄기
+    history.scrollRestoration = 'manual';
   }
-  window.scrollTo(0, 0); // 즉시 최상단으로 이동
-  init(); // 게임 초기화 실행
+  window.scrollTo(0, 0); 
+  init(); 
 
-  // [중요] HTML의 onclick 속성에서 함수를 찾을 수 있도록 window 객체에 등록
-  // 이 부분이 정확해야 버튼 클릭 시 에러가 나지 않습니다.
+  // [1] 전투 및 시스템 제어
   window.toggleBattle = toggleBattle;
   window.togglePause = togglePause;
   window.toggleAutoStart = toggleAutoStart;
   window.showZoneModal = showZoneModal;
   window.closeZoneModal = closeZoneModal;
+
+  // [2] 유닛 고용 및 관리
   window.showRefugeeModal = showRefugeeModal;
   window.closeRefugeeModal = closeRefugeeModal;
   window.hireGold = hireGold;
   window.hireFood = hireFood;
-  window.toggleGarrisonBar = toggleGarrisonBar;
-  window.togglePanel = togglePanel;
-  window.skipIntro = skipIntro;
-  window.introNext = introNext; // 스토리 다음 버튼용
-  window.skipRename = skipRename;
-  window.confirmRename = confirmRename;
-  window.confirmGarrison = confirmGarrison;
-  window.closeGarrisonModal = closeGarrisonModal;
-  window.closeNextChapterModal = closeNextChapterModal;
-  window.garrisonChangeHire = garrisonChangeHire;
-  window.defeatChangeHire = defeatChangeHire;
-  window.confirmDefeat = confirmDefeat;
-  window.showClassModal = showClassModal;
-  window.selectClass = selectClass;
   window.upgradeUnit = upgradeUnit;
   window.toggleSkill = toggleSkill;
   window.selectUnitOnMap = selectUnitOnMap;
   window.selectAndSendToStandby = selectAndSendToStandby;
-  window.sendToStandby = sendToStandby;
-  window.sendToGarrison = sendToGarrison;
+
+  // [3] 전직 및 이름 부여 (중요!)
+  window.showClassModal = showClassModal;
+  window.selectClass = selectClass; // 이제 클릭이 잘 될 것입니다.
+  window.confirmRename = confirmRename;
+  window.skipRename = skipRename;
+
+  // [4] 거점 및 주둔 시스템
+  window.toggleGarrisonBar = toggleGarrisonBar;
+  window.confirmGarrison = confirmGarrison;
+  window.closeGarrisonModal = closeGarrisonModal;
   window.clickStandbyUnit = clickStandbyUnit;
   window.clickGarrisonUnit = clickGarrisonUnit;
   window.standbyToParty = standbyToParty;
   window.standbyToZone = standbyToZone;
-  window.addToGarrison = addToGarrison;
+  window.confirmDefeat = confirmDefeat;
+  window.defeatChangeHire = defeatChangeHire;
+
+  // [5] 상점 및 문명 발전
   window.openShop = openShop;
   window.shopBuy = shopBuy;
   window.shopSell = shopSell;
   window.showCivModal = showCivModal;
   window.buildCiv = buildCiv;
-  window.selectNextChapter = selectNextChapter;
+
+  // [6] 드래그 앤 드롭 이벤트 관련
   window.allyDragStart = allyDragStart;
   window.allyDrop = allyDrop;
-  window.allyDropToStandby = allyDropToStandby;
-  window.allyDropToGarrison = allyDropToGarrison;
-  window.allyPanelDrop = allyPanelDrop;
   window.standbyDragStart = standbyDragStart;
   window.standbyFrameDrop = standbyFrameDrop;
   window.garrisonDragStart = garrisonDragStart;
   window.zoneFrameDrop = zoneFrameDrop;
-  window.moveGarrisonUnit = moveGarrisonUnit;
-  window.garrisonDrop = garrisonDrop;
 
-  // [요청 반영] 튜토리얼용 자동 시작 강제 활성화 함수 등록
+  // [7] 튜토리얼 관련 (추가된 부분)
+  window.showDay1Tutorial = showDay1Tutorial;
+  window.showTutorialStep2 = showTutorialStep2;
+  window.showTutorialStep3 = showTutorialStep3;
   window.enableAutoStartOnly = enableAutoStartOnly;
-  
-  // 4. 상인 시스템 가동
-  startMerchantSchedule(); 
 
-  // 5. [핵심] 모든 준비가 끝나고 0.6초 뒤에 스토리를 딱 한 번만 실행합니다.
-  console.log("시스템 준비 완료: 600ms 후 스토리 인트로 호출");
+  // 상인 스케줄 및 인트로 실행
+  startMerchantSchedule(); 
   setTimeout(function() {
     if (typeof window.showIntro === 'function') {
       window.showIntro();
-    } else {
-      console.error("오류: showIntro 함수가 정의되지 않았습니다.");
     }
   }, 600);
 };
