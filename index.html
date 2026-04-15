@@ -7,23 +7,25 @@
 <style>
 .rv { font-size:0.82em; } .rv span { color:#f1c40f; font-weight:bold; }
 .rv span.g { color:#2ecc71; } .rv span.r { color:#e74c3c; } .rv span.fo { color:#e67e22; }
-/* 상단 자원바 - v6 11 원본 */
+/* [수정] 상단 자원바 기본 설정 */
 #top {
-    width: 98%;           /* 양옆에 아주 미세한 여백만 남기고 꽉 채움 */
-    max-width: 100% !important; /* 기존 1380px 제한을 강제로 해제 */
-    margin: 0 auto 5px auto;
+    width: 98%;
+    max-width: 100% !important;
     background: #0f1923;
     border: 1px solid #1e3a5f;
     border-radius: 7px;
     padding: 10px 14px;
     display: flex;
-    flex-wrap: wrap;           /* 공간 부족 시 자동 줄바꿈 */
-    justify-content: center;   /* [기본/모바일] 중앙 정렬 */
+    flex-wrap: wrap;
+    justify-content: center;
     align-items: center;
     gap: 10px 20px;
+    
+    /* [핵심] 모바일에서 겹침 방지 */
     position: sticky;
     top: 0;
-    z-index: 100;
+    z-index: 1000; /* 최상단 유지 */
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5); /* 경계 구분 */
 }
 
 .top-info-group {
@@ -55,23 +57,20 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #ccc; display: flex; flex-direction: column; align-items: center; padding: 6px; user-select: none; }
 /* ── 상단 자원바 ── */
-/* [수정] 컨트롤 바 디자인 및 한 줄/두 줄 가변 레이아웃 */
-/* [개선] 컨트롤 바 영역을 프레임 형태로 변경 */
-/* [개선] 컨트롤 바 영역 */
+/* [수정] 컨트롤 바 - 상단바에 가려지지 않게 설정 */
 #ctrl {
-  display: flex;
-  flex-direction: column;   /* 모바일: 위아래(2줄) 배치 */
-  gap: 8px;
-  width: 98%;           /* 양옆에 아주 미세한 여백만 남기고 꽉 채움 */
-  max-width: 100% !important; /* 기존 1380px 제한을 강제로 해제 */
-  margin: 0 auto 5px auto;
-  background: #0f1923;
-  border: 1px solid #1e3a5f;
-  border-radius: 7px;
-  padding: 8px 10px;        /* 여백 살짝 축소 */
-  margin-bottom: 8px;
-  align-items: center;      /* 모바일: 중앙 정렬 */
-  box-sizing: border-box;
+    position: relative;
+    z-index: 900; /* 상단바(1000)보다 낮게 설정하여 자연스럽게 흐르게 함 */
+    margin-top: 5px;
+    display: flex;
+    flex-direction: column;
+    width: 98%;
+    max-width: 100% !important;
+    background: #0f1923;
+    border: 1px solid #1e3a5f;
+    border-radius: 7px;
+    padding: 8px 10px;
+    align-items: center;
 }
 
 /* [핵심 수정] 각 줄의 정렬 및 줄바꿈 방지 */
@@ -129,6 +128,14 @@ body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #cc
 .cb { padding:5px 10px; border:none; border-radius:4px; color:#fff; font-weight:bold; cursor:pointer; font-size:0.75em; transition:filter 0.12s; white-space:nowrap; }
 .cb:hover { filter:brightness(1.3); }
 .cb-go{background:#7b1d1d} .cb-pa{background:#7d5a00} .cb-hi{background:#1a5c32} .cb-zo{background:#1a3d5c} .cb-fo{background:#5a3010}
+/* [통합] 모든 상호작용 요소의 클릭 반응성 강제 강화 */
+.cb, .skb, .ub, .zone-btn, .class-btn, .gz-unit, .gz-add, .collapse-btn {
+  touch-action: manipulation !important; /* 모바일 터치 지연 0.3초 제거 */
+  pointer-events: auto !important;       /* 클릭 신호 차단 해제 */
+  user-select: none !important;          /* 꾹 눌렀을 때 텍스트 선택 방지 */
+  -webkit-tap-highlight-color: transparent; /* 터치 시 생기는 파란 잔상 제거 */
+}
+
 /* ── 메인 레이아웃 ── */
 
 #lay {
@@ -196,17 +203,31 @@ canvas {
     height: auto !important;
     display: block;
 }
+/* [개선] 안내창(pg) 디자인: 가독성 및 테마 강화 */
 #pg {
-  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-  background:#f1c40f; color:#111;
-  padding:10px 18px; border-radius:10px;
-  font-size:11px; font-weight:bold;
-  z-index:10; display:none;
-  text-align:center; line-height:1.6;
-  max-width:85%; pointer-events:none;
-  box-shadow:0 2px 12px rgba(0,0,0,0.5);
+  position: absolute; 
+  top: 50%; 
+  left: 50%; 
+  transform: translate(-50%, -50%);
+  
+  /* 디자인 변경: 반투명 네이비 + 골드 테두리 */
+  background: rgba(15, 25, 35, 0.92); 
+  color: #f1c40f;
+  border: 1px solid #f1c40f;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.7), inset 0 0 10px rgba(241, 196, 15, 0.2);
+  
+  padding: 12px 20px; 
+  border-radius: 8px;
+  font-size: 13px; 
+  font-weight: bold;
+  z-index: 1500; 
+  display: none;
+  text-align: center; 
+  line-height: 1.6;
+  max-width: 85%; 
+  pointer-events: none; /* 클릭 방해 금지 */
 }
-/* [수정] 모달 레이어 강제 표시 설정 */
+/* [통합] 모달 배경 설정: 기존 디자인 유지 + 클릭 반응성 강화 */
 .overlay { 
   display: none; 
   position: fixed; 
@@ -215,9 +236,20 @@ canvas {
   width: 100%; 
   height: 100%; 
   background: rgba(0, 0, 0, 0.9); 
-  z-index: 9999; /* 최상단으로 올림 */
+  z-index: 9999;           /* 최상단 유지 */
   align-items: center; 
   justify-content: center; 
+  
+  /* [추가] 클릭 신호가 배경에 막히지 않도록 설정 */
+  pointer-events: auto;
+  touch-action: none;      /* 배경 스크롤 방지 */
+}
+
+/* [추가] 모달 내부 버튼들의 클릭 우선순위 높이기 */
+.modal-box button, .class-btn, .cb {
+  pointer-events: auto !important; /* 클릭 신호 강제 수용 */
+  touch-action: manipulation;      /* 모바일 터치 반응 속도 향상 */
+  cursor: pointer;
 }
 
 .overlay.show { 
@@ -227,7 +259,21 @@ canvas {
 .modal-title { color:#f1c40f; font-size:1.1em; font-weight:bold; margin-bottom:10px; text-align:center; }
 .modal-sub { color:#9ca3af; font-size:0.82em; margin-bottom:14px; text-align:center; }
 .class-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-.class-btn { background:#111d2b; border:1px solid #1e2d3d; border-radius:7px; padding:12px; cursor:pointer; transition:all 0.15s; text-align:left; }
+/* [수정] 첫 번째 줄만 이 코드로 교체하세요. 클릭 반응성과 터치 방해 요소를 제거합니다. */
+.class-btn { 
+  background:#111d2b; 
+  border:1px solid #1e2d3d; 
+  border-radius:7px; 
+  padding:12px; 
+  cursor:pointer; 
+  transition:all 0.15s; 
+  text-align:left; 
+  
+  /* [추가] 클릭 반응성 향상을 위한 핵심 속성 */
+  touch-action: manipulation;      /* 모바일 클릭 딜레이 제거 */
+  pointer-events: auto !important; /* 클릭 신호 강제 수용 */
+  user-select: none;               /* 텍스트 선택으로 인한 클릭 씹힘 방지 */
+}
 .class-btn:hover { border-color:#f1c40f; background:#1a2a3d; }
 .class-btn .cn { font-weight:bold; font-size:0.9em; margin-bottom:4px; }
 .class-btn .cd { font-size:0.75em; color:#9ca3af; line-height:1.4; }
@@ -332,6 +378,15 @@ button, .cb, .skb, .ub, .class-btn, .zone-btn, .gz-unit, .gz-add { touch-action:
 
 /* (C) 1100px 이하: 모바일/패드 모드 (사이드바가 아래로 이동) */
 @media (max-width: 1100px) {
+  #top {
+    position: relative !important; /* 고정 대신 흐름에 맡김 */
+    margin-bottom: 15px !important; /* 컨트롤 바와의 간격 확보 */
+  }
+
+  #ctrl {
+    margin-top: 0 !important;
+    scroll-margin-top: 20px; /* 스크롤 시 여유 공간 */
+  }
   #lay {
     flex-direction: column;
     align-items: center;
@@ -348,6 +403,17 @@ button, .cb, .skb, .ub, .class-btn, .zone-btn, .gz-unit, .gz-add { touch-action:
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 6px;
+  }
+
+  #el {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* 1:1 비율로 두 줄 나열 */
+    gap: 6px;                       /* 카드 사이 간격 */
+  }
+
+  /* 적 카드 하단 여백 제거 (Grid gap이 대신함) */
+  .ec {
+    margin-bottom: 0 !important;
   }
 }
 </style>
@@ -373,7 +439,7 @@ button, .cb, .skb, .ub, .class-btn, .zone-btn, .gz-unit, .gz-add { touch-action:
 
 <div id="ctrl">
   <div class="ctrl-row">
-    <button class="cb cb-go" id="btn-go" onclick="toggleBattle()">▶ 출발!</button>
+    <button class="cb cb-go" id="btn-go" onclick="event.stopPropagation(); toggleBattle()">▶ 출발!</button>
     <button class="cb" id="btn-auto" onclick="toggleAutoStart()" style="background:#1a4030">🔄 자동 진행: OFF</button>
     <div class="badge b-pl" id="sb">출발 준비</div>
     <div id="battle-timer" style="display:none;">
@@ -384,8 +450,8 @@ button, .cb, .skb, .ub, .class-btn, .zone-btn, .gz-unit, .gz-add { touch-action:
   </div>
 
   <div class="ctrl-row">
-    <button class="cb cb-fo" onclick="showRefugeeModal()">🍖 피난민 합류</button>
-    <button class="cb cb-hi" onclick="hireGold()">💰 용병 고용 (100G)</button>
+    <button class="cb cb-fo" onclick="event.stopPropagation(); showRefugeeModal()">🍖 피난민 합류</button>
+    <button class="cb cb-hi" onclick="event.stopPropagation(); hireGold()">💰 용병 고용 (100G)</button>
     <button class="cb cb-zo" onclick="showZoneModal()">📍 사냥터 선택</button>
   </div>
 </div>
@@ -524,7 +590,7 @@ button, .cb, .skb, .ub, .class-btn, .zone-btn, .gz-unit, .gz-add { touch-action:
         <div id="ref-count" style="font-size:2em;font-weight:bold;color:#f1c40f">1</div>
         <div id="ref-cost" style="font-size:0.82em;color:#e67e22">🍖 30 소모</div>
       </div>
-      <button class="cb" style="background:#374151;font-size:1.3em;padding:6px 18px" onclick="changeRefCount(1)">+</button>
+      <button class="cb" style="background:#374151;font-size:1.3em;padding:6px 18px" onclick="event.stopPropagation(); changeRefCount(1)">+</button>
     </div>
     <div style="display:flex;gap:8px">
       <button class="cb" style="background:#e67e22;flex:1;padding:10px" onclick="hireFood()">🍖 영입</button>
@@ -822,7 +888,7 @@ window.selectZone = function(id) {
   
   // 5. 배치 단계(isPlacing=true)로 진입하여 안내 메시지 출력
   enterPlacement(); 
-  showDeployGuide(); // <-- 사냥터를 고르면 안내가 다시 나타납니다.
+  updatePG(); // <-- 사냥터를 고르면 안내가 다시 나타납니다.
   
   alog(`🗺 새 전투지: ${currentZone.name} — 배치를 시작하세요!`);
 };
@@ -1280,38 +1346,41 @@ function enterPlacement() {
   
   markDirty();
 }
-// [9번 요청] 배치 안내창의 유닛 이름을 직업별 색상으로 변경
+// [통합 버전] 안내 메시지 충돌 해결 및 가독성 개선
 function updatePG() {
-  const ud = getSortedUd(); 
   const pg = document.getElementById('pg');
   if (!pg || isBattle) { 
     if (pg) pg.style.display = 'none';
     return;
   }
 
+  const ud = getSortedUd(); // 배치 대기 중인 유닛 목록
+
+  // 1. 모든 유닛 배치가 끝났을 때
   if (ud.length === 0) {
-    if (autoStart) pg.style.display = 'none';
-    else {
+    if (autoStart) {
+      pg.style.display = 'none';
+    } else {
       pg.style.display = 'block';
-      pg.style.background = '#2ecc71';
-      pg.style.color = '#fff';
-      pg.innerHTML = `✅ 대원 배치 완료!<br><span style="font-size:10px">출발 버튼을 누르세요.</span>`;
+      pg.style.border = '1px solid #2ecc71'; // 성공의 초록 테두리
+      pg.innerHTML = `✅ <b style="color:#2ecc71">전원 배치 완료!</b><br><span style="font-size:11px; color:#fff;">이제 상단의 <b style="color:#e74c3c">▶ 출발!</b> 버튼을 누르세요.</span>`;
     }
-  } else {
-    // 현재 배치 순서인 유닛의 정보를 가져옵니다.
+  } 
+  // 2. 유닛 배치가 진행 중일 때
+  else {
     const u = ud[0];
     const roleKey = u.classKey || u.baseRole;
-    const classColor = BASE_ROLES[roleKey]?.color || '#111'; // 직업별 색상 추출
+    const classColor = BASE_ROLES[roleKey]?.color || '#f1c40f';
 
     pg.style.display = 'block';
-    pg.style.background = '#f1c40f'; // 안내창 배경은 노란색 유지
-    pg.style.color = '#111';         // 기본 글자색은 검은색
+    pg.style.border = '1px solid #f1c40f'; // 경고/안내의 금색 테두리
     
-    // [핵심] 유닛 이름 부분에만 직업 색상을 적용합니다.
+    // [통합] 지휘관님이 요청하신 "보라색 영역" 안내와 "현재 유닛" 정보를 합쳤습니다.
     pg.innerHTML = `
-      📍 <b style="color:${classColor}; text-shadow: 0px 0px 1px rgba(0,0,0,0.3);">${u.name}</b> 배치 중<br>
-      <span style="font-size:10px">
-        <span style="color:#a855f7; font-weight:bold;">보라색 영역</span>을 터치하세요.
+      📍 <b style="color:${classColor}; text-shadow: 1px 1px 2px #000;">${u.name}</b> 배치 중<br>
+      <span style="font-size:11px; color:#ddd;">
+        지도 왼쪽의 <b style="color:#a855f7">보라색 영역</b>을 터치하세요.<br>
+        <span style="font-size:10px; color:#9ca3af;">(배치 후 자동으로 다음 인원으로 넘어갑니다)</span>
       </span>`;
   }
 }
@@ -1335,46 +1404,40 @@ function getPos(e){
 }
 
 function onDown(e){
-  const {x,y}=getPos(e);dragSX=x;dragSY=y;isDragging=false;
+  const {x,y} = getPos(e);
+  dragSX=x; dragSY=y; isDragging=false;
+
   if(isPlacing){
-    // 미배치 유닛: 대기·주둔·사망 제외
-    const ud=getSortedUd();
-    const DEPLOY_MAX_X=CW*0.45;
-    if(ud.length>0&&x<DEPLOY_MAX_X&&!allies.find(a=>a.isDeployed&&!a.dead&&dist(a,{x,y})<20)){
-      const u=ud[0];
-      // 배치 경계 내로 클램프
-      u.x=Math.max(MAP_PAD,Math.min(DEPLOY_MAX_X,x));
-      u.y=Math.max(MAP_PAD,Math.min(CH-MAP_PAD,y));
-      u.isDeployed=true;u.wx=null;u.wy=null;
-      savedPositions[u.id]={x:u.x,y:u.y};
-      if(!initialPositions[u.id])initialPositions[u.id]={x:u.x,y:u.y};
-      alog(`✅ ${u.name} 배치`);addFloat(u.x,u.y,u.name,'#a855f7');updatePG();
+    const ud = getSortedUd(); // 배치 대기 중인 유닛 목록
+    const cell = nearestCell(x, y); // 클릭한 지점에서 가장 가까운 육각형 칸 찾기
+    
+    // [핵심 판정] 클릭한 칸이 보라색 영역(0~6번 열)에 속하는지 확인
+    const isPurpleZone = hexMap.some(row => row.slice(0, 7).some(h => h === cell));
+
+    if(ud.length > 0 && isPurpleZone){
+      // 이미 다른 유닛이 해당 칸에 있는지 확인 (중복 배치 방지)
+      const isOccupied = allies.find(a => a.isDeployed && !a.dead && a.x === cell.x && a.y === cell.y);
       
-      // [수정] 대원 배치가 끝났을 때 로직
-      const remaining = allies.filter(a => !a.dead && !a.inStandby && !a.garrisoned && !a.isDeployed);
-
-      if (remaining.length === 0) {
-          updatePG(); // 안내창 상태 갱신 (자동시작 ON이면 여기서 알아서 숨겨집니다)
-          setBadge('배치 완료', 'b-re'); 
-
-          // [핵심 추가] 자동 진행 모드라면 0.6초 후 즉시 출정!
-          if (autoStart && !isBattle) {
-            setTimeout(() => {
-              // 실행 시점에 다시 한번 상태를 체크 (혹시 모를 중복 실행 방지)
-              const finalCheck = allies.filter(a => !a.dead && !a.inStandby && !a.garrisoned && !a.isDeployed);
-              if (autoStart && !isBattle && finalCheck.length === 0) {
-                toggleBattle();
-              }
-            }, 600); // 0.6초의 여유는 지휘관님이 "아, 배치가 끝났구나"라고 인지할 시간입니다.
-          }
+      if(!isOccupied){
+        const u = ud[0];
+        // [개선] 좌표가 아닌 육각형 정중앙(cell.x, cell.y)에 자동 스냅 배치
+        u.x = cell.x;
+        u.y = cell.y;
+        u.isDeployed = true; u.wx = null; u.wy = null;
+        
+        savedPositions[u.id] = {x:u.x, y:u.y};
+        if(!initialPositions[u.id]) initialPositions[u.id] = {x:u.x, y:u.y};
+        
+        alog(`✅ ${u.name} (이)가 전선에 배치되었습니다.`);
+        addFloat(u.x, u.y, u.name, '#a855f7');
+        updatePG(); // 안내창 갱신
+        markDirty();
+        return;
       }
-
-      markDirty();
-      return;
     }
   }
-  // 이미 배치된 유닛 드래그
-  dragUnit=allies.find(a=>a.isDeployed&&a.hp>0&&!a.dead&&!a.garrisoned&&!a.inStandby&&dist(a,{x,y})<20)||null;
+  // 이미 배치된 유닛 드래그 (기존 유지)
+  dragUnit = allies.find(a => a.isDeployed && a.hp > 0 && !a.dead && dist(a, {x,y}) < 20) || null;
 }
 
 function onMove(e){
@@ -1382,50 +1445,40 @@ function onMove(e){
   if(dragUnit&&!isDragging&&Math.hypot(x-dragSX,y-dragSY)>DRAG_T)isDragging=true;
 }
 
-// [수정] 마우스를 놓았을 때 (onUp)
 function onUp(e){
-  // 드래그 중이 아니었다면 캔버스 밖 클릭은 무시
   if (!dragUnit && e.target.tagName !== 'CANVAS') return;
-
-  // 캔버스 기준 좌표 계산 (캔버스 밖이라도 좌표 계산됨)
   const {x, y} = getPos(e);
 
   if(dragUnit){
     if(isDragging){
       if(!isBattle){
-        // 배치 단계: 보라색 영역 내로 강제 제한
-        const margin = 15;
-        const maxX = CW * 0.42;
-        dragUnit.x = Math.max(MAP_PAD + margin, Math.min(maxX, x));
-        dragUnit.y = Math.max(MAP_PAD + margin, Math.min(CH - MAP_PAD - margin, y));
-        savedPositions[dragUnit.id] = {x: dragUnit.x, y: dragUnit.y};
+        // [배치 단계] 드래그를 멈춘 곳의 육각형 칸을 찾음
+        const cell = nearestCell(x, y);
+        const isPurpleZone = hexMap.some(row => row.slice(0, 7).some(h => h === cell));
+        
+        // 보라색 영역 내부일 때만 위치 변경 및 스냅 적용
+        if(isPurpleZone){
+          dragUnit.x = cell.x;
+          dragUnit.y = cell.y;
+          savedPositions[dragUnit.id] = {x: dragUnit.x, y: dragUnit.y};
+        } else {
+          // 영역 밖이면 원래 있던 자리(savedPositions)로 되돌림
+          const oldPos = savedPositions[dragUnit.id];
+          if(oldPos){ dragUnit.x = oldPos.x; dragUnit.y = oldPos.y; }
+          addFloat(x, y, '영역 밖!', '#e74c3c');
+        }
       } else {
-        // [핵심] 전투 중 이동: 지도 경계 밖을 찍어도 경계 안쪽으로 목표 고정
+        // [전투 중 이동] (기존 로직 유지)
         const margin = 20;
         dragUnit.wx = Math.max(margin, Math.min(CW - margin, x));
         dragUnit.wy = Math.max(margin, Math.min(CH - margin, y));
         dragUnit.onHold = false;
-        
         addFloat(dragUnit.wx, dragUnit.wy, '🎯', '#f1c40f');
-        alog(`🎯 ${dragUnit.name} 이동 명령 (경계 고정)`);
-      }
-    } else {
-      // 클릭/더블클릭 로직 (기존 유지)
-      const now = Date.now();
-      if(lastClickUnit === dragUnit && now - lastClickTime < DBL_CLICK_MS){
-        dragUnit.onHold = !dragUnit.onHold;
-        if(dragUnit.onHold){ dragUnit.wx = null; dragUnit.wy = null; }
-        lastClickUnit = null; lastClickTime = 0;
-      } else {
-        lastClickUnit = dragUnit; lastClickTime = now;
-        _selectedUnitId = dragUnit.id;
-        // 파티창 스크롤 로직 (기존 유지)
       }
     }
     markDirty();
   }
-  dragUnit = null;
-  isDragging = false;
+  dragUnit = null; isDragging = false;
 }
 
 // ══════════════════════════════════════════════════════
@@ -1492,7 +1545,7 @@ function showClassModal(unit){
     `<span style="color:#a78bfa;font-size:10px">✦${TRAITS[unit.traitKey||'balanced'].name}</span> `+statLine+partyHtml;
   document.getElementById('modal-grid').innerHTML=options.map(o=>{
     const clsColor=BASE_ROLES[o.key]?.color||'#f1c40f';
-    return `<div class="class-btn" onclick="selectClass('${o.key}')">
+      return `<div class="class-btn" onclick="event.stopPropagation(); selectClass('${o.key}')">      
       <div class="cn" style="color:${clsColor}">${o.name}</div>
       <div class="cd">${o.desc}</div>
       <div class="cs">스킬: ${o.skills}</div>
@@ -2282,7 +2335,7 @@ function showDefeatModal(){
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;justify-content:center">
         <button onclick="defeatChangeHire(-1)" style="font-size:1.2em;width:32px;height:32px;border-radius:50%;border:1px solid #374151;background:#0f1923;color:#60a5fa;cursor:pointer;touch-action:manipulation">−</button>
         <span id="defeat-hire-count" style="font-size:1.2em;color:#f1c40f;min-width:30px;text-align:center">0</span>
-        <button onclick="defeatChangeHire(1)" style="font-size:1.2em;width:32px;height:32px;border-radius:50%;border:1px solid #374151;background:#0f1923;color:#60a5fa;cursor:pointer;touch-action:manipulation">+</button>
+        <button onclick="event.stopPropagation(); defeatChangeHire(1)" style="font-size:1.2em;width:32px;height:32px;border-radius:50%;border:1px solid #374151;background:#0f1923;color:#60a5fa;cursor:pointer;touch-action:manipulation">+</button>
         <span style="font-size:10px;color:#9ca3af">명 고용</span>
       </div>`;
     }
@@ -4257,7 +4310,7 @@ window.showIntro = function() {
 // 인트로 완료 시 안내 (3번 요청: 배치 방법만 안내)
 function finishIntro() {
   document.getElementById('intro-modal').classList.remove('show');
-  showDeployGuide(); // <-- 여기서 호출
+  updatePG(); // <-- 여기서 호출
   window._tutorialStep = 'deploy';
 }
 
@@ -4305,6 +4358,10 @@ function showIntro(){
 }
 
 window.onload = function() {
+  if ('scrollRestoration' in history) {
+    history.scrollRestoration = 'manual'; // 브라우저의 스크롤 복원 기능 끄기
+  }
+  window.scrollTo(0, 0); // 즉시 최상단으로 이동
   init(); // 게임 초기화 실행
 
   // [중요] HTML의 onclick 속성에서 함수를 찾을 수 있도록 window 객체에 등록
@@ -4363,8 +4420,11 @@ window.onload = function() {
 
   // [요청 반영] 튜토리얼용 자동 시작 강제 활성화 함수 등록
   window.enableAutoStartOnly = enableAutoStartOnly;
+  
+  // 4. 상인 시스템 가동
+  startMerchantSchedule(); 
 
-  // [핵심] 모든 로딩이 끝난 후 0.6초 뒤에 인트로(스토리)를 실행합니다.
+  // 5. [핵심] 모든 준비가 끝나고 0.6초 뒤에 스토리를 딱 한 번만 실행합니다.
   console.log("시스템 준비 완료: 600ms 후 스토리 인트로 호출");
   setTimeout(function() {
     if (typeof window.showIntro === 'function') {
@@ -4373,9 +4433,8 @@ window.onload = function() {
       console.error("오류: showIntro 함수가 정의되지 않았습니다.");
     }
   }, 600);
-
-  startMerchantSchedule(); // 상인 스케줄 시작
 };
+
 // 드래그 시작 시 유닛 ID 저장
 window.garrisonDragStart = function(e, fromZid, uid) {
   e.dataTransfer.setData("text/plain", JSON.stringify({ fromZid, uid }));
