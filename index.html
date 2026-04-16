@@ -475,15 +475,16 @@ canvas {
   border: 1px solid #f1c40f;
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.7), inset 0 0 10px rgba(241, 196, 15, 0.2);
   
-  padding: 12px 20px; 
+  padding: 10px 12px; 
   border-radius: 8px;
   font-size: 13px; 
   font-weight: bold;
   z-index: 1500; 
   display: none;
   text-align: center; 
-  line-height: 1.6;
-  max-width: 85%; 
+  line-height: 1.45;
+  width: min(max-content, 96vw);
+  box-sizing: border-box;
   pointer-events: none !important;
 }
 /* --- [수정] .overlay 스타일 (약 211행 부근) --- */
@@ -725,7 +726,15 @@ canvas {
   }
 }
 
-/* (D) 모바일: 동료 카드 2열 고정 */
+/* 좁은 화면: 동료 카드 2열이면 카드 폭이 부족해 스탯이 잘림 → 1열 */
+@media (max-width: 900px) {
+  #al {
+    grid-template-columns: 1fr !important;
+    gap: 6px;
+  }
+}
+
+/* (D) 모바일 */
 @media (max-width: 768px) {
   /* 모바일 2줄 배치 시: 빠른 시작 버튼 줄을 위로 올림 */
   .top-restart-wrap {
@@ -735,10 +744,6 @@ canvas {
     justify-content: flex-end;
   }
 
-  #al {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 6px;
-  }
 }
 
 /* 데스크톱: 동료·적 패널 동일 프레임 (전체 너비·세로 스크롤) */
@@ -779,8 +784,8 @@ canvas {
 <div id="ctrl">
   <div class="ctrl-row">
     <div class="ctrl-left">
-      <button class="cb cb-go" id="btn-go" onclick="event.stopPropagation(); toggleBattle()">▶출발</button>
-      <button class="cb" id="btn-auto" onclick="toggleAutoStart()" style="background:#1a4030">자동:OFF</button>
+      <button class="cb cb-go" id="btn-go" onclick="event.stopPropagation(); toggleBattle()">▶ 출발</button>
+      <button class="cb" id="btn-auto" onclick="toggleAutoStart()" style="background:#1a4030">자동: OFF</button>
       <div class="badge b-pl" id="sb">준비</div>
       <div id="battle-timer">
         <span id="timer-clock">⏱0:00</span>
@@ -2074,9 +2079,14 @@ function buildMap(){
         // 근처 들판 I 전용: 평지 비중을 높이고, 강/숲/언덕 포인트를 다채롭게 배치
         const upperBand=r<=Math.floor(ROWS*0.30);
         const lowerBand=r>=Math.floor(ROWS*0.70);
-        if(c===centerCol&&r>=1&&r<=ROWS-2) type='river'; // 중앙 완만 강줄기
-        else if((r===Math.floor(ROWS*0.25)||r===Math.floor(ROWS*0.58)||r===Math.floor(ROWS*0.80))&&c===centerCol+1) type='river';
-        else if((r===Math.floor(ROWS*0.42)&&c===centerCol-1)||(r===Math.floor(ROWS*0.65)&&c===centerCol+2)) type='river';
+        // 중앙 완만 강줄기 — 맨 아래 한 칸은 숲으로(하단 숲 타일과 자연스럽게 이어지도록)
+        if(c===centerCol&&r>=1&&r<=ROWS-2) type=(r===ROWS-2)?'forest':'river';
+        // 측면 강 가지: 가로 3연속 막벽을 줄이기 위해 행을 한 칸씩 어긋냄(정면+양옆 동시 강 패턴 완화)
+        else if(r===Math.floor(ROWS*0.25)&&c===centerCol+1) type='river';
+        else if(r===Math.floor(ROWS*0.58)&&c===centerCol-1) type='river';
+        else if(r===Math.floor(ROWS*0.80)&&c===centerCol+1) type='river';
+        else if(r===Math.floor(ROWS*0.42)&&c===centerCol-1) type='river';
+        else if(r===Math.floor(ROWS*0.65)&&c===centerCol+2) type='river';
         else if((c===centerCol-3&&r>=2&&r<=4)||(c===centerCol+3&&r>=ROWS-5&&r<=ROWS-3)) type='hill';
         else if((r===2&&c>=centerCol+1&&c<=centerCol+3)||(r===ROWS-3&&c>=centerCol-3&&c<=centerCol-1)) type='hill';
         else if(c>=5&&c<=COLS-6&&((upperBand&&v<0.16)||(lowerBand&&v<0.18)||v<0.09)) type='forest';
@@ -2085,7 +2095,9 @@ function buildMap(){
         // 들판 컨셉 랜덤: 평지 우세 + 얕은 강갈래 + 숲/언덕 포인트
         if(c<4) type='plain';
         else if(c===centerCol&&r>=Math.floor(ROWS*0.25)&&r<=Math.floor(ROWS*0.75)&&v2<0.65) type='river';
-        else if((c===centerCol-1||c===centerCol+1)&&(r===Math.floor(ROWS*0.38)||r===Math.floor(ROWS*0.62))&&v2<0.45) type='river';
+        // 양쪽 동시 강 가지(가로 3연속) 완화: 행마다 좌/우 한쪽만
+        else if(c===centerCol+1&&r===Math.floor(ROWS*0.38)&&v2<0.45) type='river';
+        else if(c===centerCol-1&&r===Math.floor(ROWS*0.62)&&v2<0.45) type='river';
         else if((c===centerCol-4&&r>=2&&r<=4)||(c===centerCol+4&&r>=ROWS-5&&r<=ROWS-3)) type='hill';
         else if(v<0.18) type='forest';
         else if(v<0.27) type='hill';
@@ -2150,9 +2162,11 @@ function buildMap(){
       if(tier==='hunt'&&fixedHuntTemplate&&(r===Math.floor(ROWS*0.33)||r===Math.floor(ROWS*0.58))&&(c===centerCol||c===centerCol+1)){
         type='plain';
       }
-      hexMap[r][c]={type,x,y};
+      hexMap[r][c]={type,x,y,r,c};
     }
   }
+  // 가로로 강이 3칸 연속이면 정면+양옆 막힘(근접 도하 불가) 구간이 생김 → 가운데만 평지로 끊음
+  breakRiverHorizontalTriples();
   if(isCityMobaZone()){
     const laneYs=[CH*0.32,CH*0.68];
     for(let r=0;r<ROWS;r++){
@@ -2172,6 +2186,15 @@ function buildMap(){
   _fixedMaps[mapKey]=hexMap.map(row=>row.map(cell=>({...cell})));
   _nearestCellCache.clear();
   _nearestCellCacheRev++;
+}
+function breakRiverHorizontalTriples(){
+  if(!Array.isArray(hexMap)||ROWS<1||COLS<3) return;
+  for(let r=0;r<ROWS;r++){
+    for(let c=1;c<COLS-1;c++){
+      const L=hexMap[r][c-1],M=hexMap[r][c],R=hexMap[r][c+1];
+      if(L&&M&&R&&L.type==='river'&&M.type==='river'&&R.type==='river') M.type='plain';
+    }
+  }
 }
 let _mapIntegrityWarned=false;
 function isHexMapReady(){
@@ -2302,13 +2325,13 @@ function tryMoveWithTerrain(unit,dx,dy,opts={}){
   if(!unit||!Number.isFinite(dx)||!Number.isFinite(dy)) return false;
   const nx=unit.x+dx;
   const ny=unit.y+dy;
-  const nextCell=nearestCell(nx,ny);
-  if(nextCell&&!canTraverseTerrain(unit,nextCell)) return false;
+  const domNext=getDominantHexCellAt(nx,ny);
+  if(domNext&&!canTraverseTerrain(unit,domNext)) return false;
 
   let mul=1;
   if(opts.useTerrainSpeed!==false){
     const role=opts.role||getUnitMoveRole(unit);
-    const terrCost=nextCell?terrainMoveCost(nextCell,role):1.0;
+    const terrCost=domNext?terrainMoveCost(domNext,role):1.0;
     const minMul=(opts.minMul===undefined)?0.20:opts.minMul;
     // 지형 비용(cost)이 높을수록 실제 이동속도를 낮춘다.
     mul=Math.max(minMul,Math.min(1.0,1/Math.max(terrCost,1)));
@@ -2377,6 +2400,53 @@ function terrainMoveCost(cell, role){
   }
   return cost;
 }
+/** 유닛 발밑 원형 샘플(중심~둘레 중간보다 살짝 바깥까지)로 겹침 판단. 같은 헥스에 샘플 과반(절반 초과)이 있을 때만 그 타일 지형 적용 — 아니면 기하 nearest(경계·살짝 걸침은 인접 타일로) */
+function getDominantHexCellAt(x,y){
+  if(!ensureHexMapReady()) return nearestCell(x,y);
+  const R=HR*0.72;
+  const votes=new Map();
+  const keyOf=(c)=>{
+    if(!c) return '';
+    if(c.r!==undefined&&c.c!==undefined) return 'r'+c.r+'c'+c.c;
+    return 'x'+(c.x|0)+'y'+(c.y|0);
+  };
+  const add=(c)=>{
+    if(!c) return;
+    const k=keyOf(c);
+    if(!k) return;
+    const prev=votes.get(k);
+    if(prev) prev.n++;
+    else votes.set(k,{cell:c,n:1});
+  };
+  add(nearestCell(x,y));
+  for(let k=0;k<6;k++){
+    const ang=(Math.PI/3)*k;
+    add(nearestCell(x+Math.cos(ang)*R*0.58,y+Math.sin(ang)*R*0.58));
+  }
+  for(let k=0;k<12;k++){
+    const ang=(Math.PI/6)*k;
+    add(nearestCell(x+Math.cos(ang)*R*0.88,y+Math.sin(ang)*R*0.88));
+  }
+  if(!votes.size) return nearestCell(x,y);
+  let total=0;
+  for(const v of votes.values()) total+=v.n;
+  const need=total/2;
+  for(const v of votes.values()){
+    if(v.n>need) return v.cell;
+  }
+  return nearestCell(x,y);
+}
+/** 경로 점수: 이속과 동일한 발자국·과반 규칙 */
+function terrainMoveCostForPathAt(x,y,role){
+  const c=getDominantHexCellAt(x,y);
+  return c?terrainMoveCost(c,role):10;
+}
+/** 발자국 다수결 헥스 기준 이동 비용 (unit은 API 호환용) */
+function terrainMoveCostBlendedAt(x,y,unit,role){
+  const dom=getDominantHexCellAt(x,y);
+  if(!dom) return 1.0;
+  return terrainMoveCost(dom,role);
+}
 function terrainAdvantageBias(role,cell){
   if(!cell||!TERRAIN[cell.type]) return 0;
   const bonus=TERRAIN[cell.type].bonus||{};
@@ -2397,9 +2467,10 @@ function localPathPenalty(unit,fromX,fromY,targetX,targetY){
     const c2=nearestCell(lx,ly);
     if(!c2||!canTraverseTerrain(unit,c2)) continue;
     traversable++;
-    const mc=terrainMoveCost(c2,getUnitMoveRole(unit));
+    const pathCell=getDominantHexCellAt(lx,ly)||c2;
+    const mc=terrainMoveCost(pathCell,getUnitMoveRole(unit));
     const td=Math.hypot(targetX-lx,targetY-ly)/Math.max(1,HW);
-    const score=mc+terrainAdvantageBias(getUnitMoveRole(unit),c2)+td*0.28;
+    const score=mc+terrainAdvantageBias(getUnitMoveRole(unit),pathCell)+td*0.28;
     if(score<best) best=score;
   }
   if(traversable===0) return 4.2; // 사실상 막힌 길
@@ -2433,7 +2504,7 @@ function findDetourStepCell(unit,targetX,targetY){
   let bestR=startR,bestC=startC;
   let bestDist=Math.hypot(startCell.x-targetCell.x,startCell.y-targetCell.y);
   let scanned=0;
-  const maxScan=220;
+  const maxScan=480;
 
   while(queue.length&&scanned<maxScan){
     const [r,c]=queue.shift();
@@ -2490,32 +2561,73 @@ function bestAdjacentCell(unit,targetX,targetY){
   }
   const role=getUnitMoveRole(unit);
   const baseAngle=Math.atan2(targetY-unit.y,targetX-unit.x);
-  const candidates=[];
-  // 11방향 탐색 (정면 ±150도) — 강·산 옆 우회 실패 줄이기
-  for(let i=-5;i<=5;i++){
-    const ang=baseAngle+i*(Math.PI/6);
+  const bestByKey=new Map();
+  function consider(nx,ny,cell,score){
+    if(!cell||!Number.isFinite(score)) return;
+    const key=(cell.x|0)+','+(cell.y|0);
+    const prev=bestByKey.get(key);
+    if(!prev||score<prev.score) bestByKey.set(key,{x:nx,y:ny,cell,score});
+  }
+  // 12방향 전체(360°): 목표 방향 ±150°만 보면 정면 강막 뒤 측면·후방 탈출 각이 빠져 후보 0이 되는 경우가 있음
+  for(let i=0;i<12;i++){
+    const ang=baseAngle-Math.PI+i*(Math.PI/6);
     const nx=unit.x+Math.cos(ang)*HW;
     const ny=unit.y+Math.sin(ang)*HR*1.5;
     const cell=nearestCell(nx,ny);
-    if(!cell) continue;
-    if(!canTraverseTerrain(unit,cell)) continue;
-    const moveCost=terrainMoveCost(cell,role);
-    // 방향 보너스: 정면에 가까울수록 낮은 페널티
-    const dirPenalty=Math.abs(i)*0.4;
+    if(!cell||!canTraverseTerrain(unit,cell)) continue;
+    const moveCost=terrainMoveCostForPathAt(nx,ny,role);
+    const dirPenalty=Math.abs(i-6)*0.4;
     const toTarget=Math.hypot(targetX-nx,targetY-ny)/Math.max(1,HW);
     const targetPenalty=toTarget*0.22;
-    const advBias=terrainAdvantageBias(role,cell);
+    const advBias=terrainAdvantageBias(role,getDominantHexCellAt(nx,ny)||cell);
     const lookPenalty=localPathPenalty(unit,nx,ny,targetX,targetY);
     const heavyPenalty=moveCost>=4?0.85:0;
     const score=moveCost+dirPenalty+targetPenalty+lookPenalty+heavyPenalty+advBias;
-    candidates.push({x:nx,y:ny,cell,score});
+    consider(nx,ny,cell,score);
   }
-  // 정면/대각 정면이 모두 막혀 우회 시작점을 못 잡는 경우: 격자 BFS로 1스텝 우회
+  // 육각 격자 이웃 6칸: 샘플 각도가 강 타일로만 스냅되는 경우에도 실제 통과 가능 칸을 반드시 후보에 넣음
+  const startCell=nearestCell(unit.x,unit.y);
+  if(startCell){
+    let sr=startCell.r, sc=startCell.c;
+    if(sr===undefined||sc===undefined){
+      for(let r=0;r<ROWS;r++){
+        for(let cc=0;cc<COLS;cc++){
+          if(hexMap[r][cc]===startCell){ sr=r; sc=cc; startCell.r=r; startCell.c=cc; break; }
+        }
+        if(sr!==undefined) break;
+      }
+    }
+    if(sr!==undefined&&sc!==undefined){
+      const evenOffsets=[[0,-1],[0,1],[-1,-1],[-1,0],[1,-1],[1,0]];
+      const oddOffsets=[[0,-1],[0,1],[-1,0],[-1,1],[1,0],[1,1]];
+      const offs=(sr%2===0)?evenOffsets:oddOffsets;
+      for(let k=0;k<6;k++){
+        const nr=sr+offs[k][0], nc=sc+offs[k][1];
+        if(nr<0||nr>=ROWS||nc<0||nc>=COLS) continue;
+        const cell=hexMap[nr][nc];
+        if(!cell||!canTraverseTerrain(unit,cell)) continue;
+        const nx=cell.x, ny=cell.y;
+        const moveCost=terrainMoveCostForPathAt(nx,ny,role);
+        let delta=Math.atan2(ny-unit.y,nx-unit.x)-baseAngle;
+        while(delta>Math.PI) delta-=Math.PI*2;
+        while(delta<-Math.PI) delta+=Math.PI*2;
+        const dirPenalty=(Math.abs(delta)/Math.PI)*6*0.4;
+        const toTarget=Math.hypot(targetX-nx,targetY-ny)/Math.max(1,HW);
+        const targetPenalty=toTarget*0.22;
+        const advBias=terrainAdvantageBias(role,getDominantHexCellAt(nx,ny)||cell);
+        const lookPenalty=localPathPenalty(unit,nx,ny,targetX,targetY);
+        const heavyPenalty=moveCost>=4?0.85:0;
+        const score=moveCost+dirPenalty+targetPenalty+lookPenalty+heavyPenalty+advBias;
+        consider(nx,ny,cell,score);
+      }
+    }
+  }
+  let candidates=Array.from(bestByKey.values());
   if(!candidates.length){
     const detourCell=findDetourStepCell(unit,targetX,targetY);
     if(detourCell){
       const toTarget=Math.hypot(targetX-detourCell.x,targetY-detourCell.y)/Math.max(1,HW);
-      const moveCost=terrainMoveCost(detourCell,role);
+      const moveCost=terrainMoveCostForPathAt(detourCell.x,detourCell.y,role);
       const lookPenalty=localPathPenalty(unit,detourCell.x,detourCell.y,targetX,targetY);
       const score=moveCost+toTarget*0.25+lookPenalty+0.45;
       candidates.push({x:detourCell.x,y:detourCell.y,cell:detourCell,score});
@@ -2533,10 +2645,10 @@ function bestAdjacentCell(unit,targetX,targetY){
 function shouldDetourForFasterArrival(unit,targetX,targetY,nextCell,detourCandidate){
   if(!unit||!nextCell||!detourCandidate||!detourCandidate.cell) return false;
   const role=getUnitMoveRole(unit);
-  const directCost=terrainMoveCost(nextCell,role);
+  const directCost=terrainMoveCostForPathAt(nextCell.x,nextCell.y,role);
   // 매우 느린 지형이 아닐 때는 기존 직진 유지
   if(directCost<3.8) return false;
-  const detourCost=terrainMoveCost(detourCandidate.cell,role);
+  const detourCost=terrainMoveCostForPathAt(detourCandidate.x,detourCandidate.y,role);
   // 우회가 동일하거나 더 느리면 제외
   if(detourCost>=directCost*0.95) return false;
   const scale=Math.max(1,HW);
@@ -3093,7 +3205,10 @@ function updatePG() {
     } else {
       pg.style.display = 'block';
       pg.style.border = '1px solid #2ecc71'; // 성공의 초록 테두리
-      pg.innerHTML = `<b style="color:#2ecc71">배치 완료!</b><br><span style="font-size:11px; color:#fff;">상단의 <b style="color:#e74c3c">▶ 출발!</b> or <b style="color:#e74c3c">스페이스 바</b>를 누르세요.</span>`;
+      pg.innerHTML = `
+      <div style="white-space:nowrap"><b style="color:#2ecc71">배치 완료!</b></div>
+      <div style="font-size:11px;color:#fff;white-space:nowrap;margin-top:4px">상단의 <b style="color:#e74c3c">▶ 출발</b> 버튼 </div>
+      <div style="font-size:11px;color:#fff;white-space:nowrap;margin-top:2px">or <b style="color:#e74c3c">스페이스 바</b> 클릭</div>`;
     }
   } 
   // 2. 유닛 배치가 진행 중일 때
@@ -3111,8 +3226,9 @@ function updatePG() {
     pg.style.border = '1px solid #f1c40f'; // 경고/안내의 금색 테두리
     
     pg.innerHTML = `
-      📍 <b style="color:${classColor}; text-shadow: 1px 1px 2px #000;">${u.name}</b> 배치 중<br>
-      <span style="font-size:10px; color:#f1c40f;">(${currentIndex}/${totalToDeploy}) 배치 중</span>`;
+      <div style="white-space:nowrap">📍 <b style="color:${classColor}; text-shadow: 1px 1px 2px #000;">${u.name}</b></div>
+      <div style="color:#f1c40f;white-space:nowrap;margin-top:4px">배치 중 (${currentIndex}/${totalToDeploy})</div>
+      <div style="margin-top:4px;white-space:nowrap;font-size:14px"><span style="color:#c084fc">보라색 영역</span><span style="color:#f1c40f"> 클릭!</span></div>`;
   }
 }
 
@@ -3405,7 +3521,7 @@ function showClassModal(unit){
     isPaused = true;
     const goBtn = document.getElementById('btn-go');
     if (goBtn) {
-      goBtn.innerText = '▶재개';
+      goBtn.innerText = '▶ 재개';
       goBtn.style.background = '#27ae60';
     }
   }
@@ -3940,7 +4056,7 @@ function toggleBattle(){
     // 자동 시작 버튼을 '재개하기' 상태로 변경하여 유저가 인지하게 합니다.
     const goBtn = document.getElementById('btn-go');
     if (goBtn && autoStart) {
-      goBtn.innerText = '▶재개';
+      goBtn.innerText = '▶ 재개';
       goBtn.style.background = '#27ae60';
     }
     return;
@@ -4003,7 +4119,7 @@ function togglePause() {
   if (isPaused) {
     // [일시정지 상태]
     if(goBtn) {
-      goBtn.innerText = '▶재개';
+      goBtn.innerText = '▶ 재개';
       goBtn.style.background = '#27ae60'; // 초록색 (재개)
     }
     if (sb) sb.innerText = '잠시 멈춤';
@@ -4038,10 +4154,10 @@ function toggleAutoStart(){
   
   // [추가] 자동 진행을 켰는데 현재 배치 중인 유닛이 있다면 버튼을 '재개하기'로 변경
   if (autoStart && isPlacing && ud.length > 0 && goBtn) {
-    goBtn.innerText = '▶재개';
+    goBtn.innerText = '▶ 재개';
     goBtn.style.background = '#27ae60';
   } else if (!autoStart && isPlacing && goBtn) {
-    goBtn.innerText = '▶출발';
+    goBtn.innerText = '▶ 출발';
     goBtn.style.background = '#7b1d1d';
   }
 
@@ -4858,22 +4974,24 @@ function moveAlly(a,ae,aa,baseTerrSpd){
     return;
   }
 
-  // 현재 지형 이동속도 계산 (지형 비용의 역수)
-  const curCell=nearestCell(a.x,a.y);
-  if(curCell&&!canTraverseTerrain(a,curCell)){
+  // 현재 지형 이동속도 계산 (지형 비용의 역수) — 발자국 다수결 타일 기준
+  let domCell=getDominantHexCellAt(a.x,a.y);
+  if(domCell&&!canTraverseTerrain(a,domCell)){
     const tx=(a.wx!=null&&a.wy!=null)?a.wx:(a.x+HW);
     const ty=(a.wx!=null&&a.wy!=null)?a.wy:(a.y+HR);
     const best=bestAdjacentCell(a,tx,ty);
     if(best){a.x=best.x;a.y=best.y;clampToMap(a);}
+    domCell=getDominantHexCellAt(a.x,a.y);
   }
-  const terrCost=curCell?terrainMoveCost(curCell,getUnitMoveRole(a)):1.0;
+  const roleMove=getUnitMoveRole(a);
+  const terrCost=domCell?terrainMoveCost(domCell,roleMove):1.0;
   // 최소 이동속도 보장: terrCost가 아무리 높아도 기본 속도의 20% 이상
   const terrSpd=Math.max(0.20, Math.min(1.0, 1.0/Math.max(terrCost,1)));
   const secBonus=getUnitSecondaryBonus(a);
   let spd=a.spd*terrSpd*(a.ultimateSpdMul||1)*(secBonus.heroSpdMul||1)*MOVE_FEEL_MUL;
 
   // 모듈3: 산 지형 클래스 규칙
-  if(curCell&&curCell.type==='mountain'){
+  if(domCell&&domCell.type==='mountain'){
     const rangedLike=roleBase==='Ranged'||roleBase==='Mage';
     const meleeLike=!rangedLike;
     if(rangedLike) spd*=1.10;      // 원거리 +10%
@@ -4892,12 +5010,12 @@ function moveAlly(a,ae,aa,baseTerrSpd){
       } else {
         const nx=a.x+dx/d*spd;
         const ny=a.y+dy/d*spd;
-        const nextCell=nearestCell(nx,ny);
+        const domAtNext=getDominantHexCellAt(nx,ny);
         let detourBest=null;
-        if(nextCell&&canTraverseTerrain(a,nextCell)&&terrainMoveCost(nextCell,getUnitMoveRole(a))>=3.8){
+        if(domAtNext&&canTraverseTerrain(a,domAtNext)&&terrainMoveCost(domAtNext,getUnitMoveRole(a))>=3.8){
           detourBest=bestAdjacentCell(a,a.wx,a.wy);
         }
-        if(nextCell&&!canTraverseTerrain(a,nextCell)){
+        if(domAtNext&&!canTraverseTerrain(a,domAtNext)){
           const best=bestAdjacentCell(a,a.wx,a.wy);
           if(best){
             const bdx=best.x-a.x, bdy=best.y-a.y, bn=Math.hypot(bdx,bdy);
@@ -4905,7 +5023,7 @@ function moveAlly(a,ae,aa,baseTerrSpd){
           }else{
             a.wx=null; a.wy=null;
           }
-        }else if(detourBest&&shouldDetourForFasterArrival(a,a.wx,a.wy,nextCell,detourBest)){
+        }else if(detourBest&&shouldDetourForFasterArrival(a,a.wx,a.wy,domAtNext,detourBest)){
           const bdx=detourBest.x-a.x, bdy=detourBest.y-a.y, bn=Math.hypot(bdx,bdy);
           if(bn>1){ a.x+=bdx/bn*spd; a.y+=bdy/bn*spd; clampToMap(a); }
         }else{
@@ -5645,6 +5763,7 @@ function showDay1Tutorial() {
   document.getElementById('garrison-title').innerText = '⚔️ 실전 지휘 안내 (1/3)';
   document.getElementById('garrison-body').innerHTML = `
     <div style="font-size:11px;color:#ccc;line-height:1.7;margin-bottom:14px">
+      <div style="margin-bottom:10px">🚑 <b style="color:#e74c3c">영구 사망 주의</b>: 체력이 0이 되면 빈사 상태가 되며, <b style="color:#fff">7초</b> 내에 치료하지 못하면 대원은 <b style="color:#e74c3c">영구히 사망</b>하여 사라집니다!</div>
       <div style="margin-bottom:10px">👆 <b style="color:#f1c40f">드래그 이동</b>: 전투 중 대원을 드래그하여 실시간으로 위치를 바꿀 수 있습니다. 위험한 상황에서 대원을 구출하거나 유리한 지형으로 옮기세요!</div>
       <div style="margin-bottom:10px">🖱️ <b style="color:#a855f7">더블 클릭</b>: 대원을 더블 클릭하면 그 자리에 고정되는 <b style="color:#a855f7">홀드(Hold)</b> 상태가 되어 제자리에서 적을 맞이합니다.</div>
     </div>
@@ -5661,9 +5780,7 @@ function showTutorialStep2() {
   document.getElementById('garrison-title').innerText = '💡 기술과 생존 안내 (2/3)';
   document.getElementById('garrison-body').innerHTML = `
     <div style="font-size:11px;color:#ccc;line-height:1.7;margin-bottom:14px">
-      <div style="margin-bottom:8px">🚑 <b style="color:#e74c3c">영구 사망 주의</b>: 체력이 0이 되면 빈사 상태가 되며, <b style="color:#fff">7초</b> 내에 치료하지 못하면 대원은 <b style="color:#e74c3c">영구히 사망</b>하여 사라집니다!</div>
-      <div style="margin-bottom:8px">★ <b style="color:#f1c40f">스킬 변경</b>: 동료 카드의 스킬 버튼을 눌러 기술을 교체하세요. 자주 사용할수록 <b style="color:#f1c40f">스킬 레벨</b>이 올라 더욱 강력해집니다.</div>
-      
+      <div style="margin-bottom:8px">★ <b style="color:#f1c40f">생존을 높이려면 스킬을 바꿔 보세요.</b> 전투 상황에 맞게 동료 카드의 스킬 버튼을 눌러 장착 기술을 교체할 수 있습니다. 자주 사용할수록 <b style="color:#f1c40f">스킬 레벨</b>이 올라 더욱 강력해집니다.</div>
       <div style="background:rgba(0,0,0,0.3); padding:8px; border-radius:5px; border:1px solid #1e3a5f; margin-top:10px;">
         <div style="color:#f1c40f; font-weight:bold; margin-bottom:4px">📢 추천 설정</div>
         <div style="margin-bottom:4px">🛡️ <b style="color:#8d6e63">방어력을 높이려면</b>: <span style="color:#2ecc71">[몸으로 막기]</span> 활성화</div>
@@ -5813,7 +5930,7 @@ function autoStartNextZone(clearedZid) {
   autoStart = true;
   const abtn = document.getElementById('btn-auto');
   if (abtn) {
-    abtn.innerText = '자동:ON';
+    abtn.innerText = '자동: ON';
     abtn.style.background = '#1a5c32';
   }
   
@@ -5942,7 +6059,7 @@ function autoAdvance(){
   // 자동 진행 ON + 이전 배치로 시작
   autoStart=true;
   const el=document.getElementById('btn-auto');
-  if(el)el.innerText='자동:ON';
+  if(el)el.innerText='자동: ON';
   alog('⚡ 자동: 이전 배치로 전투 시작!');
 }
 
@@ -9819,7 +9936,7 @@ function showDeployGuide() {
     pg.style.display = 'block';
     pg.style.background = 'rgba(0,0,0,0.8)'; // 검은 반투명 배경으로 가독성 향상
     pg.style.color = '#f1c40f';
-    pg.innerHTML = '대원을 배치한 뒤, 준비가 되면 <b style="color:#e74c3c">▶ 출발!</b> 또는 <b style="color:#e74c3c">스페이스 바</b>를 누르세요.';
+    pg.innerHTML = '대원을 배치한 뒤, 준비가 되면 <b style="color:#e74c3c">▶ 출발!</b> 버튼 or <b style="color:#e74c3c">스페이스 바</b>를 누르세요.';
     // setTimeout이 없으므로 출발 버튼을 누를 때까지 사라지지 않습니다.
   }
 }
