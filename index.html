@@ -676,7 +676,7 @@ canvas {
     padding: 8px 20px;
   }
   .ctrl-row {
-    width: auto;
+    width: 100%;
     gap: 8px;
     justify-content: flex-start;
   }
@@ -997,6 +997,15 @@ const PHASE_UNLOCK_REQ={
   2:{needClears:3, needTotalLv:120},
   3:{needClears:6, needTotalLv:260},
 };
+// 도시 단계용 MOBA 전투지 역할 분리
+// - lane: 1:1·2:2 기본 라인전(훈련장)
+// - skirmish: 교전/로밍 특화
+// - siege: 공성·오브젝트 특화
+const CITY_MOBA_CONFIG={
+  raider:{mode:'lane'},
+  castle:{mode:'skirmish'},
+  crystal:{mode:'siege'},
+};
 const ZONE_MAP_SIZE_BY_STAGE={
   1:{cols:20,rows:12}, // 집합소 전투지
   2:{cols:28,rows:16}, // 마을 전투지
@@ -1066,6 +1075,10 @@ function applyZoneMapSize(zone,rebuildMap=false){
 function applyPhaseSettings(rebuildMap=false){
   const cfg=getCurrentPhaseCfg();
   PARTY_LIMIT=cfg.partyLimit;
+  // 도시 단계: 1:1 듀오 라인전 → 해금 후 2:2
+  if(civPhase===2){
+    PARTY_LIMIT=_cityDuelUnlocked?2:1;
+  }
   sanitizePartyGroups();
   // 맵 크기는 문명 단계가 아니라 지역 단계(I/II/III) 기준으로 적용
   applyZoneMapSize(currentZone,rebuildMap);
@@ -1349,12 +1362,26 @@ let uid=1,pendingClass=null;
 let isAutoSortEnabled = true; // 자동 정렬 활성화 상태로 시작
 let _partyGroups={1:[],2:[]};  // 도시: G1 / 왕국: G1,G2
 const PARTY_GROUP_UNIT_CAP=4;  // 그룹당 최대 영웅 수
+let _cityDuelUnlocked=false;   // 도시 2:2 듀오 해금 여부
 let savedPositions={};
 let initialPositions={};
 let deadUnits=[]; // 사망 유닛 기록
 let zoneRecords={};
 let garrisonInterval=null;
 let _battleStartTime=0;
+let _raidTelegraphs=[]; // 왕국 레이드 장판 예고/폭발
+let _raidNextPatternAt=0;
+let _cityMobaState={
+  active:false,
+  wave:0,
+  waveMax:0,
+  nextWaveAt:0,
+  laneYs:[],
+  objectiveTaken:false,
+  objectiveRespawnAt:0,
+  objectiveRespawnSec:45,
+  objectiveBuffType:null,
+};
 let _panelDirty=true,_frameCount=0;
 let _cachedBattleClockStr='',_cachedBattleEnemyStr='';
 let _elBattleTimer=null,_elTimerClock=null,_elTimerEnemy=null;
@@ -1486,6 +1513,7 @@ function buildSavePayload(){
     inventory:cloneSafe(inventory),
     autoStart:!!autoStart,
     isAutoSortEnabled:!!isAutoSortEnabled,
+    cityDuelUnlocked:!!_cityDuelUnlocked,
     sorrowDebuffUntil:cloneSafe(_sorrowDebuffUntil),
     savedPositions:cloneSafe(savedPositions),
     initialPositions:cloneSafe(initialPositions),
@@ -1549,6 +1577,7 @@ function hydrateGameState(data){
   };
   autoStart=!!data.autoStart;
   isAutoSortEnabled=(data.isAutoSortEnabled!==undefined)?!!data.isAutoSortEnabled:true;
+  _cityDuelUnlocked=!!data.cityDuelUnlocked;
   _sorrowDebuffUntil=Array.isArray(data.sorrowDebuffUntil)?data.sorrowDebuffUntil.filter(ts=>Number(ts)>Date.now()):[];
   savedPositions=data.savedPositions||{};
   initialPositions=data.initialPositions||{};
@@ -1964,13 +1993,14 @@ const _fixedMaps={};
 function buildMap(){
   hexMap=[];
   const zid=currentZone.id;
+  const mapKey=isCityMobaZone()?`${zid}__citymoba`:`${zid}__base`;
   // 이미 생성된 지형이면 재사용 (고정 지형)
-  if(_fixedMaps[zid]){
-    hexMap=_fixedMaps[zid].map(row=>row.map(cell=>({...cell})));
+  if(_fixedMaps[mapKey]){
+    hexMap=_fixedMaps[mapKey].map(row=>row.map(cell=>({...cell})));
     return;
   }
   // 존 ID + (비 hunt 시) 선택 시 시드로 지형 생성
-  const seed=zid.split('').reduce((s,c)=>s+c.charCodeAt(0),42)+(window._terrainRerollSeed|0);
+  const seed=mapKey.split('').reduce((s,c)=>s+c.charCodeAt(0),42)+(window._terrainRerollSeed|0);
   const rndFn=seededRand(seed);
   const tier=currentZone.terrain||currentZone.tier; // 챕터 지형 테마 우선
   const phaseDensity=[0.00,0.04,0.08,0.12][civPhase]||0;
@@ -2067,8 +2097,23 @@ function buildMap(){
       hexMap[r][c]={type,x,y};
     }
   }
+  if(isCityMobaZone()){
+    const laneYs=[CH*0.32,CH*0.68];
+    for(let r=0;r<ROWS;r++){
+      for(let c=0;c<COLS;c++){
+        const h=hexMap[r][c];
+        const nearLane=laneYs.some(ly=>Math.abs((h.y||0)-ly)<=HR*1.05);
+        const allyBase=(h.x||0)<CW*0.20;
+        const enemyBase=(h.x||0)>CW*0.76;
+        if(nearLane) h.type='plain';
+        if((nearLane&&(allyBase||enemyBase))&&Math.random()<0.42){
+          h.type='ruins'; // 레인 거점 느낌의 구조물 타일
+        }
+      }
+    }
+  }
   // 고정 지형 저장
-  _fixedMaps[zid]=hexMap.map(row=>row.map(cell=>({...cell})));
+  _fixedMaps[mapKey]=hexMap.map(row=>row.map(cell=>({...cell})));
   _nearestCellCache.clear();
   _nearestCellCacheRev++;
 }
@@ -2181,6 +2226,9 @@ function tryMoveWithTerrain(unit,dx,dy,opts={}){
   }
   unit.x+=dx*mul;
   unit.y+=dy*mul;
+  if(Math.abs(dx)+Math.abs(dy)>0.0001){
+    unit.facing=Math.atan2(dy,dx);
+  }
   clampToMap(unit);
   return true;
 }
@@ -2632,6 +2680,15 @@ function resetDeployment() {
 
 function spawnEnemies(){
   enemies=[];
+  if(isCityMobaZone()){
+    initCityMobaState();
+    spawnCityMobaStructures();
+    spawnCityMobaWave();
+    _cityMobaState.nextWaveAt=(_frameCount||0)+320;
+    return;
+  }else{
+    resetCityMobaState();
+  }
   const tier=currentZone.tier;
   const diff=currentZone.diffMult||1.0; // 다음 챕터 난이도 배율
   
@@ -2901,6 +2958,56 @@ function onDown(e){
   const {x,y} = getPos(e);
   const now = Date.now();
   dragSX=x; dragSY=y; isDragging=false;
+  // 전투 중 신규 고용 유닛 배치는 유닛 선택보다 우선 처리합니다.
+  // (상단처럼 아군이 겹친 구간에서 클릭이 선택으로 흡수되어 배치가 막히는 현상 방지)
+  const pendingUd=getSortedUd();
+  const pendingCell=nearestCell(x,y);
+  const pendingPurple=hexMap.some(row=>row.slice(0,7).some(h=>h===pendingCell));
+  if(pendingUd.length>0&&pendingPurple){
+    const getPlacementCellPos=(ally)=>{
+      if(isBattle){
+        const liveCell=nearestCell(ally.x,ally.y);
+        return liveCell?{x:liveCell.x,y:liveCell.y}:null;
+      }
+      return savedPositions[ally.id]||null;
+    };
+    const reserved=allies.find(a=>{
+      if(!a.isDeployed||a.dead) return false;
+      const pos=getPlacementCellPos(a);
+      return !!pos&&pos.x===pendingCell.x&&pos.y===pendingCell.y;
+    });
+    let finalCell=pendingCell;
+    if(reserved){
+      let minD=Infinity;
+      let bestEmptyCell=null;
+      for(let r=0;r<ROWS;r++){
+        for(let c=0;c<7;c++){
+          const h=hexMap[r][c];
+          const isTaken=allies.some(a=>{
+            if(!a.isDeployed||a.dead) return false;
+            const pos=getPlacementCellPos(a);
+            return !!pos&&pos.x===h.x&&pos.y===h.y;
+          });
+          if(!isTaken){
+            const d=Math.hypot(h.x-x,h.y-y);
+            if(d<minD){minD=d;bestEmptyCell=h;}
+          }
+        }
+      }
+      if(bestEmptyCell) finalCell=bestEmptyCell;
+      else { alog("⚠️ 배치 가능한 빈 공간이 없습니다!"); return; }
+    }
+    const u=pendingUd[0];
+    u.x=finalCell.x; u.y=finalCell.y;
+    u.isDeployed=true; u.wx=null; u.wy=null;
+    savedPositions[u.id]={x:u.x,y:u.y};
+    initialPositions[u.id]={x:u.x,y:u.y};
+    _selectedUnitId=u.id;
+    updatePG();
+    renderAllyPanel();
+    markDirty();
+    return;
+  }
 
   // [1] 지도 위 아군 유닛 클릭 판정
   const clickedAlly = allies.find(a => a.isDeployed && !a.dead && dist(a, {x,y}) < 25);
@@ -3733,6 +3840,8 @@ function toggleBattle(){
   if(typeof resetPartyGroupUltimates==='function') resetPartyGroupUltimates();
   if(typeof primePartyGroupUltimatesForBattle==='function') primePartyGroupUltimatesForBattle(currentParty);
   preparePartyUltimate(currentParty);
+  _raidTelegraphs=[];
+  _raidNextPatternAt=(_frameCount||0)+100;
 
   setBadge(`${stage}일차`, 'b-ba');
   alog(`⚔️ 전투 시작! (파티원 ${currentParty.length}명, 식량 -${cost}🍖)`);
@@ -3817,6 +3926,9 @@ function battleTick(){
   sanitizePartyGroups();
   // 빈사 5초 경과 시 영구 사망 처리
   const now=Date.now();
+  tickRaidTelegraphs();
+  tickRaidTankDebuffDecay(now);
+  tickCityMobaFlow();
   let needGarrisonRender=false;
   allies.forEach(a=>{
     if(a.dead&&a.deathTime&&(now-a.deathTime)>=7000&&!a.permanentlyDead){
@@ -3863,10 +3975,12 @@ function battleTick(){
     const runThis=!crowdedAI||((idx%aiShardCount)===aiStripe);
     tickUnitUltimateBuff(a,now);
     const secBonus=getUnitSecondaryBonus(a);
+    const cityObjBuffActive=isCityMobaBattle()&&Number(a.cityObjBuffUntil||0)>now;
+    const cityObjProfile=cityObjBuffActive?getCityObjectiveBuffProfile(a.cityObjBuffType):null;
     const cell = nearestCell(a.x, a.y);
     const terrSpd = cell ? TERRAIN[cell.type].spd : 1.0;
-    if(secBonus.regen>0 && (_frameCount%60===0)){
-      a.hp=Math.min(a.maxHp,a.hp+secBonus.regen);
+    if((secBonus.regen>0||cityObjProfile?.regen>0) && (_frameCount%60===0)){
+      a.hp=Math.min(a.maxHp,a.hp+(secBonus.regen||0)+(cityObjProfile?.regen||0));
     }
 
     // 방어 패시브
@@ -3876,7 +3990,7 @@ function battleTick(){
     const roleBase=(a.class10Key&&CLASS10[a.class10Key]?.base)||(a.classKey||a.baseRole||'Refugee');
     const isMeleeLike=!(roleBase==='Ranged'||roleBase==='Mage');
     const mtnDefBonus=(cell&&cell.type==='mountain'&&isMeleeLike)?0.20:0;
-    a.def=Math.min(a.bonusDef+defBonus+mtnDefBonus+(a.ultimateDefBonus||0)+(secBonus.heroDefBonus||0),0.75);
+    a.def=Math.min(a.bonusDef+defBonus+mtnDefBonus+(a.ultimateDefBonus||0)+(secBonus.heroDefBonus||0)+(cityObjProfile?.defBonus||0),0.75);
 
     // 스킬 쿨타임(메인/궁극기) 틱
     if ((a.mainSkillCd||0) > 0) {
@@ -3902,7 +4016,7 @@ function battleTick(){
     const role = a.classKey || a.baseRole;
     const roleData = BASE_ROLES[role];
     const sorrowDebuff=getSorrowDebuffState();
-    const baseAtkSpd = (roleData?.atkSpd || 0.8) * (a.atkSpdMul || 1) * (1 + (a.bonusCDR || 0) + (secBonus.cdr||0) + (a.ultimateAtkSpdBonus||0)) * (1 + (secBonus.atkSpd||0)) * sorrowDebuff.atkSpdMul;
+    const baseAtkSpd = (roleData?.atkSpd || 0.8) * (a.atkSpdMul || 1) * (1 + (a.bonusCDR || 0) + (secBonus.cdr||0) + (a.ultimateAtkSpdBonus||0)) * (1 + (secBonus.atkSpd||0) + (cityObjProfile?.atkSpd||0)) * sorrowDebuff.atkSpdMul;
     const castDelay = roleData?.castDelay || 0;
     const cooldownFrames = Math.max(6, Math.floor(60 / baseAtkSpd) + castDelay);
     
@@ -4083,19 +4197,83 @@ function battleTick(){
       e.ambushTarget=detectedAA.find(a=>(a.baseRole==='Heal'||a.baseRole==='Ranged')&&a.hp>0&&!a.dead)||nearest;
     }
 
-    // 도발 체크
-    const taunter=detectedAA.find(a=>a.activeSkills.includes('Taunt')&&dist(a,e)<120);
-    let tgt=taunter||null;
-    if(!tgt&&e.ambushDone&&e.ambushTarget&&!e.ambushTarget.dead&&e.ambushTarget.hp>0)tgt=e.ambushTarget;
-    if(!tgt){
-      if(e.role==='Ranged')tgt=detectedAA.find(a=>(a.baseRole==='Heal'||a.baseRole==='Ranged')&&a.hp>0&&!a.dead)||closest(e,detectedAA,Infinity);
-      else tgt=closest(e,detectedAA,Infinity);
+    let tgt=null;
+    if(isCityMobaBattle()&&e.cityTurret){
+      const turretRange=(e.cityTurretRange||e.range||220);
+      const lockDurMs=5200;
+      let lockTgt=null;
+      if(e.cityTurretLockId&&now<(e.cityTurretLockUntil||0)){
+        lockTgt=detectedAA.find(a=>a&&a.id===e.cityTurretLockId&&a.hp>0&&!a.dead&&dist(a,e)<=turretRange);
+      }
+      if(lockTgt){
+        tgt=lockTgt;
+      }else{
+        e.cityTurretLockId=null;
+        e.cityTurretLockUntil=0;
+      }
+      const inRange=detectedAA.filter(a=>a&&a.hp>0&&!a.dead&&dist(a,e)<=turretRange+24);
+      const rolePriority=(u)=>{
+        const rb=(u.class10Key&&CLASS10[u.class10Key]?.base)||(u.classKey||u.baseRole||'Refugee');
+        if(rb==='Tank') return 0;
+        if(Array.isArray(u.activeSkills)&&u.activeSkills.includes('Taunt')) return 1;
+        if(rb==='Warrior'||rb==='Melee') return 2;
+        if(rb==='Heal') return 3;
+        if(rb==='Ranged'||rb==='Mage') return 4;
+        return 5;
+      };
+      inRange.sort((a,b)=>{
+        const pa=rolePriority(a),pb=rolePriority(b);
+        if(pa!==pb) return pa-pb;
+        return dist(a,e)-dist(b,e);
+      });
+      if(!tgt){
+        tgt=inRange[0]||closest(e,detectedAA,Infinity);
+        if(tgt&&dist(tgt,e)<=turretRange+24){
+          e.cityTurretLockId=tgt.id;
+          e.cityTurretLockUntil=now+lockDurMs;
+          if((e.cityTurretLockAnnounceAt||0)<now){
+            e.cityTurretLockAnnounceAt=now+2200;
+            addFloat(e.x,e.y-18,'LOCK','#f59e0b');
+          }
+        }
+      }
+    }else{
+      // 도발 체크
+      const taunter=isKingdomRaidBattle()
+        ?getRaidTauntSwapTarget(e,detectedAA)
+        :detectedAA.find(a=>a.activeSkills.includes('Taunt')&&dist(a,e)<120);
+      tgt=taunter||null;
+      if(!tgt&&e.ambushDone&&e.ambushTarget&&!e.ambushTarget.dead&&e.ambushTarget.hp>0)tgt=e.ambushTarget;
+      if(!tgt){
+        if(e.role==='Ranged')tgt=detectedAA.find(a=>(a.baseRole==='Heal'||a.baseRole==='Ranged')&&a.hp>0&&!a.dead)||closest(e,detectedAA,Infinity);
+        else tgt=closest(e,detectedAA,Infinity);
+      }
     }
     if(!tgt){
+      if(isCityMobaBattle()&&e.cityLaneMinion){
+        const ly=(Array.isArray(_cityMobaState.laneYs)?_cityMobaState.laneYs[e.cityLane||0]:null);
+        if(Number.isFinite(ly)&&Math.abs(e.y-ly)>8){
+          const dirY=(ly-e.y);
+          const mag=Math.max(1,Math.abs(dirY));
+          tryMoveWithTerrain(e,-moveSpd*0.68,dirY/mag*moveSpd*0.32,{role:e.role||'Melee'});
+        }else{
+          tryMoveWithTerrain(e,-moveSpd*0.95,0,{role:e.role||'Melee'});
+        }
+        if(e.x<=MAP_PAD+2){
+          e.dead=true;
+          e.hp=0;
+          res.food=Math.max(0,(res.food||0)-4);
+          food=res.food;
+          addFloat(e.x,e.y,'돌파!','#ef4444');
+        }
+        clampToMap(e);
+        return;
+      }
       e.x=Math.max(MAP_PAD,Math.min(CW-MAP_PAD,e.x));
       e.y=Math.max(MAP_PAD,Math.min(CH-MAP_PAD,e.y));
       return;
     }
+    e.facing=Math.atan2((tgt.y||e.y)-e.y,(tgt.x||e.x)-e.x);
 
     const d=dist(e,tgt);
     if(d<e.range){
@@ -4103,9 +4281,20 @@ function battleTick(){
         e.atkCd=atkCooldown;
         const los=e.role==='Ranged'?hasLOS(e.x,e.y,tgt.x,tgt.y):true;
         if(los){
-          const raw=e.atk;
+          let raw=e.atk;
+          if(e.cityMinionType==='siege'&&tgt&&tgt.cityTurret){
+            raw=Math.floor(raw*1.75);
+          }
           const tSec=getUnitSecondaryBonus(tgt);
-          const reduced=Math.floor(raw*(1-Math.min(tgt.def,0.75))*(1-Math.min(0.5,tSec.dmgRed||0)));
+          if(isKingdomRaidBattle()){
+            tgt.raidBossStacks=Math.min(8,(tgt.raidBossStacks||0)+1);
+            tgt.raidBossStackAt=now;
+            if((tgt.raidBossStacks||0)>=4){
+              addFloat(tgt.x,tgt.y-22,`도발중첩 x${tgt.raidBossStacks}`,'#f97316');
+            }
+          }
+          const stackMul=isKingdomRaidBattle()?(1+Math.min(0.72,(tgt.raidBossStacks||0)*0.09)):1;
+          const reduced=Math.floor(raw*stackMul*(1-Math.min(tgt.def,0.75))*(1-Math.min(0.5,tSec.dmgRed||0)));
           if(tgt.def>0.1){const absorbed=raw-reduced;tgt.totalAbsorb=(tgt.totalAbsorb||0)+absorbed;if(absorbed>0)gainExp(tgt,Math.floor(absorbed/5));}
           tgt.hp-=reduced;
           addFloat(tgt.x,tgt.y-12,`-${reduced}`,'#ff6b6b');
@@ -4161,6 +4350,16 @@ function battleTick(){
         zoneRecords[currentZone.id].cleared = true;
         zoneRecords[currentZone.id].clearTime = Date.now() - (_battleStartTime || Date.now());
         ensureGarrisonRecMeta(zoneRecords[currentZone.id],currentZone.id);
+
+        // 도시 1:1 → 2:2 듀오 해금: 도시급 전투지에서 첫 최종일 클리어 시 해금
+        const isCityPhase=(civPhase===2);
+        const isCityZone=(Number(currentZone.unlockPhase||0)>=2);
+        if(isCityPhase&&isCityZone&&!_cityDuelUnlocked){
+          _cityDuelUnlocked=true;
+          applyPhaseSettings(false);
+          renderAllyPanel();
+          alog('🎉 도시 듀오 라인전 해금! 이제 도시 전투에서 파티 유닛을 2명까지 출전시킬 수 있습니다.');
+        }
 
         alog(`🎊 [${currentZone.name}] 정복 완료!`);
         
@@ -4421,9 +4620,21 @@ function applyDmg(a,tgt,cell,sk,mult=1){
       tRole==='Sorcerer'||tRole==='Warlock'||tRole==='Cleric'||tRole==='Shaman')){
     dmg=Math.floor(dmg*1.3);
   }
+  // 도시 MOBA: 공성 미니언은 포탑 대상 피해가 크게 증가합니다.
+  if(a&&a.cityMinionType==='siege'&&tgt&&tgt.cityTurret){
+    dmg=Math.floor(dmg*1.75);
+  }
+  // 왕국 레이드 MVP: 측면/후면 공격 보너스
+  if(isKingdomRaidBattle()&&tgt&&tgt.type==='enemy'&&Number.isFinite(tgt.facing)){
+    const incoming=Math.atan2((a.y||0)-(tgt.y||0),(a.x||0)-(tgt.x||0));
+    const diff=angleDiffAbs(incoming,tgt.facing||0);
+    dmg=Math.floor(dmg*getRaidPositionalMultiplier(a,diff));
+  }
 
   const sorrowDebuff=getSorrowDebuffState();
-  dmg=Math.floor(dmg*mult*skillMult(a,sk)*(secBonus.heroDmgMul||1)*sorrowDebuff.dmgMul);
+  const cityObjProfile=(isCityMobaBattle()&&Number(a.cityObjBuffUntil||0)>Date.now())?getCityObjectiveBuffProfile(a.cityObjBuffType):null;
+  const cityObjMul=cityObjProfile?cityObjProfile.dmgMul:1;
+  dmg=Math.floor(dmg*mult*skillMult(a,sk)*(secBonus.heroDmgMul||1)*cityObjMul*sorrowDebuff.dmgMul);
   const critChance=Math.max(0,Math.min(0.85,secBonus.crit||0));
   if(Math.random()<critChance){
     const critMul=1.5+(secBonus.critDmg||0);
@@ -4435,7 +4646,20 @@ function applyDmg(a,tgt,cell,sk,mult=1){
   const reduced=Math.floor(dmg*(1-effDef));
   tgt.hp-=reduced;
   addFloat(tgt.x,tgt.y-12,`-${reduced}`,'#f1c40f');
-  if(tgt.hp<=0){tgt.dead=true;gainExp(a,40);elog(`☠️ ${tgt.name} 처치`);}
+  if(tgt.hp<=0){
+    tgt.dead=true;
+    gainExp(a,40);
+    if(tgt.type==='enemy'&&Number(tgt.cityGold||0)>0){
+      res.gold=(res.gold||0)+Number(tgt.cityGold||0);
+      gold=res.gold;
+      addFloat(tgt.x,tgt.y-22,`+${tgt.cityGold}G`,'#facc15');
+    }
+    if(tgt.cityObjective&&isCityMobaBattle()){
+      applyCityObjectiveBuff();
+      _cityMobaState.objectiveRespawnAt=Date.now()+Math.max(20000,(_cityMobaState.objectiveRespawnSec||45)*1000);
+    }
+    elog(`☠️ ${tgt.name} 처치`);
+  }
 }
 
 // 맵 경계 클램프 (유닛이 맵 밖으로 나가지 않게)
@@ -5495,6 +5719,11 @@ const ITEM_TEMPLATES={
     {id:'bt_wind',name:'바람 신발',bonus:{atkSpd:0.12,cdr:0.04}},
   ],
 };
+const RAID_RELICS=[
+  {slot:'weapon',item:{id:'raid_drake_lance',name:'용비늘 창',bonus:{crit:0.08,atkSpd:0.06}}},
+  {slot:'armor',item:{id:'raid_aegis_plate',name:'수호자의 흉갑',bonus:{dmgRed:0.14,regen:1.2}}},
+  {slot:'boots',item:{id:'raid_shadow_treads',name:'그림자 경장화',bonus:{cdr:0.14,atkSpd:0.10}}},
+];
 const POTIONS={
   focus:{name:'집중의 비약', effect:{cdr:0.12}, cost:{herb:25,gold:80}},
   keen:{name:'날카로운 비약', effect:{crit:0.08}, cost:{herb:30,diamond:2}},
@@ -5864,16 +6093,58 @@ function consumeCost(cost){
 function randPick(arr){return arr[Math.floor(Math.random()*arr.length)];}
 function rewardLootByBattle(){
   if(civPhase<1)return;
-  if(Math.random()<0.58){
+  const zid=currentZone.id||'';
+  const mode=(CITY_MOBA_CONFIG[zid]?.mode)||null;
+  let itemChance=0.58;
+  let potionChance=0.38;
+  let extraDiamond=0;
+  let extraMana=0;
+  if(mode==='lane'){
+    // 훈련장: 장비·골드 파밍 특화 (아이템 확률↑, 포션 약간↓)
+    itemChance=0.70;
+    potionChance=0.30;
+  }else if(mode==='skirmish'){
+    // 교전 특화: 포션/버프 파밍 특화 (비약 확률↑)
+    itemChance=0.58;
+    potionChance=0.48;
+  }else if(mode==='siege'){
+    // 공성 특화: 고급 자원(다이아/마력결정) 보너스
+    itemChance=0.62;
+    potionChance=0.40;
+    extraDiamond=1;
+    extraMana=1;
+  }
+  if(Math.random()<itemChance){
     const slot=randPick(['weapon','armor','boots']);
     const item=JSON.parse(JSON.stringify(randPick(ITEM_TEMPLATES[slot])));
     inventory.items[slot].push(item);
     alog(`🎁 전리품 획득: ${item.name}`);
   }
-  if(Math.random()<0.38){
+  if(Math.random()<potionChance){
     const key=randPick(Object.keys(POTIONS));
     inventory.potions[key]=(inventory.potions[key]||0)+1;
     alog(`🧪 비약 획득: ${POTIONS[key].name}`);
+  }
+  if(mode==='siege'&& (extraDiamond||extraMana)){
+    if(extraDiamond>0){
+      res.diamond=(res.diamond||0)+extraDiamond;
+    }
+    if(extraMana>0){
+      res.manaCrystal=(res.manaCrystal||0)+extraMana;
+    }
+    alog(`🏰 공성 전리품 보너스: 💎+${extraDiamond} 🔮+${extraMana}`);
+  }
+  if(isKingdomRaidBattle()){
+    if(Math.random()<0.45){
+      const relic=JSON.parse(JSON.stringify(randPick(RAID_RELICS)));
+      inventory.items[relic.slot].push(relic.item);
+      alog(`👑 레이드 전리품: ${relic.item.name}`);
+    }
+    if(Math.random()<0.50){
+      const key=randPick(['amp','undying','ruin']);
+      inventory.potions[key]=(inventory.potions[key]||0)+1;
+      alog(`🧪 레이드 비약: ${POTIONS[key].name}`);
+    }
   }
 }
 function autoEquipPartyFromInventory(){
@@ -6470,6 +6741,497 @@ function isCrowdedBattleScene(){
   }
   return (allyAlive+enemyAlive)>18;
 }
+function isCityMobaZone(){
+  if(!currentZone) return false;
+  if(Number(civPhase||0)!==2) return false;
+  const zid=currentZone.id||'';
+  if(CITY_MOBA_CONFIG[zid]) return true;
+  return Number(currentZone.unlockPhase||0)>=2;
+}
+function isCityMobaBattle(){
+  return !!(isBattle&&isCityMobaZone()&&_cityMobaState&&_cityMobaState.active);
+}
+function resetCityMobaState(){
+  _cityMobaState={
+    active:false,
+    wave:0,
+    waveMax:0,
+    nextWaveAt:0,
+    laneYs:[],
+    objectiveTaken:false,
+    objectiveRespawnAt:0,
+    objectiveRespawnSec:45,
+    objectiveBuffType:null,
+  };
+}
+function initCityMobaState(){
+  if(!isCityMobaZone()){
+    resetCityMobaState();
+    return;
+  }
+  const zid=currentZone.id||'';
+  const cfg=CITY_MOBA_CONFIG[zid]||{mode:'lane'};
+  const laneTop=CH*0.32;
+  const laneBot=CH*0.68;
+  const baseWaveMax=3+Math.min(3,Math.floor((zoneStage||1)/3));
+  const waveMax=cfg.mode==='lane'
+    ? Math.max(3,baseWaveMax-1)
+    : (cfg.mode==='siege'?baseWaveMax+1:baseWaveMax);
+  _cityMobaState={
+    active:true,
+    wave:0,
+    waveMax,
+    nextWaveAt:(_frameCount||0)+110,
+    laneYs:[laneTop,laneBot],
+    objectiveTaken:false,
+    objectiveRespawnAt:0,
+    objectiveRespawnSec:cfg.mode==='siege'?38:(cfg.mode==='skirmish'?46:50),
+    objectiveBuffType:null,
+  };
+}
+function rollCityObjectiveBuffType(){
+  const zid=currentZone.id||'';
+  const mode=(CITY_MOBA_CONFIG[zid]?.mode)||'lane';
+  const r=Math.random();
+  if(mode==='lane') return r<0.5?'assault':'bulwark';
+  if(mode==='skirmish') return r<0.65?'assault':'bulwark';    // 교전 특화: 공격 버프 비중↑
+  if(mode==='siege') return r<0.35?'assault':'bulwark';       // 공성 특화: 방어 버프 비중↑
+  return r<0.5?'assault':'bulwark';
+}
+function getCityObjectiveBuffProfile(type){
+  const table={
+    assault:{label:'공격형',dmgMul:1.18,atkSpd:0.16,defBonus:0.03,regen:0.8,color:'#f97316'},
+    bulwark:{label:'방어형',dmgMul:1.06,atkSpd:0.05,defBonus:0.14,regen:2.2,color:'#22d3ee'},
+  };
+  return table[type]||table.assault;
+}
+function spawnCityObjective(){
+  const obj=mkEnemy({
+    name:'중앙 제단',
+    mark:'◆',
+    color:'#22d3ee',
+    role:'Tank',
+    x:CW*0.52,
+    y:CH*0.5,
+    hp:Math.floor(1500+zoneStage*260),
+    atk:0,
+    range:0,
+    spd:0,
+    def:0.2,
+    etype:'city_objective'
+  });
+  obj.cityObjective=true;
+  obj.cityGold=60;
+  enemies.push(obj);
+}
+function spawnCityMobaWave(){
+  if(!_cityMobaState.active) return;
+  if(!Array.isArray(_cityMobaState.laneYs)||_cityMobaState.laneYs.length<2) return;
+  _cityMobaState.wave++;
+  const laneYs=_cityMobaState.laneYs;
+  const baseX=CW-54;
+  const isSiegeWave=(_cityMobaState.wave%3)===0;
+  laneYs.forEach((ly,laneIdx)=>{
+    const pack=[
+      {name:'근접 미니언',mark:'m',role:'Warrior',color:'#ef4444',hp:170,atk:26,range:68,spd:1.12,def:0.05,dx:0,dy:-14,gold:7,minionType:'melee'},
+      {name:'근접 미니언',mark:'m',role:'Warrior',color:'#ef4444',hp:170,atk:26,range:68,spd:1.12,def:0.05,dx:14,dy:14,gold:7,minionType:'melee'},
+      {name:'원거리 미니언',mark:'r',role:'Ranged',color:'#f97316',hp:130,atk:23,range:185,spd:0.98,def:0.03,dx:22,dy:0,gold:9,minionType:'ranged'},
+    ];
+    if(isSiegeWave){
+      pack.push({name:'공성 미니언',mark:'s',role:'Tank',color:'#dc2626',hp:420,atk:36,range:150,spd:0.72,def:0.14,dx:32,dy:0,gold:16,minionType:'siege'});
+    }
+    pack.forEach((u,idx)=>{
+      const waveHpMul=(1+0.08*(_cityMobaState.wave-1));
+      const waveAtkMul=(1+0.06*(_cityMobaState.wave-1));
+      const f={
+        name:`도시 ${laneIdx===0?'상':'하'} ${u.name}`,
+        mark:u.mark,
+        color:u.color,
+        role:u.role,
+        x:baseX+(u.dx||idx*10),
+        y:ly+(u.dy||0),
+        hp:Math.floor((u.hp+zoneStage*20)*waveHpMul),
+        atk:Math.floor((u.atk+zoneStage*4)*waveAtkMul),
+        range:u.range,
+        spd:u.spd,
+        def:u.def,
+        etype:'city_wave'
+      };
+      const m=mkEnemy(f);
+      m.cityLaneMinion=true;
+      m.cityLane=laneIdx;
+      m.cityGold=u.gold;
+      m.cityMinionType=u.minionType;
+      enemies.push(m);
+    });
+  });
+  addFloat(CW-88,CH*0.5,`웨이브 ${_cityMobaState.wave}${isSiegeWave?' · 공성':''}`,'#f97316');
+}
+function spawnCityMobaStructures(){
+  if(!_cityMobaState.active) return;
+  const laneYs=_cityMobaState.laneYs;
+  const turretX=CW*0.76;
+  laneYs.forEach((ly,laneIdx)=>{
+    const t=mkEnemy({
+      name:`적 포탑 ${laneIdx===0?'상단':'하단'}`,
+      mark:'🗼',
+      color:'#f59e0b',
+      role:'Ranged',
+      x:turretX,
+      y:ly,
+      hp:Math.floor(1200+zoneStage*180),
+      atk:Math.floor(52+zoneStage*8),
+      range:240,
+      spd:0,
+      def:0.28,
+      etype:'city_turret'
+    });
+    t.cityTurret=true;
+    t.cityGold=35;
+    t.cityTurretRange=t.range||240;
+    enemies.push(t);
+  });
+  spawnCityObjective();
+}
+function applyCityObjectiveBuff(){
+  const now=Date.now();
+  const liveAllies=allies.filter(a=>a&&a.isDeployed&&!a.dead&&!a.permanentlyDead&&!a.garrisoned&&!a.inStandby&&a.hp>0);
+  if(!liveAllies.length) return;
+  const buffType=rollCityObjectiveBuffType();
+  const profile=getCityObjectiveBuffProfile(buffType);
+  const until=now+18000;
+  liveAllies.forEach(a=>{
+    a.cityObjBuffUntil=Math.max(a.cityObjBuffUntil||0,until);
+    a.cityObjBuffType=buffType;
+  });
+  _cityMobaState.objectiveTaken=true;
+  _cityMobaState.objectiveBuffType=buffType;
+  alog(`✨ 중앙 제단 장악! 18초 동안 ${profile.label} 버프를 획득합니다.`);
+}
+function tickCityMobaFlow(){
+  if(!isCityMobaBattle()) return;
+  const now=Date.now();
+  if((_cityMobaState.objectiveRespawnAt||0)>0&&now>=(_cityMobaState.objectiveRespawnAt||0)){
+    const hasObjective=enemies.some(e=>e&&e.cityObjective&&!e.dead&&e.hp>0);
+    if(!hasObjective){
+      spawnCityObjective();
+      _cityMobaState.objectiveRespawnAt=0;
+      _cityMobaState.objectiveTaken=false;
+      addFloat(CW*0.52,CH*0.5,'중립 오브젝트 리젠','#22d3ee');
+      alog('🔷 중앙 제단이 다시 등장했습니다.');
+    }else{
+      _cityMobaState.objectiveRespawnAt=0;
+    }
+  }
+  if((_frameCount||0)>=(_cityMobaState.nextWaveAt||0)&&_cityMobaState.wave<_cityMobaState.waveMax){
+    spawnCityMobaWave();
+    _cityMobaState.nextWaveAt=(_frameCount||0)+(300+Math.floor(Math.random()*70));
+    if(_cityMobaState.wave>=_cityMobaState.waveMax){
+      alog('🛡 마지막 웨이브 도착! 포탑과 잔당을 정리하세요.');
+    }
+  }
+}
+function isKingdomRaidBattle(){
+  if(!isBattle||!currentZone) return false;
+  const phaseOk=Number(civPhase||0)>=3;
+  const kingdomZone=(Number(currentZone.unlockPhase||0)>=3)||(currentZone.tier==='army');
+  return !!(phaseOk&&kingdomZone);
+}
+function normalizeRad(ang){
+  if(!Number.isFinite(ang)) return 0;
+  let a=ang%(Math.PI*2);
+  if(a>Math.PI) a-=Math.PI*2;
+  if(a<-Math.PI) a+=Math.PI*2;
+  return a;
+}
+function angleDiffAbs(a,b){
+  return Math.abs(normalizeRad((a||0)-(b||0)));
+}
+function getRaidPositionalMultiplier(attacker,diff){
+  const role=(attacker&&((attacker.class10Key&&CLASS10[attacker.class10Key]?.base)||attacker.classKey||attacker.baseRole))||'Refugee';
+  const table={
+    Tank:{side:1.06,back:1.12},
+    Warrior:{side:1.11,back:1.20},
+    Melee:{side:1.14,back:1.24},
+    Ranged:{side:1.09,back:1.17},
+    Mage:{side:1.08,back:1.16},
+    Heal:{side:1.05,back:1.10},
+    Refugee:{side:1.07,back:1.13},
+  };
+  const cfg=table[role]||table.Refugee;
+  if(diff>2.26) return cfg.back;
+  if(diff>1.40) return cfg.side;
+  return 1;
+}
+function pickWeightedKey(weightMap){
+  const entries=Object.entries(weightMap||{}).filter(([,v])=>Number(v)>0);
+  if(!entries.length) return 'breath';
+  const sum=entries.reduce((s,[,v])=>s+Number(v||0),0);
+  let roll=Math.random()*Math.max(0.0001,sum);
+  for(let i=0;i<entries.length;i++){
+    const [k,v]=entries[i];
+    roll-=Number(v||0);
+    if(roll<=0) return k;
+  }
+  return entries[entries.length-1][0];
+}
+function getRaidBossGrade(caster){
+  const finalStage=Math.max(1,Number(currentZone?.finalStage||15));
+  const progress=Math.max(0,Math.min(1,(Number(zoneStage||1))/finalStage));
+  const hp=(caster&&Number(caster.maxHp||caster.hp||0))||0;
+  if(progress>=0.88||hp>=3800) return 'finalBoss';
+  if(progress>=0.55||hp>=2500||(caster&&caster.elite&&progress>=0.35)) return 'boss';
+  return 'elite';
+}
+function getRaidStageIntensity(){
+  const fs=Math.max(1,Number(currentZone?.finalStage||15));
+  const z=Math.max(1,Number(zoneStage||1));
+  const t=z/fs; // 0~1
+  // 기본 부드러운 증가
+  let base=Math.pow(t,1.25);
+  // 피크 지점(10,13,15일 근처)에 가우시안 펄스
+  const peak=(center,width,amp)=>{
+    const x=z-center;
+    return amp*Math.exp(-(x*x)/(2*width*width));
+  };
+  base+=peak(fs*0.66,1.2,0.55);  // 10일 근처
+  base+=peak(fs*0.86,0.9,0.65);  // 13일 근처
+  base+=peak(fs*1.00,0.6,0.85);  // 최종일
+  return Math.max(0.4,Math.min(2.4,base));
+}
+function getRaidGradeTuning(grade){
+  const byGrade={
+    elite:{key:'엘리트',baseDamageMul:0.92,baseCastLife:22,baseWarn:52,baseCdMin:162,baseCdMax:238,chainNodes:2,chainJump:116},
+    boss:{key:'보스',baseDamageMul:1.08,baseCastLife:18,baseWarn:44,baseCdMin:126,baseCdMax:194,chainNodes:3,chainJump:132},
+    finalBoss:{key:'최종보스',baseDamageMul:1.24,baseCastLife:14,baseWarn:34,baseCdMin:94,baseCdMax:154,chainNodes:4,chainJump:148},
+  };
+  const g=byGrade[grade]||byGrade.boss;
+  const inten=getRaidStageIntensity(); // 0.4~2.4
+  // 피해는 강하게, 캐스트 시간은 조금만, 쿨타임은 반비례
+  const damageMul=g.baseDamageMul*(0.8+inten*0.35);
+  const castLife=Math.max(10,Math.round(g.baseCastLife/(0.85+inten*0.18)));
+  const warnBase=Math.max(26,Math.round(g.baseWarn*(1.05+Math.max(0,1.4-inten)*0.18)));
+  const cdScale=1.0/(0.9+inten*0.35);
+  const cooldownMin=Math.max(70,Math.round(g.baseCdMin*cdScale));
+  const cooldownMax=Math.max(cooldownMin+8,Math.round(g.baseCdMax*cdScale));
+  // 패턴별 세밀 튜닝: 후반·파이널에서 연쇄가 특히 아프게
+  const basePattern={
+    elite:{breath:1.00,donut:0.96,chain:1.04},
+    boss:{breath:1.05,donut:1.00,chain:1.10},
+    finalBoss:{breath:1.08,donut:1.02,chain:1.22},
+  }[grade]||{breath:1.05,donut:0.98,chain:1.12};
+  const peakInten=getRaidStageIntensity(); // 동일 곡선 재사용
+  const lateBoost=Math.max(0,peakInten-1.2);  // 중후반 이후만 추가 가중
+  const patternDamage={
+    breath:(basePattern.breath||1)*(1+lateBoost*0.08),
+    donut:(basePattern.donut||1)*(1+lateBoost*0.05),
+    chain:(basePattern.chain||1)*(1+lateBoost*0.20), // 연쇄는 후반에 크게 뛴다
+  };
+  return {
+    key:g.key,
+    damageMul,
+    castLife,
+    warnBase,
+    cooldownMin,
+    cooldownMax,
+    chainNodes:g.chainNodes,
+    chainJump:g.chainJump,
+    patternDamage,
+  };
+}
+function getRaidBossPatternType(caster,grade){
+  const role=(caster&&caster.role)||'Melee';
+  const baseByRole={
+    Tank:{breath:0.56,donut:0.30,chain:0.14},
+    Mage:{breath:0.16,donut:0.48,chain:0.36},
+    Ranged:{breath:0.20,donut:0.30,chain:0.50},
+    Heal:{breath:0.14,donut:0.34,chain:0.52},
+    Melee:{breath:0.38,donut:0.33,chain:0.29},
+  };
+  const w={...(baseByRole[role]||baseByRole.Melee)};
+  if(grade==='elite'){
+    w.donut+=0.06; // 초반은 읽기 쉬운 패턴 비중 증가
+  }else if(grade==='boss'){
+    w.chain+=0.05;
+  }else if(grade==='finalBoss'){
+    w.breath+=0.06;
+    w.chain+=0.08;
+    w.donut=Math.max(0.08,w.donut-0.06);
+  }
+  return pickWeightedKey(w);
+}
+function raidPatternCooldownFrames(cfg){
+  const min=Math.max(30,Number(cfg.cooldownMin||130));
+  const max=Math.max(min+1,Number(cfg.cooldownMax||200));
+  return min+Math.floor(Math.random()*(max-min+1));
+}
+function reduceRaidPatternDamage(a,baseDmg){
+  const sec=getUnitSecondaryBonus(a);
+  return Math.max(1,Math.floor((baseDmg||55)*(1-Math.min(0.62,(a.def||0)+(sec.dmgRed||0)))));
+}
+function applyRaidPatternHit(a,damage,label){
+  const reduced=reduceRaidPatternDamage(a,damage);
+  a.hp-=reduced;
+  addFloat(a.x,a.y-12,`-${reduced}`,'#ff6b6b');
+  if(a.hp<=0){
+    markAllyDeadWithDebuff(a,label||'보스 패턴');
+    addFloat(a.x,a.y,'폭발','#ef4444');
+  }
+}
+function tickRaidTelegraphs(){
+  if(!isKingdomRaidBattle()){
+    _raidTelegraphs=[];
+    return;
+  }
+  if(!Array.isArray(_raidTelegraphs)) _raidTelegraphs=[];
+  const liveAllies=allies.filter(a=>a&&a.isDeployed&&!a.dead&&!a.permanentlyDead&&!a.garrisoned&&!a.inStandby&&a.hp>0);
+  for(let i=_raidTelegraphs.length-1;i>=0;i--){
+    const p=_raidTelegraphs[i];
+    if(!p){_raidTelegraphs.splice(i,1);continue;}
+    p.life=(p.life||0)-1;
+    if((p.life||0)===(p.castLife||18)){
+      if(p.kind==='breath'){
+        const arcHalf=Number(p.arcHalf||0.44);
+        liveAllies.forEach(a=>{
+          const dx=(a.x||0)-(p.x||0),dy=(a.y||0)-(p.y||0);
+          const d=Math.hypot(dx,dy);
+          if(d<=Number(p.range||165)&&angleDiffAbs(Math.atan2(dy,dx),p.angle||0)<=arcHalf){
+            applyRaidPatternHit(a,p.damage,'전방 브레스');
+          }
+        });
+        addFloat(p.x,p.y,'🔥','#f97316');
+      }else if(p.kind==='donut'){
+        const inner=Math.max(8,Number(p.innerR||22));
+        const outer=Math.max(inner+4,Number(p.outerR||58));
+        liveAllies.forEach(a=>{
+          const d=dist(a,p);
+          if(d>=inner&&d<=outer) applyRaidPatternHit(a,p.damage,'도넛 장판');
+        });
+        addFloat(p.x,p.y,'◎','#fb923c');
+      }else if(p.kind==='chain'){
+        const nodes=Array.isArray(p.nodes)?p.nodes:[];
+        const hitR=Math.max(10,Number(p.nodeR||20));
+        nodes.forEach((n,idx)=>{
+          liveAllies.forEach(a=>{
+            if(Math.hypot((a.x||0)-(n.x||0),(a.y||0)-(n.y||0))<=hitR){
+              const mul=Math.max(0.66,1-idx*0.12);
+              applyRaidPatternHit(a,Math.floor((p.damage||55)*mul),'연쇄 번개');
+            }
+          });
+        });
+        if(nodes[0]) addFloat(nodes[0].x,nodes[0].y,'⚡','#f59e0b');
+      }else{
+        liveAllies.forEach(a=>{ if(dist(a,p)<=Number(p.radius||34)) applyRaidPatternHit(a,p.damage,'장판 폭발'); });
+        addFloat(p.x,p.y,'💥','#f97316');
+      }
+    }
+    if((p.life||0)<=0) _raidTelegraphs.splice(i,1);
+  }
+  if((_frameCount||0)>=(_raidNextPatternAt||0)){
+    const liveEnemies=enemies.filter(e=>e&&!e.dead&&e.hp>0);
+    if(liveEnemies.length&&liveAllies.length){
+      const caster=liveEnemies.reduce((best,e)=>{
+        if(!best) return e;
+        return (e.maxHp||e.hp||0)>(best.maxHp||best.hp||0)?e:best;
+      },null);
+      if(!caster){_raidNextPatternAt=(_frameCount||0)+120;return;}
+      const target=liveAllies[Math.floor(Math.random()*liveAllies.length)];
+      const bossGrade=getRaidBossGrade(caster);
+      const gradeCfg=getRaidGradeTuning(bossGrade);
+      const patternType=getRaidBossPatternType(caster,bossGrade);
+      const baseDamage=Math.floor(((caster.atk||60)*0.95+zoneStage*2.2)*(gradeCfg.damageMul||1));
+      const castLife=Math.max(10,Number(gradeCfg.castLife||18));
+      const warnWindow=Math.max(18,Number(gradeCfg.warnBase||44)+Math.floor(Math.random()*10));
+      const lifeAll=castLife+warnWindow;
+      if(patternType==='breath'){
+        const angle=Math.atan2((target.y||caster.y)-caster.y,(target.x||caster.x)-caster.x);
+        _raidTelegraphs.push({
+          kind:'breath',
+          x:caster.x,y:caster.y,angle,
+          range:(bossGrade==='finalBoss'?178:bossGrade==='boss'?168:158)+Math.floor(Math.random()*14),
+          arcHalf:(bossGrade==='finalBoss'?0.52:bossGrade==='boss'?0.46:0.40)+Math.random()*0.12,
+          damage:Math.floor(baseDamage*(gradeCfg.patternDamage?.breath||1.10)),
+          castLife,
+          life:lifeAll,
+          lifeAll
+        });
+        _raidNextPatternAt=(_frameCount||0)+raidPatternCooldownFrames(gradeCfg);
+        addFloat(caster.x,caster.y-16,`${gradeCfg.key} 브레스`,'#fb923c');
+      }else if(patternType==='donut'){
+        const driftX=(Math.random()-0.5)*36;
+        const driftY=(Math.random()-0.5)*36;
+        const innerR=(bossGrade==='finalBoss'?28:bossGrade==='boss'?25:22)+Math.floor(Math.random()*8);
+        const outerR=(bossGrade==='finalBoss'?68:bossGrade==='boss'?62:56)+Math.floor(Math.random()*12);
+        _raidTelegraphs.push({
+          kind:'donut',
+          x:Math.max(MAP_PAD,Math.min(CW-MAP_PAD,target.x+driftX)),
+          y:Math.max(MAP_PAD,Math.min(CH-MAP_PAD,target.y+driftY)),
+          innerR,
+          outerR,
+          damage:Math.floor(baseDamage*(gradeCfg.patternDamage?.donut||0.98)),
+          castLife,
+          life:lifeAll,
+          lifeAll
+        });
+        _raidNextPatternAt=(_frameCount||0)+raidPatternCooldownFrames(gradeCfg);
+        addFloat(caster.x,caster.y-16,`${gradeCfg.key} 도넛`,'#f59e0b');
+      }else{
+        const nodes=[];
+        const used=new Set();
+        let pivot=target;
+        const nodeCount=Math.max(2,Number(gradeCfg.chainNodes||3));
+        const jumpMax=Math.max(90,Number(gradeCfg.chainJump||130));
+        for(let j=0;j<nodeCount&&pivot;j++){
+          nodes.push({x:pivot.x,y:pivot.y});
+          used.add(pivot.id);
+          let best=null,bestD=Infinity;
+          for(let k=0;k<liveAllies.length;k++){
+            const cand=liveAllies[k];
+            if(!cand||used.has(cand.id)) continue;
+            const d=Math.hypot((cand.x||0)-(pivot.x||0),(cand.y||0)-(pivot.y||0));
+            if(d<bestD&&d<jumpMax){bestD=d;best=cand;}
+          }
+          pivot=best;
+        }
+        _raidTelegraphs.push({
+          kind:'chain',
+          x:nodes[0]?.x||target.x,
+          y:nodes[0]?.y||target.y,
+          nodes,
+          nodeR:bossGrade==='finalBoss'?24:(bossGrade==='boss'?22:20),
+          damage:Math.floor(baseDamage*(gradeCfg.patternDamage?.chain||1.18)),
+          castLife,
+          life:lifeAll,
+          lifeAll
+        });
+        _raidNextPatternAt=(_frameCount||0)+raidPatternCooldownFrames(gradeCfg);
+        addFloat(caster.x,caster.y-16,`${gradeCfg.key} 연쇄`,'#facc15');
+      }
+    }else{
+      _raidNextPatternAt=(_frameCount||0)+120;
+    }
+  }
+}
+function getRaidTauntSwapTarget(enemy,detectedAA){
+  if(!isKingdomRaidBattle()) return null;
+  const taunters=detectedAA.filter(a=>a&&a.hp>0&&!a.dead&&Array.isArray(a.activeSkills)&&a.activeSkills.includes('Taunt')&&dist(a,enemy)<140);
+  if(!taunters.length) return null;
+  taunters.sort((a,b)=>(a.raidBossStacks||0)-(b.raidBossStacks||0));
+  return taunters[0]||null;
+}
+function tickRaidTankDebuffDecay(now){
+  if(!isKingdomRaidBattle()) return;
+  allies.forEach(a=>{
+    if(!a||a.dead||a.hp<=0) return;
+    const st=Number(a.raidBossStacks||0);
+    if(st<=0) return;
+    const last=Number(a.raidBossStackAt||0);
+    if(last>0&&now-last>=5800){
+      a.raidBossStacks=Math.max(0,st-1);
+      a.raidBossStackAt=now;
+    }
+  });
+}
 
 // ══════════════════════════════════════════════════════
 // 렌더링
@@ -6509,6 +7271,143 @@ function draw(crowdedBattle){
     });
     ctx.fill('evenodd');
     ctx.restore();
+  }
+  if(isCityMobaBattle()&&Array.isArray(_cityMobaState.laneYs)&&_cityMobaState.laneYs.length){
+    ctx.save();
+    _cityMobaState.laneYs.forEach((ly,idx)=>{
+      ctx.beginPath();
+      ctx.moveTo(MAP_PAD+6,ly);
+      ctx.lineTo(CW-MAP_PAD-6,ly);
+      ctx.strokeStyle=idx===0?'rgba(96,165,250,0.45)':'rgba(250,204,21,0.45)';
+      ctx.lineWidth=2;
+      ctx.setLineDash([8,6]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+    const now=Date.now();
+    enemies.forEach(e=>{
+      if(!e||e.dead||e.hp<=0||!e.cityTurret) return;
+      if(!isEnemyVisibleInFog(e)) return;
+      const tr=e.cityTurretRange||e.range||220;
+      // 사거리 원
+      ctx.beginPath();
+      ctx.arc(e.x,e.y,tr,0,Math.PI*2);
+      ctx.strokeStyle='rgba(245,158,11,0.48)';
+      ctx.lineWidth=1.4;
+      ctx.setLineDash([6,5]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // 락온 라인 & 남은 시간
+      if(e.cityTurretLockId&&now<(e.cityTurretLockUntil||0)){
+        const tgt=allies.find(a=>a&&a.id===e.cityTurretLockId&&a.isDeployed&&!a.dead&&!a.permanentlyDead);
+        if(tgt){
+          ctx.beginPath();
+          ctx.moveTo(e.x,e.y);
+          ctx.lineTo(tgt.x,tgt.y);
+          ctx.strokeStyle='rgba(248,250,252,0.9)';
+          ctx.lineWidth=1.6;
+          ctx.setLineDash([4,3]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          const leftMs=Math.max(0,(e.cityTurretLockUntil||0)-now);
+          const leftSec=Math.ceil(leftMs/1000);
+          ctx.fillStyle='rgba(248,250,252,0.96)';
+          ctx.font='bold 9px Arial';
+          ctx.textAlign='center';
+          ctx.textBaseline='bottom';
+          ctx.fillText(`LOCK ${leftSec}s`,tgt.x,tgt.y-16);
+        }
+      }
+    });
+    if((_cityMobaState.objectiveRespawnAt||0)>now){
+      const left=Math.max(0,Math.ceil((_cityMobaState.objectiveRespawnAt-now)/1000));
+      ctx.fillStyle='rgba(34,211,238,0.95)';
+      ctx.font='bold 11px Arial';
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.fillText(`제단 리젠 ${left}s`,CW*0.52,CH*0.5-18);
+    }
+    ctx.restore();
+  }
+  if(isKingdomRaidBattle()&&Array.isArray(_raidTelegraphs)&&_raidTelegraphs.length){
+    _raidTelegraphs.forEach(p=>{
+      if(!p||p.life<=0) return;
+      const castLife=Number(p.castLife||18);
+      const lifeAll=Math.max(castLife+1,Number(p.lifeAll||72));
+      const warnPct=Math.max(0,Math.min(1,((p.life||0)-castLife)/(lifeAll-castLife)));
+      const ringPulse=1+0.06*Math.sin((_frameCount||0)*0.2);
+      ctx.save();
+      if(p.kind==='breath'){
+        const r=(p.range||160)*(warnPct>0?ringPulse:1);
+        const ah=(p.arcHalf||0.44);
+        ctx.beginPath();
+        ctx.moveTo(p.x,p.y);
+        ctx.arc(p.x,p.y,r,(p.angle||0)-ah,(p.angle||0)+ah);
+        ctx.closePath();
+        ctx.fillStyle=warnPct>0?'rgba(248,113,113,0.24)':'rgba(249,115,22,0.38)';
+        ctx.fill();
+        ctx.strokeStyle=warnPct>0?'rgba(239,68,68,0.95)':'rgba(251,146,60,0.95)';
+        ctx.lineWidth=2.2;
+        ctx.setLineDash(warnPct>0?[6,4]:[]);
+        ctx.stroke();
+      }else if(p.kind==='donut'){
+        const inner=Math.max(8,p.innerR||22);
+        const outer=Math.max(inner+4,p.outerR||58);
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,outer*(warnPct>0?ringPulse:1),0,Math.PI*2);
+        ctx.arc(p.x,p.y,inner,0,Math.PI*2,true);
+        ctx.closePath();
+        ctx.fillStyle=warnPct>0?'rgba(251,146,60,0.22)':'rgba(249,115,22,0.36)';
+        ctx.fill('evenodd');
+        ctx.strokeStyle=warnPct>0?'rgba(251,146,60,0.95)':'rgba(234,88,12,0.95)';
+        ctx.lineWidth=2;
+        ctx.setLineDash(warnPct>0?[6,4]:[]);
+        ctx.beginPath();ctx.arc(p.x,p.y,outer,0,Math.PI*2);ctx.stroke();
+        ctx.beginPath();ctx.arc(p.x,p.y,inner,0,Math.PI*2);ctx.stroke();
+      }else if(p.kind==='chain'){
+        const nodes=Array.isArray(p.nodes)?p.nodes:[];
+        const rr=(p.nodeR||20)*(warnPct>0?ringPulse:1);
+        for(let i=0;i<nodes.length;i++){
+          const n=nodes[i];
+          if(!n) continue;
+          if(i>0&&nodes[i-1]){
+            ctx.beginPath();
+            ctx.moveTo(nodes[i-1].x,nodes[i-1].y);
+            ctx.lineTo(n.x,n.y);
+            ctx.strokeStyle=warnPct>0?'rgba(250,204,21,0.72)':'rgba(250,204,21,0.95)';
+            ctx.lineWidth=1.4;
+            ctx.stroke();
+          }
+          ctx.beginPath();
+          ctx.arc(n.x,n.y,rr,0,Math.PI*2);
+          ctx.fillStyle=warnPct>0?'rgba(250,204,21,0.18)':'rgba(245,158,11,0.30)';
+          ctx.fill();
+          ctx.strokeStyle=warnPct>0?'rgba(245,158,11,0.92)':'rgba(251,191,36,0.98)';
+          ctx.lineWidth=2;
+          ctx.setLineDash(warnPct>0?[5,4]:[]);
+          ctx.stroke();
+        }
+      }else{
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,(p.radius||34)*(warnPct>0?ringPulse:1),0,Math.PI*2);
+        ctx.fillStyle=warnPct>0?'rgba(248,113,113,0.22)':'rgba(249,115,22,0.36)';
+        ctx.fill();
+        ctx.strokeStyle=warnPct>0?'rgba(239,68,68,0.95)':'rgba(251,146,60,0.95)';
+        ctx.lineWidth=2;
+        ctx.setLineDash(warnPct>0?[6,4]:[]);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      if(warnPct>0){
+        ctx.fillStyle='rgba(255,251,235,0.92)';
+        ctx.font='bold 10px Arial';
+        ctx.textAlign='center';
+        ctx.textBaseline='middle';
+        const tag=p.kind==='breath'?'브레스':(p.kind==='donut'?'도넛':'연쇄');
+        ctx.fillText(tag,p.x,p.y);
+      }
+      ctx.restore();
+    });
   }
   allies.forEach(a=>{
     if(!a.isDeployed||a.hp<=0||a.dead||a.garrisoned)return;
@@ -6618,6 +7517,15 @@ function drawUnit(u) {
   if (isAlly && u.onHold) { 
     ctx.beginPath(); ctx.arc(u.x, u.y, R + 5, 0, Math.PI * 2); 
     ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 1.5; ctx.setLineDash([2, 2]); ctx.stroke(); 
+  }
+  if (isAlly && isCityMobaBattle() && Number(u.cityObjBuffUntil||0)>Date.now()) {
+    const prof=getCityObjectiveBuffProfile(u.cityObjBuffType);
+    ctx.beginPath(); ctx.arc(u.x, u.y, R + 3.5, 0, Math.PI * 2);
+    ctx.strokeStyle = (prof&&prof.color)?prof.color:'rgba(34,211,238,0.85)';
+    ctx.lineWidth = 1.8;
+    ctx.setLineDash([4,3]);
+    ctx.stroke();
+    ctx.setLineDash([]);
   }
 
   // 2. 유닛 본체 그리기
@@ -6802,6 +7710,10 @@ function renderAllyPanel() {
       ? `<span onclick="event.stopPropagation(); showClassModal(allies.find(x=>x.id===${a.id}))" style="cursor:pointer;color:#f1c40f;border:1px solid #f1c40f;padding:0 4px;border-radius:3px;font-size:9px">⭐전직</span>`
       : `<span style="color:#9ca3af;font-size:9px">${a.class10Key ? CLASS10[a.class10Key].name : (a.classKey ? BASE_ROLES[a.classKey]?.name || '' : '피난민')}</span>`;
     const groupLine=groupId>0?`<span style="color:#c4b5fd;font-size:9px;border:1px solid #5b2d82;padding:0 4px;border-radius:3px">G${groupId}</span>`:'';
+    const raidStack=Math.max(0,Number(a.raidBossStacks||0));
+    const raidStackBadge=(isKingdomRaidBattle()&&raidStack>0)
+      ? `<span id="raid-stack-${a.id}" style="color:${raidStack>=4?'#f97316':'#f59e0b'};font-size:9px;border:1px solid ${raidStack>=4?'#ea580c':'#f59e0b'};padding:0 4px;border-radius:3px">도발중첩 x${raidStack}</span>`
+      : `<span id="raid-stack-${a.id}" style="display:none"></span>`;
     const actLine = a.dead
       ? '<span style="color:#555;font-size:9px">💀 전사</span>'
       : (a.retreatingToStandby
@@ -6834,6 +7746,7 @@ function renderAllyPanel() {
         <span style="color:#60a5fa;margin-left:6px;cursor:pointer" title="장비(무기/방어구/신발) - 클릭 시 상세"
           onclick="event.stopPropagation(); showUnitGearTooltip(${a.id},event)">${gearIcons}</span>
         <span style="color:#2ecc71;margin-left:4px" title="적용된 물약 수">🧪${potionCount}</span>
+        ${raidStackBadge}
       </div>
       <div class="uc-stats" style="font-size:9px; margin:2px 0 3px 0; color:#9ca3af;">
         ATK <b style="color:${cAtk}">${atkVal}</b>&nbsp;
@@ -6871,6 +7784,18 @@ function updateAllyPanelBattleStats(){
     const xpNum=el.querySelector('.xp-num');
     if(hpNum) hpNum.innerText=`${Math.max(0,Math.floor(a.hp))}/${Math.floor(a.maxHp)}`;
     if(xpNum) xpNum.innerText=`${Math.max(0,Math.floor(a.exp))}/${Math.floor(a.maxExp)}`;
+    const stackEl=el.querySelector('#raid-stack-'+a.id);
+    if(stackEl){
+      const st=Math.max(0,Number(a.raidBossStacks||0));
+      if(isKingdomRaidBattle()&&st>0){
+        stackEl.style.display='inline';
+        stackEl.style.color=st>=4?'#f97316':'#f59e0b';
+        stackEl.style.borderColor=st>=4?'#ea580c':'#f59e0b';
+        stackEl.textContent=`도발중첩 x${st}`;
+      }else{
+        stackEl.style.display='none';
+      }
+    }
   });
 }
 
