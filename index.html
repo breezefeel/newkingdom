@@ -1012,8 +1012,8 @@ canvas {
   <div id="garrison-bar-summary" class="garrison-res-line">
     <span id="garrison-bar-income"></span>
     <div id="garrison-benefit-wrap">
-      <button type="button" class="cb" id="btn-garrison-buffs" onclick="event.stopPropagation();openGarrisonBuffsModal()">거점 버프</button>
       <span id="garrison-bar-benefit"></span>
+      <button type="button" class="cb" id="btn-garrison-buffs" onclick="event.stopPropagation();openGarrisonBuffsModal()">거점 버프</button>
     </div>
   </div>
   <div id="garrison-bar-body" style="display:none;padding:8px;flex-wrap:nowrap;overflow-x:auto;align-items:flex-start">
@@ -1217,6 +1217,7 @@ const PHASE_CONFIG={
   2:{name:'도시',   partyLimit:6,  unitMaxLv:70, map:{cols:36,rows:20}},
   3:{name:'왕국',   partyLimit:6,  unitMaxLv:80, map:{cols:45,rows:25}},
 };
+const UPGRADE_LIMIT_BY_PHASE={0:10,1:25,2:45,3:70};
 const PHASE_UNLOCK_REQ={
   1:{needClears:1, needTotalLv:30},
   2:{needClears:3, needTotalLv:120},
@@ -1238,6 +1239,13 @@ const ZONE_MAP_SIZE_BY_STAGE={
   4:{cols:45,rows:25}, // 왕국 전투지
 };
 function getCurrentPhaseCfg(){ return PHASE_CONFIG[civPhase]||PHASE_CONFIG[0]; }
+function getUpgradeLimitByCivPhase(phase){
+  const p=Math.max(0,Math.min(3,Number(phase)||0));
+  return UPGRADE_LIMIT_BY_PHASE[p]||10;
+}
+function getCurrentUpgradeLimit(){
+  return getUpgradeLimitByCivPhase(civPhase);
+}
 /** 문명 단계별 대기 인원(주둔지) 최대: 집합소 10 · 마을 30 · 도시 50 · 왕국 100 */
 function getStandbyCapacity(){
   return [10,30,50,100][Math.max(0,Math.min(3,Number(civPhase)||0))]||10;
@@ -1289,13 +1297,13 @@ function buildStandbyUnitCardHtml(a, opts){
   const rd=BASE_ROLES[rdColorKey]||BASE_ROLES[a.classKey||a.baseRole];
   const isRef=!a.classKey&&!a.class10Key;
   const menuClick=(opts.garrisonZid!==undefined&&opts.garrisonZid!==null)
-    ? `clickGarrisonUnit(${JSON.stringify(String(opts.garrisonZid))},${a.id},event)`
-    : `clickStandbyUnit(${a.id},event)`;
+    ? `clickGarrisonUnit(${JSON.stringify(String(opts.garrisonZid))},${a.id},null,this)`
+    : `clickStandbyUnit(${a.id},null,this)`;
   const menuTrig=
-    `<button type="button" class="cb gz-standby-open-menu gz-standby-move-btn" title="이동 메뉴" onclick="event.stopPropagation();${menuClick}" onpointerup="event.stopPropagation()">\u21C5</button>`;
+    `<button type="button" class="cb gz-standby-open-menu gz-standby-move-btn" title="이동 메뉴" onclick="${menuClick};return false;" onpointerdown="event.stopPropagation()" onpointerup="event.stopPropagation()">\u21C5</button>`;
   const dragAttr=opts.noDrag?'':' draggable="true" ondragstart="standbyDragStart(event,'+a.id+')"';
   return `<div class="gz-unit standby${canPromote?' gz-promote':''}"${dragAttr}
-    style="padding:4px 4px;border:${bdW}px solid ${t.border};display:flex;flex-direction:row;align-items:stretch;gap:2px">
+    style="padding:4px 4px;border:${bdW}px solid ${t.border};display:flex;flex-direction:row;align-items:stretch;gap:4px">
     ${menuTrig}
     <div style="flex:0 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px;justify-content:center">
       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:3px">
@@ -1961,7 +1969,10 @@ function hydrateGameState(data){
   _garrisonZoneId=data.garrisonZoneId||null;
   allies=normalizeLoadedAllies(data.allies);
   zoneRecords=data.zoneRecords||{};
-  Object.entries(zoneRecords).forEach(([zid,rec])=>ensureGarrisonRecMeta(rec,zid));
+  Object.entries(zoneRecords).forEach(([zid,rec])=>{
+    ensureGarrisonRecMeta(rec,zid);
+    if(rec&&rec.cleared) reconcileGarrisonRoster(zid);
+  });
   deadUnits=Array.isArray(data.deadUnits)?data.deadUnits:[];
   inventory={
     items:{
@@ -2757,6 +2768,30 @@ function tryMoveWithTerrain(unit,dx,dy,opts={}){
   clampToMap(unit);
   return true;
 }
+const TERRAIN_FORBIDDEN_AWARE_R=HR*0.45;
+const HEX_NEIGHBOR_OFFSETS_EVEN=[[0,-1],[0,1],[-1,-1],[-1,0],[1,-1],[1,0]];
+const HEX_NEIGHBOR_OFFSETS_ODD=[[0,-1],[0,1],[-1,0],[-1,1],[1,0],[1,1]];
+function isProbeInsideForbiddenTerrain(role,px,py){
+  const near=nearestCell(px,py);
+  if(!near) return false;
+  const cells=[near];
+  const nr=Number(near.r),nc=Number(near.c);
+  if(Number.isFinite(nr)&&Number.isFinite(nc)){
+    const offs=(nr%2===0)?HEX_NEIGHBOR_OFFSETS_EVEN:HEX_NEIGHBOR_OFFSETS_ODD;
+    for(let i=0;i<offs.length;i++){
+      const r2=nr+offs[i][0],c2=nc+offs[i][1];
+      if(r2<0||r2>=ROWS||c2<0||c2>=COLS) continue;
+      const c=hexMap[r2]&&hexMap[r2][c2];
+      if(c) cells.push(c);
+    }
+  }
+  for(let i=0;i<cells.length;i++){
+    const cell=cells[i];
+    if(!cell||roleCanTraverseCellType(role,cell)) continue;
+    if(Math.hypot(px-cell.x,py-cell.y)<=TERRAIN_FORBIDDEN_AWARE_R) return true;
+  }
+  return false;
+}
 /**
  * 유닛 중심점만 보지 않고 "유닛 외곽" 샘플로 금지 지형 접촉을 미리 감지한다.
  * 강/산 경계에서 반쯤 파고든 뒤에 막히는 현상을 줄이기 위한 보조 판정.
@@ -2780,8 +2815,7 @@ function isForbiddenTerrainTouchingUnitCircle(unit,cx,cy,dx=0,dy=0){
   probes.push([ probeR,0],[-probeR,0],[0, probeR],[0,-probeR]);
   for(let i=0;i<probes.length;i++){
     const p=probes[i];
-    const cell=nearestCell(cx+p[0],cy+p[1]);
-    if(cell&&!roleCanTraverseCellType(role,cell)) return true;
+    if(isProbeInsideForbiddenTerrain(role,cx+p[0],cy+p[1])) return true;
   }
   return false;
 }
@@ -3650,16 +3684,8 @@ function spawnEnemies(){
     resetCityMobaState();
   }
   const tier=currentZone.tier;
-  const diff=currentZone.diffMult||1.0; // 다음 챕터 난이도 배율
   
   getEnemyFormation(stage,tier).forEach(f=>{
-    if(diff>1.0){
-      f=Object.assign({},f,{
-        hp:Math.floor((f.hp||200)*diff),
-        atk:Math.floor((f.atk||15)*diff),
-        def:Math.min((f.def||0)+((diff-1)*0.1),0.7),
-      });
-    }
     enemies.push(mkEnemy(f));
   });
 }
@@ -3703,6 +3729,30 @@ const MODULE6_ENEMY_PROFILES={
   citadel:{grade:4,power:2.15,countBase:7,countCap:10,ratio:{tank:0.35,warrior:0.2,ranged:0.15,mage:0.2,heal:0.1},etype:'king'},
   void:{grade:4,power:2.25,countBase:7,countCap:10,ratio:{tank:0.24,warrior:0.2,ranged:0.16,mage:0.28,heal:0.12},etype:'king'},
 };
+const COMBAT_ZONE_TIER_POS={
+  hunt:1,river:2,wilds:3,
+  bandit:1,ruins:2,mine:3,
+  raider:1,castle:2,crystal:3,
+  warzone:1,citadel:2,void:3
+};
+function getZoneCombatLevel(zid){
+  const seq=Math.max(0,Number((_autoZoneSeq&&_autoZoneSeq[zid])||0));
+  // 이름 표기(I~V) 기준 전투지 레벨: seq 0=>Lv1, 1=>Lv2 ...
+  return Math.min(5,Math.max(1,seq+1));
+}
+function getZoneTierPosition(zid){
+  return COMBAT_ZONE_TIER_POS[zid]||1;
+}
+function getZoneCombatDifficultyScore(zid){
+  const pos=getZoneTierPosition(zid);   // 1~3
+  const lv=getZoneCombatLevel(zid);     // 1~5(5 초과 고정)
+  // 요청 반영: 1지 Lv3 ~= 2지 Lv1, 2지 Lv3 ~= 3지 Lv1
+  return Math.max(0,((pos-1)*2)+(lv-1));
+}
+function getZoneCombatDifficultyMul(zid){
+  const score=getZoneCombatDifficultyScore(zid); // 0~8
+  return 1+(score*0.22);
+}
 const ENEMY_ROLE_BASE={
   prey:   {name:'야생동물', mark:'🐾', color:'#5d8a3c', role:null,   hp:150, atk:10, range:55, spd:1.8, def:0.00, flees:true},
   bear:   {name:'곰',       mark:'🐻', color:'#7a4e2d', role:'Tank', hp:820, atk:38, range:58, spd:0.72,def:0.28},
@@ -3742,8 +3792,13 @@ function getEnemyFormation(s,tier){
   const H=CH,bx=CW-60;
   const zoneId=currentZone.id;
   const p=MODULE6_ENEMY_PROFILES[zoneId]||MODULE6_ENEMY_PROFILES.hunt;
-  const diff=(currentZone.diffMult||1.0)*p.power*(1+Math.max(0,s-1)*0.055);
-  const cnt=Math.min(p.countCap, p.countBase + Math.floor((s-1)/3));
+  const zoneLv=getZoneCombatLevel(zoneId);
+  const zoneDiffMul=getZoneCombatDifficultyMul(zoneId);
+  const stageMul=(1+Math.max(0,s-1)*0.050);
+  const chapterMul=String(zoneId||'').startsWith('chapter_')?Math.max(1,Number(currentZone.diffMult)||1):1;
+  const diff=p.power*zoneDiffMul*stageMul*chapterMul;
+  const cntExtraFromLv=(zoneLv>=5)?2:(zoneLv>=3?1:0);
+  const cnt=Math.min(p.countCap+2, p.countBase + Math.floor((s-1)/3) + cntExtraFromLv);
   const out=[];
   let idx=0;
   const pushRole=function(k,n,etype){
@@ -3766,16 +3821,19 @@ function getEnemyFormation(s,tier){
 
   // 들판 계열: 초반 100% 초식 → 점차 70% 초식 / 30% 포식자(근접 탱/근접 딜/힐), 원거리 적 제외
   if(tier==='hunt'){
-    const predRatio=Math.min(0.30, Math.max(0, (s-1)*0.022));
+    const zonePressure=[0,0.055,0.115,0.155,0.185][Math.max(0,Math.min(4,zoneLv-1))];
+    const predRatio=Math.min(0.48, Math.max(0, (s-1)*0.022)+zonePressure);
     const predCount=Math.min(cnt-1, Math.floor(cnt*predRatio));
     const preyCount=Math.max(1,cnt-predCount);
-    const healCount=predCount>=4?1:0;
-    const meleePred=Math.max(0,predCount-healCount);
-    const bearCount=Math.ceil(meleePred*0.65);
+    const rangedPred=(zoneLv>=3)?Math.min(2,Math.floor(predCount*0.22)):(zoneLv>=2?Math.min(1,Math.floor(predCount*0.12)):0);
+    const healCount=(predCount>=4?1:0)+((zoneLv>=4&&predCount>=5)?1:0);
+    const meleePred=Math.max(0,predCount-healCount-rangedPred);
+    const bearCount=Math.ceil(meleePred*(zoneLv>=3?0.45:0.65));
     const raiderCount=Math.max(0,meleePred-bearCount);
     pushRole('prey',preyCount,'prey');
     pushRole('bear',bearCount,'predator');
     pushRole('raider',raiderCount,'predator');
+    pushRole('ranged',rangedPred,'predator');
     pushRole('heal',healCount,'predator');
     return out;
   }
@@ -4294,6 +4352,7 @@ function executeMoveOrder(u, x, y) {
 let _classModalTimer=null;
 
 function showClassModal(unit){
+  if(!unit) return;
   pendingClass = unit;
   // 전투 중이어도 일시정지하지 않고 창만 표시
 
@@ -4334,7 +4393,9 @@ function showClassModal(unit){
     ${sc('MOV:',uMov,avgMov)}
   </div>`;
 
-  if (unit.lv === FIRST_PROMOTION_LV) {
+  const canFirstPromote=(unit.lv>=FIRST_PROMOTION_LV&&!unit.classKey);
+  const canSecondPromote=(unit.lv>=SECOND_PROMOTION_LV&&!!unit.classKey&&!unit.class10Key);
+  if (canFirstPromote) {
     title = `${unit.name} — 첫 번째 보직 선택`;
     
     // BASE_ROLES 객체에서 Refugee를 제외한 모든 직업을 자동으로 버튼으로 만듭니다.
@@ -4346,7 +4407,7 @@ function showClassModal(unit){
         desc: data.desc,
         skills: `스킬: ${data.skillsSum}`
       }));
-  }else if(unit.lv===SECOND_PROMOTION_LV){
+  }else if(canSecondPromote){
     title=`${unit.name} — ${SECOND_PROMOTION_LV}레벨 세부 전직`;
     const cls10=Object.entries(CLASS10).filter(([,v])=>v.base===unit.classKey);
     options=cls10.map(([k,v])=>({key:k,name:v.name,desc:v.desc,skills:v.skills.map(s=>(BASE_SKILLS[s]||CLASS5_SKILLS[s]||{name:s}).name).join('/')}));
@@ -4399,7 +4460,7 @@ window.selectClass = function(key) {
   if(key === '__skip__'){document.getElementById('modal').classList.remove('show'); pendingClass=null; if(typeof _maybeReopenDefeatPicker==='function') _maybeReopenDefeatPicker(); return;}
 
   // --- [기존] 10레벨 보직 전직 로직 ---
-  if(u.lv === FIRST_PROMOTION_LV){
+  if(!u.classKey && u.lv >= FIRST_PROMOTION_LV){
     u.classKey = key;
     u.maxSkillSlots = 2;
     const jobNum = allies.filter(a => a.classKey === key).length; 
@@ -4417,7 +4478,7 @@ window.selectClass = function(key) {
   } 
   
   // --- [신규 추가] 30레벨 전문직업 승급 로직 ---
-  else if(u.lv === SECOND_PROMOTION_LV) {
+  else if(u.classKey && !u.class10Key && u.lv >= SECOND_PROMOTION_LV) {
     u.class10Key = key;      // 전문직업 키 저장
     u.maxSkillSlots = Math.max(u.maxSkillSlots||1,3); // 기존 슬롯 수를 절대 줄이지 않음
     
@@ -4609,12 +4670,13 @@ window.upgradeUnit = function(id, stat) {
   const upg = UPGRADES[stat];
   if (!upg) return;
   
-  // [추가] 강화 횟수 제한 체크 (능력치당 10번)
+  // 문명 단계별 강화 횟수 제한
   if (!u.upgCount) u.upgCount = {atk:0, def:0, spd:0, hp:0, magic:0};
   const currentCount = u.upgCount[stat] || 0;
+  const maxCount=getCurrentUpgradeLimit();
   
-  if (currentCount >= 10) {
-    alog(`⚠️ ${u.name}: ${upg.label} 강화 한계(10회)에 도달했습니다.`);
+  if (currentCount >= maxCount) {
+    alog(`⚠️ ${u.name}: ${upg.label} 강화 한계(${maxCount}회)에 도달했습니다.`);
     addFloat(u.x > 0 ? u.x : 200, u.y > 0 ? u.y : 200, "MAX", "#e74c3c");
     return;
   }
@@ -4629,7 +4691,7 @@ window.upgradeUnit = function(id, stat) {
   
   if (stat === 'spd') u.spd = u.baseSpd + u.bonusSpd;
   
-  alog(`${upg.label} ${u.name} 강화! (${u.upgCount[stat]}/10) → ${upg.cur(u)}${upg.unit}`);
+  alog(`${upg.label} ${u.name} 강화! (${u.upgCount[stat]}/${maxCount}) → ${upg.cur(u)}${upg.unit}`);
   addFloat(u.x > 0 ? u.x : 200, u.y > 0 ? u.y : 200, `${upg.label}↑`, '#f1c40f');
   markDirty();
   if (typeof renderAllyPanel === 'function') renderAllyPanel();
@@ -6199,43 +6261,50 @@ function showGarrisonModal(zid) {
   _garrisonZoneId = zid;
   const zone = ZONES[zid];
   if(!zone) return;
+  const rec=zoneRecords[zid];
+  if(rec&&rec.cleared) reconcileGarrisonRoster(zid);
 
   // 1. [핵심] 숨겨졌던 버튼 영역을 다시 표시합니다.
   const footer = document.getElementById('garrison-footer');
   if(footer) footer.style.display = 'flex'; 
 
   const slotCap=getEffectiveGarrisonSlotCap(zid);
+  const existingCnt=(rec&&Array.isArray(rec.garrison))?rec.garrison.length:0;
+  const slotRemain=Math.max(0,slotCap-existingCnt);
   const maxAfford=Math.floor((res.food||0)/30);
   const standbyRoom=Math.max(0,getStandbyCapacity()-getStandbyCount());
-  const maxHire=Math.max(0,Math.min(slotCap,maxAfford,standbyRoom));
+  const maxHire=Math.max(0,Math.min(slotRemain,maxAfford,standbyRoom));
   window._garrisonSlotCap=slotCap;
   window._garrisonMaxHire=maxHire;
   // 거점 안내문 기본 선택: 항상 6명(가능 범위 내)로 시작
   window._garrisonHireCount=Math.min(maxHire,6);
 
   document.getElementById('garrison-title').innerText = `🚩 ${zone.name} — 정복 완료!`;
-  document.getElementById('garrison-sub').innerText = `이 지역을 거점으로 구축합니다. 주둔 최대 ${slotCap}명(단계·지형 한도). ${Math.round(GARRISON_AUTO_CONFIRM_MS/1000)}초간 선택이 없으면 현재 인원으로 자동 고용·배치됩니다.`;
+  document.getElementById('garrison-sub').innerText = `이 지역을 거점으로 구축합니다. 주둔 ${existingCnt}/${slotCap}명(단계·지형 한도). ${Math.round(GARRISON_AUTO_CONFIRM_MS/1000)}초간 선택이 없으면 현재 인원으로 자동 고용·배치됩니다.`;
 
   // 2. 내부 렌더링 로직 (이미지 속 숫자와 식량 소모량 표시)
   const renderBody = () => {
     const sc=window._garrisonSlotCap||6;
+    const recNow=zoneRecords[_garrisonZoneId];
+    const curCnt=(recNow&&Array.isArray(recNow.garrison))?recNow.garrison.length:0;
+    const remain=Math.max(0,sc-curCnt);
     const foodCap=Math.floor((res.food||0)/30);
     const sbRoom=Math.max(0,getStandbyCapacity()-getStandbyCount());
-    const mh=Math.max(0,Math.min(sc,foodCap,sbRoom));
+    const mh=Math.max(0,Math.min(remain,foodCap,sbRoom));
     window._garrisonMaxHire=mh;
     if((window._garrisonHireCount||0)>mh) window._garrisonHireCount=mh;
     const cost = window._garrisonHireCount * 30;
     const canAfford = res.food >= cost;
     const reasons=[];
+    if(remain<6) reasons.push(`남은 슬롯 부족(현재 ${remain}명)`);
     if(foodCap<6) reasons.push(`식량 부족(현재 ${foodCap}명 가능)`);
-    if(sc<6) reasons.push(`거점 슬롯 부족(최대 ${sc}명)`);
     if(sbRoom<6) reasons.push(`대기 여유 부족(현재 ${sbRoom}명)`);
     const reasonHtml=mh>=6
       ? `<div style="font-size:10px;color:#86efac;margin-top:6px;">기본값 6명이 자동 선택되었습니다.</div>`
       : `<div style="font-size:10px;color:#fbbf24;margin-top:6px;">기본 6명 미만으로 설정됨: ${reasons.join(' · ')||'제한 조건 확인 필요'}</div>`;
     document.getElementById('garrison-body').innerHTML = `
       <div style="background:rgba(0,0,0,0.3); padding:12px; border-radius:8px; border:1px solid #1e3a5f; text-align:center;">
-        <div style="font-size:11px; color:#9ca3af; margin-bottom:10px;">거점을 지킬 주둔군을 편성하세요. (1명당 🍖30 · 최대 <b style="color:#93c5fd">${sc}</b>명)</div>
+        <div style="font-size:11px; color:#9ca3af; margin-bottom:10px;">거점을 지킬 주둔군을 편성하세요. (1명당 🍖30 · 현재 <b style="color:#eab308">${curCnt}</b> / 최대 <b style="color:#93c5fd">${sc}</b>명)</div>
         <div style="display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:15px; flex-wrap:wrap;">
           <button onclick="garrisonChangeHire(-1)" style="width:35px; height:35px; border-radius:50%; border:1px solid #374151; background:#0f1923; color:#f1c40f; cursor:pointer;">-</button>
           <div style="min-width:60px;">
@@ -6247,7 +6316,7 @@ function showGarrisonModal(zid) {
             <button type="button" onclick="garrisonSetHireMax()" style="padding:8px 10px; border-radius:8px; border:1px solid #6d28d9; background:#4c1d95; color:#e9d5ff; font-size:11px; font-weight:600; cursor:pointer; touch-action:manipulation;">최대</button>
           </div>
         </div>
-        <div style="font-size:10px; color:#9ca3af;">보유 식량: 🍖 ${Math.floor(res.food)} · 거점 최대 ${sc}명 · 대기 여유 ${sbRoom}명 · 이번에 고용 가능 최대 ${mh}명</div>
+        <div style="font-size:10px; color:#9ca3af;">보유 식량: 🍖 ${Math.floor(res.food)} · 남은 슬롯 ${remain}명 · 대기 여유 ${sbRoom}명 · 이번에 고용 가능 최대 ${mh}명</div>
         ${reasonHtml}
       </div>`;
   };
@@ -6292,8 +6361,12 @@ function confirmGarrison() {
     window._garrisonHireCount = Math.max(0, Math.floor(res.food / 30));
   }
   const slotCap=getEffectiveGarrisonSlotCap(_garrisonZoneId);
+  reconcileGarrisonRoster(_garrisonZoneId);
+  const rec = zoneRecords[_garrisonZoneId];
+  const curCnt=(rec&&Array.isArray(rec.garrison))?rec.garrison.length:0;
+  const slotRemain=Math.max(0,slotCap-curCnt);
   const standbyRoom=Math.max(0,getStandbyCapacity()-getStandbyCount());
-  let finalCnt = Math.min(window._garrisonHireCount || 0, slotCap);
+  let finalCnt = Math.min(window._garrisonHireCount || 0, slotRemain);
   finalCnt = Math.min(finalCnt, Math.floor(res.food / 30));
   finalCnt = Math.min(finalCnt, standbyRoom);
 
@@ -6302,10 +6375,8 @@ function confirmGarrison() {
   food = res.food; // 전역 변수와 동기화
 
   // 3. 실제 대원 생성 및 거점 데이터 등록
-  const rec = zoneRecords[_garrisonZoneId];
   if (rec) {
     ensureGarrisonRecMeta(rec,_garrisonZoneId);
-    rec.garrison = []; // 기존 주둔 정보 초기화 (재배치 대비)
     
     for(let i = 0; i < finalCnt; i++) {
       // [핵심 수정] mkAlly를 사용하여 실제 데이터 객체를 생성합니다.
@@ -6341,6 +6412,58 @@ function confirmGarrison() {
   
   // 5. 다음 구역 자동 진행
   autoStartNextZone(_garrisonZoneId);
+}
+function reconcileGarrisonRoster(zid){
+  const rec=zoneRecords[zid];
+  if(!rec||!rec.cleared) return 0;
+  ensureGarrisonRecMeta(rec,zid);
+  const cap=getEffectiveGarrisonSlotCap(zid);
+  const allyById=new Map();
+  allies.forEach(a=>{ if(a&&a.id!==undefined) allyById.set(Number(a.id),a); });
+  const merged=[];
+  const used=new Set();
+  const pushSnapshot=(u)=>{
+    if(!u||u.permanentlyDead) return;
+    const id=Number(u.id);
+    if(used.has(id)) return;
+    used.add(id);
+    u.garrisoned=zid;
+    u.isDeployed=false;
+    u.inStandby=false;
+    u.x=-300; u.y=-300;
+    merged.push({id:u.id,name:u.name,lv:u.lv,classKey:u.classKey,baseRole:u.baseRole});
+  };
+  (rec.garrison||[]).forEach(g=>{
+    const u=allyById.get(Number(g&&g.id));
+    if(u&&!u.permanentlyDead) pushSnapshot(u);
+  });
+  allies.forEach(u=>{
+    if(!u||u.permanentlyDead) return;
+    if(String(u.garrisoned)!==String(zid)) return;
+    pushSnapshot(u);
+  });
+  if(merged.length>cap){
+    merged.sort((a,b)=>{
+      const lvDiff=(Number(b.lv)||0)-(Number(a.lv)||0);
+      if(lvDiff!==0) return lvDiff;
+      return (Number(a.id)||0)-(Number(b.id)||0);
+    });
+    const keepIds=new Set(merged.slice(0,cap).map(g=>Number(g.id)));
+    allies.forEach(u=>{
+      if(!u||String(u.garrisoned)!==String(zid)) return;
+      if(keepIds.has(Number(u.id))) return;
+      u.garrisoned=null;
+      if(canAddToStandby()){
+        u.inStandby=true;
+        u.isDeployed=false;
+        u.x=-300; u.y=-300;
+      }
+    });
+    rec.garrison=merged.slice(0,cap);
+    return rec.garrison.length;
+  }
+  rec.garrison=merged;
+  return rec.garrison.length;
 }
 
 function closeGarrisonModal(){
@@ -7008,11 +7131,14 @@ function autoStartNextZone(clearedZid) {
   const newName = `${baseName} ${suffix}`;
 
   // 3. 스케일링 계수 설정 (III 단계가 다음 컨셉 수준이 되도록 조정)
-  const diffStep = 0.3;   // 단계당 난이도 30% 증가 (III은 약 1.6배)
+  const diffStep = 0.26;  // 단계당 난이도 증가 (Lv.5까지 반영)
   const rewardStep = 0.2; // 단계당 보상 20% 증가
   const expStep = 0.35;   // 단계당 경험치 35% 증가 (성장 가속)
-
-  const newMult = +((cleared.diffMult || 1.0) * (1 + seq * diffStep)).toFixed(2);
+  if(!Number.isFinite(cleared._baseDiffMult)) cleared._baseDiffMult=Number(cleared.diffMult)||1.0;
+  const baseDiff=Math.max(0.6,Number(cleared._baseDiffMult)||1.0);
+  const effectiveLevel=Math.max(1,Math.min(5,seq+1)); // 5레벨 초과는 5레벨 난이도로 고정
+  const levelStep=Math.max(0,effectiveLevel-1);
+  const newMult = +((baseDiff) * (1 + levelStep * diffStep)).toFixed(2);
 
   // 4. 같은 전투지 ID를 재사용해 이름/난이도만 단계 상승 (메뉴 중복 생성 방지)
   const up=Math.max(0,Math.min(3,Number(cleared.unlockPhase)||0));
@@ -8077,6 +8203,11 @@ function getGarrisonAuraEffectPotency(upgradeLv){
   if(u===9) return 1.30;
   return 1.34;
 }
+function getGarrisonAuraLevel(zid,rec){
+  const upLv=Math.floor(Number(rec&&rec.upgradeLv)||1);
+  const stageLv=getZoneGarrisonLevel(zid);
+  return Math.max(upLv,stageLv);
+}
 function scaleGarrisonAuraEffect(k,v,pot){
   if(pot<=0) return null;
   if(k==='heroDmgMul'||k==='heroSpdMul') return 1+(v-1)*pot;
@@ -8099,8 +8230,10 @@ function collectGarrisonLv3AuraEffects(){
   const sum={crit:0,critDmg:0,cdr:0,atkSpd:0,dmgRed:0,magicPen:0,magicAmp:0,regen:0,heroDmgMul:1,heroDefBonus:0,heroSpdMul:1};
   if(!zoneRecords)return sum;
   Object.entries(zoneRecords).forEach(([zid,rec])=>{
-    if(!rec||!rec.cleared||(rec.upgradeLv||1)<GARRISON_AURA_MIN_LV)return;
-    const pot=getGarrisonAuraEffectPotency(rec.upgradeLv);
+    if(!rec||!rec.cleared)return;
+    const auraLv=getGarrisonAuraLevel(zid,rec);
+    if(auraLv<GARRISON_AURA_MIN_LV)return;
+    const pot=getGarrisonAuraEffectPotency(auraLv);
     if(pot<=0)return;
     const row=getGarrisonLv3AuraRowForZone(zid,rec);
     if(!row||!row.effect)return;
@@ -8115,9 +8248,10 @@ function collectGarrisonLv3AuraEffects(){
 }
 function getGarrisonLv3ExpMul(){
   let add=0;
-  Object.values(zoneRecords||{}).forEach(r=>{
-    if(!r||!r.cleared||(r.upgradeLv||0)<GARRISON_AURA_MIN_LV)return;
-    const u=r.upgradeLv||0;
+  Object.entries(zoneRecords||{}).forEach(([zid,r])=>{
+    if(!r||!r.cleared)return;
+    const u=getGarrisonAuraLevel(zid,r);
+    if(u<GARRISON_AURA_MIN_LV)return;
     if(u>=10) add+=0.0055;
     else if(u>=8) add+=0.0050;
     else if(u>=6) add+=0.0045;
@@ -8131,8 +8265,10 @@ function getGarrisonLv3BattleLootMul(){
   const m={food:1,gold:1,wood:1,stone:1,iron:1,copper:1,herb:1,diamond:1,warSupply:1,manaCrystal:1};
   if(!zoneRecords)return m;
   Object.entries(zoneRecords).forEach(([zid,rec])=>{
-    if(!rec||!rec.cleared||(rec.upgradeLv||1)<GARRISON_AURA_MIN_LV)return;
-    const pot=getGarrisonAuraEffectPotency(rec.upgradeLv);
+    if(!rec||!rec.cleared)return;
+    const auraLv=getGarrisonAuraLevel(zid,rec);
+    if(auraLv<GARRISON_AURA_MIN_LV)return;
+    const pot=getGarrisonAuraEffectPotency(auraLv);
     if(pot<=0)return;
     const row=getGarrisonLv3AuraRowForZone(zid,rec);
     if(!row||!row.loot)return;
@@ -8173,10 +8309,12 @@ let _garrisonBenefitTimer=null;
 function buildActiveGarrisonAuraBenefitMessages(){
   const rows=[];
   Object.entries(zoneRecords||{}).forEach(([zid,rec])=>{
-    if(!rec||!rec.cleared||(rec.upgradeLv||1)<GARRISON_AURA_MIN_LV) return;
+    if(!rec||!rec.cleared) return;
+    const auraLv=getGarrisonAuraLevel(zid,rec);
+    if(auraLv<GARRISON_AURA_MIN_LV) return;
     const row=getGarrisonLv3AuraRowForZone(zid,rec);
     if(!row) return;
-    const pot=getGarrisonAuraEffectPotency(rec.upgradeLv||1);
+    const pot=getGarrisonAuraEffectPotency(auraLv);
     const scaledEff={};
     Object.entries(row.effect||{}).forEach(([k,v])=>{
       const sv=scaleGarrisonAuraEffect(k,v,pot);
@@ -8229,8 +8367,8 @@ function applyGarrisonBenefitMessages(msgs){
 }
 function hasAnyClearedGarrisonUpgradeAtLeast(minLv){
   let ok=false;
-  Object.values(zoneRecords||{}).forEach(r=>{
-    if(r&&r.cleared&&(r.upgradeLv||1)>=minLv) ok=true;
+  Object.entries(zoneRecords||{}).forEach(([zid,r])=>{
+    if(r&&r.cleared&&getGarrisonAuraLevel(zid,r)>=minLv) ok=true;
   });
   return ok;
 }
@@ -8250,8 +8388,8 @@ window.openGarrisonBuffsModal=function(){
     hasAnyClearedGarrisonUpgradeAtLeast(2)
   ));
   blocks.push(row(
-    '건물 Lv.'+GARRISON_AURA_MIN_LV+'+ 경험·일일 보정',
-    '해당 조건 거점이 있으면 전투 경험·일일 전투 루트 보상에 소폭 반영됩니다.',
+    '거점/건물 Lv.'+GARRISON_AURA_MIN_LV+'+ 경험·일일 보정',
+    '거점 단계 또는 건물 레벨이 조건 이상이면 전투 경험·일일 전투 루트 보상에 소폭 반영됩니다.',
     hasAnyClearedGarrisonUpgradeAtLeast(GARRISON_AURA_MIN_LV)
   ));
   const zOrder=Object.keys(GARRISON_LV3_GLOBAL_AURA_BY_ZONE);
@@ -8259,12 +8397,12 @@ window.openGarrisonBuffsModal=function(){
     const def=GARRISON_LV3_GLOBAL_AURA_BY_ZONE[zid];
     if(!def) return;
     const rec=(zoneRecords&&zoneRecords[zid])||null;
-    const active=!!(rec&&rec.cleared&&(rec.upgradeLv||1)>=GARRISON_AURA_MIN_LV);
+    const active=!!(rec&&rec.cleared&&getGarrisonAuraLevel(zid,rec)>=GARRISON_AURA_MIN_LV);
     const zname=(ZONES[zid]&&ZONES[zid].name)||zid;
-    const ulv=rec&&(rec.upgradeLv||1);
+    const ulv=rec?getGarrisonAuraLevel(zid,rec):1;
     const eff=formatGarrisonAuraEffectLine(def.effect);
     const loot=formatGarrisonLootLine(def.loot);
-    const meta=`전투지: ${zname} · 전투 보조: ${eff}${loot?' · '+loot:''}${active?' · <b style="color:#86efac">적용 중 (건물 Lv.'+ulv+')</b>':' · <span style="color:#64748b">비활성 — 전투지 클리어 후 건물 Lv.'+GARRISON_AURA_MIN_LV+' 이상 필요</span>'}`;
+    const meta=`전투지: ${zname} · 전투 보조: ${eff}${loot?' · '+loot:''}${active?' · <b style="color:#86efac">적용 중 (유효 Lv.'+ulv+')</b>':' · <span style="color:#64748b">비활성 — 전투지 클리어 후 거점/건물 Lv.'+GARRISON_AURA_MIN_LV+' 이상 필요</span>'}`;
     blocks.push(row(`${def.name} <span style="font-size:10px;font-weight:600;opacity:0.85">(${def.tier||''})</span>`,meta,active));
   });
   const html=`<div class="garrison-buffs-pop" style="position:fixed;inset:0;z-index:12055;background:rgba(3,8,16,0.78);display:flex;align-items:center;justify-content:center;padding:12px" onclick="closeGarrisonBuffsModal()">
@@ -8480,7 +8618,7 @@ window.openGameHelpModal=function(){
     </div>
     <div style="margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #1e293b">
       <div style="color:#93c5fd;font-size:11px;font-weight:bold;margin-bottom:6px">스킬·성장</div>
-      <div style="color:#cbd5e1;line-height:1.65;font-size:11px">동료 카드에서 장착 스킬을 바꿀 수 있고, <b>쓸수록 스킬 레벨</b>이 오릅니다. 보스전·잡몹전에 맞게 바꾸는 것만으로도 체감 난이도가 달라집니다.</div>
+      <div style="color:#cbd5e1;line-height:1.65;font-size:11px">동료 카드에서 장착 스킬을 바꿀 수 있고, <b>쓸수록 스킬 레벨</b>이 오릅니다. 또한 능력치 강화는 문명 단계에 따라 한계가 확장됩니다 (<b>집합소 10</b> → <b>마을 25</b> → <b>도시 45</b> → <b>왕국 70</b>). 보스전·잡몹전에 맞게 스킬과 강화를 함께 조정하면 체감 난이도가 크게 달라집니다.</div>
     </div>
     <div style="margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #1e293b">
       <div style="color:#93c5fd;font-size:11px;font-weight:bold;margin-bottom:6px">거점·시간 보너스·건물 전역 아우라</div>
@@ -9900,12 +10038,13 @@ function renderAllyPanel() {
     }).join('');
 
     // [기능 보존] 강화 버튼 로직 (횟수 표시 포함)
+    const upgMax=getCurrentUpgradeLimit();
     const upgBtns = Object.entries(UPGRADES).map(([stat, upg]) => {
       const cost = upg.cost(a.lv);
       const cnt = (a.upgCount && a.upgCount[stat]) || 0;
-      const isMax = cnt >= 10;
+      const isMax = cnt >= upgMax;
       return `<button class="ub${(res.gold < cost || isMax) ? ' dimmed' : ''}" onclick="event.stopPropagation(); upgradeUnit(${a.id},'${stat}')" style="min-width:50px; position:relative;">
-        <div style="font-size:7px; color:${isMax ? '#e74c3c' : '#9ca3af'}; margin-bottom:1px;">${upg.label} <b style="color:${isMax ? '#e74c3c' : '#f1c40f'}">(${cnt}/10)</b></div>
+        <div style="font-size:7px; color:${isMax ? '#e74c3c' : '#9ca3af'}; margin-bottom:1px;">${upg.label} <b style="color:${isMax ? '#e74c3c' : '#f1c40f'}">(${cnt}/${upgMax})</b></div>
         <div style="font-size:9px; font-weight:bold;">${upg.cur(a)}${isMax ? '' : `<span style="color:#2ecc71"> ${upg.gain}</span>`}</div>
         <div style="font-size:8px; color:${isMax ? '#e74c3c' : '#f1c40f'}; margin-top:1px;">${isMax ? 'MAX' : cost + 'G'}</div>
       </button>`;
@@ -10395,6 +10534,9 @@ window.showIntegratedMembersPopup=function(family){
 
 function renderGarrisonBar(){
   const allyById=new Map(allies.map(a=>[a.id,a]));
+  Object.entries(zoneRecords).forEach(([zid,rec])=>{
+    if(rec&&rec.cleared) reconcileGarrisonRoster(zid);
+  });
   // 수익 헤더
   let total={food:0,gold:0,wood:0,stone:0,iron:0,copper:0,herb:0,diamond:0,warSupply:0,manaCrystal:0};
   let lv3Bonus={food:0,gold:0,wood:0,stone:0,iron:0,copper:0,herb:0,diamond:0,warSupply:0,manaCrystal:0};
@@ -10405,7 +10547,7 @@ function renderGarrisonBar(){
     const sv=_garrisonZoneId;_garrisonZoneId=zid;
     const r=garrisonIncomePerMin(rec);_garrisonZoneId=sv;
     Object.keys(total).forEach(k=>total[k]+=(r[k]||0));
-    if((rec.upgradeLv||1)>=GARRISON_AURA_MIN_LV){
+    if(getGarrisonAuraLevel(zid,rec)>=GARRISON_AURA_MIN_LV){
       lv3Count++;
       Object.keys(lv3Bonus).forEach(k=>{
         const cur=r[k]||0;
@@ -10980,7 +11122,7 @@ window.closeStandbyPopup=function(){
     _standbyPopupCloser=null;
   }
 };
-function placeStandbyPopup(pop,evt){
+function placeStandbyPopup(pop,evt,anchorEl){
   if(!pop) return;
   let ex=0, ey=0;
   if(evt){
@@ -10988,8 +11130,9 @@ function placeStandbyPopup(pop,evt){
     else if(evt.changedTouches&&evt.changedTouches[0]){ex=evt.changedTouches[0].clientX;ey=evt.changedTouches[0].clientY;}
     else{ex=evt.clientX||0;ey=evt.clientY||0;}
   }
-  if((!ex&&!ey)&&evt&&evt.currentTarget&&evt.currentTarget.getBoundingClientRect){
-    const r=evt.currentTarget.getBoundingClientRect();
+  const anchor=(evt&&evt.currentTarget)||anchorEl;
+  if((!ex&&!ey)&&anchor&&anchor.getBoundingClientRect){
+    const r=anchor.getBoundingClientRect();
     ex=r.left+(r.width*0.5);
     ey=r.bottom;
   }
@@ -11035,7 +11178,7 @@ window.grantFoodAndDismissUnit=function(uid,amount){
   markDirty();renderGarrisonBar();
 };
 // 대기 유닛 클릭 → 팝업으로 행선지 선택
-window.clickStandbyUnit=function(uid, evt){
+window.clickStandbyUnit=function(uid, evt, anchorEl){
   if(evt){evt.preventDefault();evt.stopPropagation();}
   const now=Date.now();
   if(_lastStandbyMenuTap.uid===uid&&(now-_lastStandbyMenuTap.ts)<120) return;
@@ -11082,7 +11225,7 @@ window.clickStandbyUnit=function(uid, evt){
   html+=`</div>`;
   document.body.insertAdjacentHTML('beforeend',html);
   const pop=document.querySelector('.standby-popup');
-  placeStandbyPopup(pop,evt);
+  placeStandbyPopup(pop,evt,anchorEl);
   bindStandbyPopupOutsideClose();
 };
 
@@ -11212,8 +11355,9 @@ window.releaseFromGarrison=function(zid,uid,target){
   markDirty();renderGarrisonBar();
   if(typeof renderAllyPanel==='function')renderAllyPanel();
 };
-window.clickGarrisonUnit=function(zid,uid,evt){
-  if(evt){evt.preventDefault();evt.stopPropagation();}
+window.clickGarrisonUnit=function(zid,uid,evt,anchorEl){
+  if(evt&&evt.preventDefault){evt.preventDefault();}
+  if(evt&&evt.stopPropagation){evt.stopPropagation();}
   const u=allies.find(a=>a.id===uid);if(!u)return;
   closeStandbyPopup();
   const activeCount=allies.filter(a=>!a.dead&&!a.permanentlyDead&&!a.garrisoned&&!a.inStandby&&a.id!==uid).length;
@@ -11236,7 +11380,7 @@ window.clickGarrisonUnit=function(zid,uid,evt){
   html+=`</div>`;
   document.body.insertAdjacentHTML('beforeend',html);
   const pop=document.querySelector('.standby-popup');
-  placeStandbyPopup(pop,evt);
+  placeStandbyPopup(pop,evt,anchorEl);
   bindStandbyPopupOutsideClose();
 };
 
