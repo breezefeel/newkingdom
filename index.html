@@ -1484,6 +1484,7 @@ const SKILL_ICON_MAP={
   HolyShield:'🌟',Headshot:'🎯',FlashStrike:'⚡',Bloodthirst:'🩸',PoisonCloud:'☠',
   Execution:'🗡',Resurrection:'✨',TimeStop:'⏳',Hellfire:'🔥'
 };
+const CANVAS_EMOJI_FONT_STACK='"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji","Segoe UI Symbol",sans-serif';
 const PASSIVE_SKILL_KEYS=new Set(['Guard','Fortress','Ambush','Highland']);
 function getSkillIcon(sk){ return SKILL_ICON_MAP[sk]||'✨'; }
 function getUnitMainSkill(u){
@@ -1766,6 +1767,9 @@ let _loopFaultCount=0;
 let _loopRunning=false;
 let _loopWatchdogId=null;
 let _loopGen=0;           // 현재 활성 루프 세대
+let _loopLastRafTs=0;
+let _frameMoveMul=1;
+let _loopTimingHooksBound=false;
 let _skipAutoSaveOnUnload=false;
 const SORROW_DEBUFF_MS=10*60*1000;
 const SORROW_DEBUFF_NAME='슬픔의 시간';
@@ -1816,9 +1820,36 @@ function ensureLoopWatchdog(){
       // 새로운 세대를 하나만 생성해, 중복 예약된 callback들은 즉시 무시되도록 한다.
       _loopGen++;
       const gen=_loopGen;
-      requestAnimationFrame(function(){ loop(gen); });
+      requestAnimationFrame(function(ts){ loop(gen,ts); });
     }
   },700);
+}
+function resetLoopTimingState(){
+  _loopLastRafTs=0;
+  _frameMoveMul=1;
+}
+function updateFrameMoveMul(rafTs){
+  if(!Number.isFinite(rafTs)){
+    _frameMoveMul=1;
+    return;
+  }
+  if(!_loopLastRafTs){
+    _loopLastRafTs=rafTs;
+    _frameMoveMul=1;
+    return;
+  }
+  const dt=rafTs-_loopLastRafTs;
+  _loopLastRafTs=rafTs;
+  // 탭 전환/백그라운드 복귀 직후의 비정상 프레임은 이동 보정에서 제외
+  if(!Number.isFinite(dt)||dt<=0||dt>240){
+    _frameMoveMul=1;
+    return;
+  }
+  const target=Math.max(0.85,Math.min(1.95,dt/(1000/60)));
+  _frameMoveMul=Math.max(0.80,Math.min(2.00,(_frameMoveMul*0.68)+(target*0.32)));
+}
+function getFrameMoveMul(){
+  return Number.isFinite(_frameMoveMul)&&_frameMoveMul>0?_frameMoveMul:1;
 }
 const GAME_SAVE_KEY='kingdom_chronicle_v7_save';
 const SAVE_SLOT_COUNT=3;
@@ -2245,6 +2276,17 @@ function init(){
       }
     }
   });
+  if(!_loopTimingHooksBound){
+    _loopTimingHooksBound=true;
+    const onLoopFocusReset=()=>{
+      resetLoopTimingState();
+      _loopHeartbeatAt=Date.now();
+    };
+    document.addEventListener('visibilitychange',onLoopFocusReset);
+    window.addEventListener('blur',onLoopFocusReset);
+    window.addEventListener('focus',onLoopFocusReset);
+    window.addEventListener('pageshow',onLoopFocusReset);
+  }
 
   // 메인 루프 시작 (중복 init로 루프 체인이 늘어나는 것 방지)
   if(!_loopStarted){
@@ -2253,7 +2295,7 @@ function init(){
     _loopGen++;
     const gen=_loopGen;
     ensureLoopWatchdog();
-    requestAnimationFrame(function(){ loop(gen); });
+    requestAnimationFrame(function(ts){ loop(gen,ts); });
   }
 
   // 거점 패널: 기본 접힘 · 펼치기는 우측 버튼
@@ -2697,6 +2739,7 @@ function tryMoveWithTerrain(unit,dx,dy,opts={}){
   const ny=unit.y+dy;
   const effNext=getEffectiveTerrainCellForMove(unit,nx,ny);
   if(effNext&&!canTraverseTerrain(unit,effNext)) return false;
+  if(isForbiddenTerrainTouchingUnitCircle(unit,nx,ny,dx,dy)) return false;
 
   let mul=1;
   if(opts.useTerrainSpeed!==false){
@@ -2713,6 +2756,34 @@ function tryMoveWithTerrain(unit,dx,dy,opts={}){
   }
   clampToMap(unit);
   return true;
+}
+/**
+ * 유닛 중심점만 보지 않고 "유닛 외곽" 샘플로 금지 지형 접촉을 미리 감지한다.
+ * 강/산 경계에서 반쯤 파고든 뒤에 막히는 현상을 줄이기 위한 보조 판정.
+ */
+function isForbiddenTerrainTouchingUnitCircle(unit,cx,cy,dx=0,dy=0){
+  if(!unit||!ensureHexMapReady()) return false;
+  const role=getUnitMoveRole(unit);
+  const probeR=11; // 실제 유닛 반지름(13)에 근접한 안전 반경
+  const mag=Math.hypot(dx,dy);
+  const ux=mag>0.0001?(dx/mag):0;
+  const uy=mag>0.0001?(dy/mag):0;
+  const tx=-uy, ty=ux;
+  const probes=[[0,0]];
+  // 진행 방향이 있으면 전방·전방 대각 샘플을 추가해 "선제 차단" 강화
+  if(mag>0.0001){
+    probes.push([ux*probeR,uy*probeR]);
+    probes.push([ux*probeR*0.78+tx*probeR*0.45,uy*probeR*0.78+ty*probeR*0.45]);
+    probes.push([ux*probeR*0.78-tx*probeR*0.45,uy*probeR*0.78-ty*probeR*0.45]);
+  }
+  // 정지/미세 이동 상황에서도 외곽 접촉을 잡기 위한 4방향 샘플
+  probes.push([ probeR,0],[-probeR,0],[0, probeR],[0,-probeR]);
+  for(let i=0;i<probes.length;i++){
+    const p=probes[i];
+    const cell=nearestCell(cx+p[0],cy+p[1]);
+    if(cell&&!roleCanTraverseCellType(role,cell)) return true;
+  }
+  return false;
 }
 function resolveMoveCommandPoint(unit,x,y){
   const tx=Math.max(20,Math.min(CW-20,x));
@@ -5134,7 +5205,7 @@ function battleTick(){
       e.ultimateSlowUntil=0;
       e.ultimateSlowMul=1;
     }
-    const moveSpd=(e.spd||0.8)*(e.ultimateSlowMul||1)*MOVE_FEEL_MUL;
+    const moveSpd=(e.spd||0.8)*(e.ultimateSlowMul||1)*MOVE_FEEL_MUL*getFrameMoveMul();
     // 공속 쿨다운
     if(e.atkCd===undefined)e.atkCd=0;
     if(e.atkCd>0)e.atkCd--;
@@ -5947,7 +6018,7 @@ function moveAlly(a,ae,aa,baseTerrSpd){
 
   // 대기실 후퇴 명령: 전투 행동을 중단하고 좌측 벽으로 이탈
   if(a.retreatingToStandby){
-    const retreatSpd=Math.max(1.6,(a.spd||1)*1.2)*MOVE_FEEL_MUL;
+    const retreatSpd=Math.max(1.6,(a.spd||1)*1.2)*MOVE_FEEL_MUL*getFrameMoveMul();
     a.x-=retreatSpd;
     clampToMap(a);
     if(a.x<=MAP_PAD+1){
@@ -5960,7 +6031,7 @@ function moveAlly(a,ae,aa,baseTerrSpd){
   // 현재 지형 이동속도 계산 — 경계 걸림 시 nearest·인접·맵 스캔 순으로 탈출
   let domCell=getEffectiveTerrainCellForMove(a,a.x,a.y);
   if(!domCell||!canTraverseTerrain(a,domCell)){
-    const recoverBaseSpd=Math.max(1,(a.spd||1))*MOVE_FEEL_MUL;
+    const recoverBaseSpd=Math.max(1,(a.spd||1))*MOVE_FEEL_MUL*getFrameMoveMul();
     const recoverStepCap=Math.max(10,HW*0.95);
     const tx=(a.wx!=null&&a.wy!=null)?a.wx:(a.x+HW);
     const ty=(a.wx!=null&&a.wy!=null)?a.wy:(a.y+HR);
@@ -5989,7 +6060,7 @@ function moveAlly(a,ae,aa,baseTerrSpd){
   // 최소 이동속도 보장: terrCost가 아무리 높아도 기본 속도의 20% 이상
   const terrSpd=Math.max(0.20, Math.min(1.0, 1.0/Math.max(terrCost,1)));
   const secBonus=getUnitSecondaryBonus(a);
-  let spd=a.spd*terrSpd*(a.ultimateSpdMul||1)*(secBonus.heroSpdMul||1)*MOVE_FEEL_MUL;
+  let spd=a.spd*terrSpd*(a.ultimateSpdMul||1)*(secBonus.heroSpdMul||1)*MOVE_FEEL_MUL*getFrameMoveMul();
 
   // 모듈3: 산 지형 클래스 규칙
   if(domCell&&domCell.type==='mountain'){
@@ -6831,9 +6902,8 @@ function showDay1Tutorial() {
   document.getElementById('garrison-body').innerHTML = `
     <div style="font-size:11px;color:#ccc;line-height:1.7;margin-bottom:14px">
       <div style="margin-bottom:10px">🎯 <b style="color:#93c5fd">기본 전투 규칙</b>: 대원은 별도 명령이 없어도 <b style="color:#fff">가까운 적을 기본 대상으로 자동 공격</b>합니다.</div>
-      <div style="margin-bottom:10px">🚑 <b style="color:#e74c3c">영구 사망 주의</b>: 체력이 0이 되면 빈사 상태가 되며, <b style="color:#fff">7초</b> 내에 치료하지 못하면 대원은 <b style="color:#e74c3c">영구히 사망</b>하여 사라집니다!</div>
+      <div style="margin-bottom:10px">🧭 <b style="color:#a78bfa">방향 전투</b>: 유닛 테두리의 작은 원이 정면입니다. <b style="color:#e5e7eb">정면에서의 공격은 방어도가 적용</b>되고, <b style="color:#fca5a5">후방·후방측면에서의 공격은 방어를 무시</b>합니다.</div>
       <div style="margin-bottom:10px">👆 <b style="color:#f1c40f">드래그 이동</b>: 전투 중 대원을 드래그하여 실시간으로 위치를 바꿀 수 있습니다. 위험한 상황에서 대원을 구출하거나 유리한 지형으로 옮기세요!</div>
-      <div style="margin-bottom:10px">🧭 <b style="color:#93c5fd">방향 전투</b>: 유닛 테두리의 작은 원이 정면입니다. <b style="color:#e5e7eb">정면에서의 공격은 방어도가 적용</b>되고, <b style="color:#fca5a5">후방·후방측면에서의 공격은 방어를 무시</b>합니다.</div>
       <div style="margin-bottom:10px">🖱️ <b style="color:#a855f7">더블 클릭</b>: 대원을 더블 클릭하면 그 자리에 고정되는 <b style="color:#a855f7">홀드(Hold)</b> 상태가 되어 제자리에서 적을 맞이합니다.</div>
     </div>
     <button onclick="showTutorialStep2()" 
@@ -6849,6 +6919,7 @@ function showTutorialStep2() {
   document.getElementById('garrison-title').innerText = '💡 기술과 생존 안내 (2/3)';
   document.getElementById('garrison-body').innerHTML = `
     <div style="font-size:11px;color:#ccc;line-height:1.7;margin-bottom:14px">
+      <div style="margin-bottom:10px">🚑 <b style="color:#e74c3c">영구 사망 주의</b>: 체력이 0이 되면 빈사 상태가 되며, <b style="color:#fff">7초</b> 내에 치료하지 못하면 대원은 <b style="color:#e74c3c">영구히 사망</b>하여 사라집니다!</div>
       <div style="margin-bottom:8px">★ <b style="color:#f1c40f">생존을 높이려면 스킬을 바꿔 보세요.</b></br> 전투 상황에 맞게 동료 카드의 스킬 버튼을 눌러 장착 기술을 교체할 수 있습니다. 자주 사용할수록 <b style="color:#f1c40f">스킬 레벨</b>이 올라 더욱 강력해집니다.</div>
       <div style="background:rgba(0,0,0,0.3); padding:8px; border-radius:5px; border:1px solid #1e3a5f; margin-top:10px;">
         <div style="color:#f1c40f; font-weight:bold; margin-bottom:4px">📢 추천 설정</div>
@@ -6867,9 +6938,9 @@ function showTutorialStep3() {
   document.getElementById('garrison-title').innerText = '🎊 부대 관리와 성장 (3/3)';
   document.getElementById('garrison-body').innerHTML = `
     <div style="font-size:11px;color:#ccc;line-height:1.7;margin-bottom:14px">
-      <div style="margin-bottom:8px">🚩 <b style="color:#f1c40f">거점</b>: 사냥터를 끝까지 클리어하면 거점을 세우고, 자동 자원·주둔 편성을 이용할 수 있습니다. <b style="color:#93c5fd"></br>1일차 첫 출발부터 15일차 승리까지 걸린 기록 시간</b>이 짧을수록 재원 얻기에에 유리하고, 거점 <b>단계</b>·<b>건물 업그레이드</b>로 효율과 보너스가 함께 올라갑니다.</div>
       <div style="margin-bottom:8px">👥 <b style="color:#f1c40f">최대 파티원</b>: 이번 전장에서 나갈 수 있는 파티원은 최대 <b style="color:#fff">6명</b>까지입니다.</div>
-      <div style="margin-bottom:8px">🍖 <b style="color:#f1c40f">피난민/용병</b>: 식량으로 피난민을 합류시키거나, 금화로 이미 전직된 강력한 용병을 고용하세요.</div>
+      <div style="margin-bottom:8px">🍖 <b style="color:#f1c40f">유닛 추가</b>: 식량으로 피난민을 합류시키거나, 금화로 이미 전직된 강력한 용병을 고용하세요.</div>
+      <div style="margin-bottom:8px">🚩 <b style="color:#f1c40f">거점</b>: 사냥터를 끝까지 클리어하면 거점을 세우고, 자동 자원·주둔 편성을 이용할 수 있습니다. <b style="color:#93c5fd"></br>1일차 첫 출발부터 15일차 승리까지 걸린 기록 시간</b>이 짧을수록 재원 얻기에에 유리하고, 거점 <b>단계</b>·<b>건물 업그레이드</b>로 효율과 보너스가 함께 올라갑니다.</div>
       <div style="margin-bottom:8px">🔄 <b style="color:#2ecc71">자동 진행</b>: ON 설정 시 전투가 끝나면 대기 시간 없이 즉시 다음 사냥을 시작합니다.</div>
     </div>
     
@@ -9344,7 +9415,13 @@ function draw(crowdedBattle){
     const h=hexMap[r][c],t=TERRAIN[h.type];
     drawHexPath(h.x,h.y,HR);ctx.fillStyle=t.color;ctx.fill();
     ctx.strokeStyle=t.border;ctx.lineWidth=0.7;ctx.stroke();
-    if(t.sym){ctx.font='9px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='rgba(255,255,255,0.3)';ctx.fillText(t.sym,h.x,h.y);}
+    if(t.sym){
+      ctx.font=`10px ${CANVAS_EMOJI_FONT_STACK}`;
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.fillStyle='rgba(255,255,255,0.42)';
+      ctx.fillText(t.sym,h.x,h.y);
+    }
   }
   if(isPlacing){
     for(let r=0;r<ROWS;r++)for(let c=0;c<7;c++){
@@ -9670,7 +9747,7 @@ function drawUnit(u) {
     if(isBattle){
       cdState=getUnitSkillCdState(u);
     }
-    ctx.font='11px Arial';
+    ctx.font=`11px ${CANVAS_EMOJI_FONT_STACK}`;
   } else {
     centerText = isAlly ? (u.class10Key ? CLASS10[u.class10Key].name.slice(0, 2) : u.classKey || u.baseRole).slice(0, 2) : u.mark;
     ctx.font='bold 8px Arial';
@@ -10743,7 +10820,7 @@ function updateRetreatingAllies(){
   for(let i=0;i<allies.length;i++){
     const u=allies[i];
     if(!u||!u.retreatingToStandby||u.dead||u.permanentlyDead) continue;
-    const retreatSpd=Math.max(1.6,(u.spd||1)*1.2)*MOVE_FEEL_MUL;
+    const retreatSpd=Math.max(1.6,(u.spd||1)*1.2)*MOVE_FEEL_MUL*getFrameMoveMul();
     u.x-=retreatSpd;
     clampToMap(u);
     if(u.x<=MAP_PAD+1) finishedIds.push(u.id);
@@ -11476,10 +11553,11 @@ function resolveOverlap() {
   }
 }
 
-function loop(gen) {
+function loop(gen,rafTs) {
   if(gen!==_loopGen) return;
+  updateFrameMoveMul(rafTs);
   if(!ensureHexMapReady()){
-    requestAnimationFrame(function(){ loop(_loopGen); });
+    requestAnimationFrame(function(ts){ loop(_loopGen,ts); });
     return;
   }
   _loopRunning=true;
@@ -11650,7 +11728,7 @@ function loop(gen) {
     _loopRunning=false;
     _loopHeartbeatAt=Date.now();
     const nextGen=_loopGen;
-    requestAnimationFrame(function(){ loop(nextGen); });
+    requestAnimationFrame(function(ts){ loop(nextGen,ts); });
   }
 }
 
