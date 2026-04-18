@@ -1320,14 +1320,6 @@ canvas {
     </div>
   </div>
 </div>
-<!-- 배치 미완료 안내 (전투 종료 후 배치 단계에서만) -->
-<div id="deploy-pending-modal" class="overlay" style="z-index:4100">
-  <div class="modal-box" style="max-width:400px">
-    <div class="modal-title" style="color:#c084fc">📍 배치가 필요합니다</div>
-    <div style="font-size:12px;color:#cbd5e1;line-height:1.65;margin:12px 0 16px 0">아직 전장에 올리지 않은 통솔 대원이 있습니다.<br>좌측 <b style="color:#c084fc">보라색 배치 구역</b>을 눌러 주세요.</div>
-    <button type="button" class="cb" style="width:100%;background:#374151" onclick="document.getElementById('deploy-pending-modal').classList.remove('show')">확인</button>
-  </div>
-</div>
 
 <script>
 // ══════════════════════════════════════════════════════
@@ -2016,6 +2008,9 @@ let _loopFaultCount=0;
 let _loopRunning=false;
 let _loopWatchdogId=null;
 let _loopGen=0;           // 현재 활성 루프 세대
+let _loopLastRafTs=0;
+let _frameMoveMul=1;
+let _loopTimingHooksBound=false;
 let _skipAutoSaveOnUnload=false;
 const SORROW_DEBUFF_MS=10*60*1000;
 const SORROW_DEBUFF_NAME='슬픔의 시간';
@@ -2066,9 +2061,35 @@ function ensureLoopWatchdog(){
       // 새로운 세대를 하나만 생성해, 중복 예약된 callback들은 즉시 무시되도록 한다.
       _loopGen++;
       const gen=_loopGen;
-      requestAnimationFrame(function(){ loop(gen); });
+      requestAnimationFrame(function(ts){ loop(gen,ts); });
     }
   },700);
+}
+function resetLoopTimingState(){
+  _loopLastRafTs=0;
+  _frameMoveMul=1;
+}
+function updateFrameMoveMul(rafTs){
+  if(!Number.isFinite(rafTs)){
+    _frameMoveMul=1;
+    return;
+  }
+  if(!_loopLastRafTs){
+    _loopLastRafTs=rafTs;
+    _frameMoveMul=1;
+    return;
+  }
+  const dt=rafTs-_loopLastRafTs;
+  _loopLastRafTs=rafTs;
+  if(!Number.isFinite(dt)||dt<=0||dt>240){
+    _frameMoveMul=1;
+    return;
+  }
+  const target=Math.max(0.85,Math.min(1.95,dt/(1000/60)));
+  _frameMoveMul=Math.max(0.80,Math.min(2.00,(_frameMoveMul*0.68)+(target*0.32)));
+}
+function getFrameMoveMul(){
+  return Number.isFinite(_frameMoveMul)&&_frameMoveMul>0?_frameMoveMul:1;
 }
 const GAME_SAVE_KEY='kingdom_chronicle_v7_save';
 const SAVE_SLOT_COUNT=3;
@@ -2522,7 +2543,18 @@ function init(){
     _loopGen++;
     const gen=_loopGen;
     ensureLoopWatchdog();
-    requestAnimationFrame(function(){ loop(gen); });
+    if(!_loopTimingHooksBound){
+      _loopTimingHooksBound=true;
+      const onLoopFocusReset=()=>{
+        resetLoopTimingState();
+        _loopHeartbeatAt=Date.now();
+      };
+      document.addEventListener('visibilitychange',onLoopFocusReset);
+      window.addEventListener('blur',onLoopFocusReset);
+      window.addEventListener('focus',onLoopFocusReset);
+      window.addEventListener('pageshow',onLoopFocusReset);
+    }
+    requestAnimationFrame(function(ts){ loop(gen,ts); });
   }
 
   // 거점 패널: 기본 접힘 · 펼치기는 우측 버튼
@@ -2961,20 +2993,19 @@ function canTraverseTerrain(unit,cell){
   if(cell.type==='river'&&(role==='Tank'||role==='Warrior'||role==='Melee')) return false;
   return true;
 }
+/** 5.html과 동일: 다점은 막힘만. 타일 효과(이속)는 **중심**이 속한 칸(경계 통과 후) 기준. */
 function tryMoveWithTerrain(unit,dx,dy,opts={}){
   if(!unit||!Number.isFinite(dx)||!Number.isFinite(dy)) return false;
-  const nx=unit.x+dx;
-  const ny=unit.y+dy;
-  const effNext=getEffectiveTerrainCellForMoveWithUnitDisk(unit,nx,ny,dx,dy);
-  if(!effNext||!canTraverseTerrain(unit,effNext)) return false;
-  if(isForbiddenTerrainTouchingUnitCircle(unit,nx,ny,dx,dy)) return false;
+  const multi=getEffectiveTerrainCellMoveMulti(unit,dx,dy);
+  if(multi.blocked) return false;
+  const effStand=getTerrainCellForUnitCenter(unit);
+  if(!effStand||!canTraverseTerrain(unit,effStand)) return false;
 
   let mul=1;
   if(opts.useTerrainSpeed!==false){
     const role=opts.role||getUnitMoveRole(unit);
-    const terrCost=effNext?terrainMoveCost(effNext,role):1.0;
+    const terrCost=effStand?terrainMoveCost(effStand,role):1.0;
     const minMul=(opts.minMul===undefined)?0.20:opts.minMul;
-    // 지형 비용(cost)이 높을수록 실제 이동속도를 낮춘다.
     mul=Math.max(minMul,Math.min(1.0,1/Math.max(terrCost,1)));
   }
   unit.x+=dx*mul;
@@ -3041,16 +3072,7 @@ function terrainMoveCost(cell, role){
   }
   return cost;
 }
-/** 헥스 반경(HR)의 ½ 이내면 기하적으로 그 칸 위로만 본다(인접 강·산 테두리에서 이속 오인식 완화) */
-const TERRAIN_STAND_CORE_R=HR*0.5;
-/** 불리 지형(강/산 등) 이속 디버프는 더 깊게 들어왔을 때만 적용 */
-const TERRAIN_DEBUFF_ENTER_R=HR*0.36;
-/** 경로 판단용(우회 인지) 불리 지형 사전 인지 반경: 타일 절반 진입 전에도 인지 */
-const TERRAIN_PATH_AWARE_R=HR*0.62;
-/** 지도 drawUnit 아군 원과 동일 — 중심만이 아니라 테두리가 먼저 타일을 스캔 */
-const UNIT_BODY_RADIUS_PX=13;
-/** 금지 지형(강 등) 인접·중심 근처 판정: 유닛 외곽 샘플이 이 반경 안에 들어오면 차단 */
-const TERRAIN_FORBIDDEN_AWARE_R=HR*0.48;
+/** 헥스 이웃 그리드 — 타일 **효과**는 중심 getTerrainCellForUnitCenter, 막힘만 다점 getEffectiveTerrainCellMoveMulti */
 const HEX_NEIGHBOR_OFFSETS_EVEN=[[0,-1],[0,1],[-1,-1],[-1,0],[1,-1],[1,0]];
 const HEX_NEIGHBOR_OFFSETS_ODD=[[0,-1],[0,1],[-1,0],[-1,1],[1,0],[1,1]];
 function roleCanTraverseCellType(role,cell){
@@ -3058,6 +3080,88 @@ function roleCanTraverseCellType(role,cell){
   if(cell.type==='river'&&(role==='Tank'||role==='Warrior'||role==='Melee')) return false;
   return true;
 }
+/** drawUnit과 동일 기준 — 지형 판정은 유닛 **테두리**(이동 방향 앞쪽)에서 샘플 */
+function getUnitBodyRadiusForTerrain(unit){
+  const baseR=13;
+  if(unit&&unit.type==='ally'){
+    const pgMul=(typeof getUnitPartyGroupId==='function'&&getUnitPartyGroupId(unit.id)>0)?3:1;
+    return baseR*pgMul;
+  }
+  return baseR;
+}
+/** 이동 방향 기준 좌우(rad). 0이 정면. */
+const TERRAIN_MULTI_PROBE_SPREAD=[-0.55,-0.28,0,0.28,0.55];
+/** 1.0=몸 테두리, 1.22≈테두리보다 바깥(인접 타일 쪽으로 시야 확장) */
+const TERRAIN_MULTI_PROBE_RINGS=[1.0,1.22];
+/** 이 각 범위 안의 샘플이 통과 불가면 한 스텝 이동 거부(전방·측전방) */
+const TERRAIN_MULTI_PROBE_CRITICAL_SPREAD=0.58;
+/** (dirx,diry) 이동 의도 방향으로 반지름만큼 떨어진 점 = 단일 테두리 샘플(레거시·보조) */
+function getTerrainProbePoint(unit,dirx,diry){
+  const cx=unit.x, cy=unit.y;
+  const R=getUnitBodyRadiusForTerrain(unit);
+  let L=Math.hypot(dirx,diry);
+  let ux,uy;
+  if(L<1e-5){
+    const fa=Number.isFinite(unit.facing)?unit.facing:0;
+    ux=Math.cos(fa); uy=Math.sin(fa);
+  }else{
+    ux=dirx/L; uy=diry/L;
+  }
+  return {x:cx+ux*R,y:cy+uy*R};
+}
+/**
+ * 다점 프로브: 테두리 + 바깥 링 — **몸이 막히는 방향**만 판단(blocked).
+ * 타일 **효과(이속 등)** 는 적용하지 않음 → getTerrainCellForUnitCenter 사용.
+ */
+function getEffectiveTerrainCellMoveMulti(unit,dirx,diry){
+  const baseR=getUnitBodyRadiusForTerrain(unit);
+  let ux,uy;
+  const L=Math.hypot(dirx,diry);
+  if(L<1e-5){
+    const fa=Number.isFinite(unit.facing)?unit.facing:0;
+    ux=Math.cos(fa); uy=Math.sin(fa);
+  }else{
+    ux=dirx/L; uy=diry/L;
+  }
+  let blocked=false,sawOk=false;
+  for(let ri=0;ri<TERRAIN_MULTI_PROBE_RINGS.length;ri++){
+    const rad=baseR*TERRAIN_MULTI_PROBE_RINGS[ri];
+    for(let si=0;si<TERRAIN_MULTI_PROBE_SPREAD.length;si++){
+      const ang=TERRAIN_MULTI_PROBE_SPREAD[si];
+      const c=Math.cos(ang), s=Math.sin(ang);
+      const vx=ux*c-uy*s, vy=ux*s+uy*c;
+      const px=unit.x+vx*rad, py=unit.y+vy*rad;
+      const cell=getEffectiveTerrainCellForMove(unit,px,py);
+      if(!cell) continue;
+      const ok=canTraverseTerrain(unit,cell);
+      if(Math.abs(ang)<=TERRAIN_MULTI_PROBE_CRITICAL_SPREAD&&!ok) blocked=true;
+      if(ok) sawOk=true;
+    }
+  }
+  if(!sawOk) blocked=true;
+  return { blocked };
+}
+/** 강 우회 경로일 때: 한 스텝으로 중심이 강 칸 내부로 깊게 들어가지 않도록 선분상으로 잘라냄 */
+function clampCenterSkirtRiverInterior(unit,ax,ay,px,py){
+  if(!unit||!unit._pathSkirtRiver) return {x:px,y:py};
+  const endC=nearestCell(px,py);
+  if(!endC||endC.type!=='river') return {x:px,y:py};
+  let lo=0, hi=1, best={x:ax,y:ay};
+  for(let i=0;i<16;i++){
+    const mid=(lo+hi)/2;
+    const tx=ax+(px-ax)*mid, ty=ay+(py-ay)*mid;
+    const mc=nearestCell(tx,ty);
+    if(mc&&mc.type==='river') hi=mid;
+    else { lo=mid; best={x:tx,y:ty}; }
+  }
+  return best;
+}
+/** 헥스 반경(HR)의 ½ 이내면 기하적으로 그 칸 위로만 본다(인접 강·산 테두리에서 이속 오인식 완화) */
+const TERRAIN_STAND_CORE_R=HR*0.5;
+/** 불리 지형(강/산 등) 이속 디버프는 더 깊게 들어왔을 때만 적용 */
+const TERRAIN_DEBUFF_ENTER_R=HR*0.36;
+/** 경로 판단용(우회 인지) 불리 지형 사전 인지 반경 */
+const TERRAIN_PATH_AWARE_R=HR*0.62;
 function pickTerrainCellForRole(x,y,role,near,dom,mode='move'){
   const nearOk=!!(near&&roleCanTraverseCellType(role,near));
   const domOk=!!(dom&&roleCanTraverseCellType(role,dom));
@@ -3065,9 +3169,9 @@ function pickTerrainCellForRole(x,y,role,near,dom,mode='move'){
   if(nearOk&&domOk&&near!==dom){
     const nearCost=terrainMoveCost(near,role);
     const domCost=terrainMoveCost(dom,role);
-    // dom이 더 불리하면(비용↑) 충분히 안쪽까지 들어오기 전에는 near 유지
     if(domCost>nearCost*1.30){
       const domDist=Math.hypot(x-dom.x,y-dom.y);
+      // dom이 더 불리하면(비용↑) 충분히 안쪽까지 들어오기 전에는 near 유지
       if(pathMode&&domDist<=TERRAIN_PATH_AWARE_R) return dom;
       if(domDist>TERRAIN_DEBUFF_ENTER_R) return near;
     }
@@ -3081,7 +3185,6 @@ function pickTerrainCellForRole(x,y,role,near,dom,mode='move'){
   if(nearOk) return near;
   return dom||near||null;
 }
-/** 유닛 발밑: 코어(중심~HR/2)는 nearest 한 칸. 그 밖은 좁은 원 안에서만 샘플링해 다수결(옆 칸이 표결로 먹는 일 감소) */
 function getDominantHexCellAt(x,y){
   if(!ensureHexMapReady()) return nearestCell(x,y);
   const near0=nearestCell(x,y);
@@ -3113,18 +3216,6 @@ function getDominantHexCellAt(x,y){
     const ang=(Math.PI/3)*k+Math.PI/6;
     add(nearestCell(x+Math.cos(ang)*R*0.78,y+Math.sin(ang)*R*0.78));
   }
-  // 중심~헥스 외곽 사이 추가 샘플(원형에 가깝게) — 한 점만으로는 옆 칸 표결이 빗나가는 경우 완화
-  for(let fi=0;fi<3;fi++){
-    const frac=[0.28,0.52,0.78][fi];
-    for(let k=0;k<6;k++){
-      const ang=(Math.PI/3)*k;
-      add(nearestCell(x+Math.cos(ang)*HR*frac,y+Math.sin(ang)*HR*frac));
-    }
-    for(let k=0;k<6;k++){
-      const ang=(Math.PI/3)*k+Math.PI/6;
-      add(nearestCell(x+Math.cos(ang)*HR*frac,y+Math.sin(ang)*HR*frac));
-    }
-  }
   if(!votes.size) return nearestCell(x,y);
   let total=0;
   for(const v of votes.values()) total+=v.n;
@@ -3135,15 +3226,20 @@ function getDominantHexCellAt(x,y){
   return nearestCell(x,y);
 }
 /**
- * 이동 판정용 지형: 다수결(dominant)이 금지 타일이어도, 기하학적 중심(nearest)이 통과 가능이면
- * 경계·살짝 걸침에서 강에 "발이 묶이는" 현상을 줄인다.
+ * 이동 판정용 지형: (x,y) 샘플 1점. 다점 프로브는 막힘 판정용으로만 이 함수를 여러 번 호출.
  */
 function getEffectiveTerrainCellForMove(unit,x,y){
   if(!ensureHexMapReady()) return nearestCell(x,y);
   const near=nearestCell(x,y);
   const role=getUnitMoveRole(unit);
   const nearDist=near?Math.hypot(x-near.x,y-near.y):Infinity;
-  if(near&&nearDist<=TERRAIN_STAND_CORE_R&&canTraverseTerrain(unit,near)) return near;
+  // nearest가 강/산이어도 코어 반경 전부를 즉시 확정하면, 육지와 맞닿은 테두리만 스칠 때 이속 디버프가 걸림.
+  // 불리 지형은 TERRAIN_DEBUFF_ENTER_R 안쪽으로 들어왔을 때만 단정하고, 그 밖은 아래 픽으로 육지 등과 재판정.
+  if(near&&nearDist<=TERRAIN_STAND_CORE_R&&canTraverseTerrain(unit,near)){
+    const t=near.type;
+    if((t==='river'||t==='mountain')&&nearDist>TERRAIN_DEBUFF_ENTER_R){/* fall through */}
+    else return near;
+  }
   const dom=getDominantHexCellAt(x,y);
   const picked=pickTerrainCellForRole(x,y,role,near,dom,'move');
   if(picked&&canTraverseTerrain(unit,picked)) return picked;
@@ -3151,97 +3247,21 @@ function getEffectiveTerrainCellForMove(unit,x,y){
   if(dom&&canTraverseTerrain(unit,dom)) return dom;
   return picked||dom||near;
 }
-/**
- * 유닛 원(반지름 UNIT_BODY_RADIUS_PX) 위 샘플로 다음 위치의 지형을 본다.
- * 중심이 아직 이웃 칸 중심에 없어도 원의 절반 이상이 금지/불리 칸에 닿으면 그에 맞게 막거나(반환 null) 이속은 가장 불리한 칸 기준(최소 시간 추정에 보수적).
- */
-function getEffectiveTerrainCellForMoveWithUnitDisk(unit,x,y,dirDx,dirDy){
-  if(!unit) return getEffectiveTerrainCellForMove(unit,x,y);
-  const r=UNIT_BODY_RADIUS_PX;
-  const pts=[[x,y]];
-  const m=Math.hypot(dirDx,dirDy);
-  const ux=m>1e-6?dirDx/m:1, uy=m>1e-6?dirDy/m:0;
-  const px=-uy, py=ux;
-  if(m>1e-6){
-    pts.push([x+ux*r,y+uy*r],[x+ux*r*0.52,y+uy*r*0.52]);
-    pts.push([x+px*r*0.92,y+py*r*0.92],[x-px*r*0.92,y-py*r*0.92]);
-  }
-  pts.push([x+r,y],[x-r,y],[x,y+r],[x,y-r]);
-  let worst=null, worstCost=-1;
-  for(let i=0;i<pts.length;i++){
-    const c=getEffectiveTerrainCellForMove(unit,pts[i][0],pts[i][1]);
-    if(!c||!canTraverseTerrain(unit,c)) return null;
-    const tc=terrainMoveCost(c,getUnitMoveRole(unit));
-    if(tc>worstCost){ worstCost=tc; worst=c; }
-  }
-  return worst;
+/** 타일 효과(이속·보너스): **유닛 중심** 한 점 — 헥스 보로노이상 중심이 경계를 넘어 새 칸에 들어온 뒤 nearest가 바뀌는 시점과 맞춤. */
+function getTerrainCellForUnitCenter(unit){
+  if(!unit) return null;
+  return getEffectiveTerrainCellForMove(unit,unit.x,unit.y);
 }
-/**
- * 이웃 헥스로 한 칸 넘어갈 때 A* 비용: 두 칸 중심 연결선의 **중점**에서 유닛 디스크 샘플링.
- * 실제 이동의 getEffectiveTerrainCellForMoveWithUnitDisk와 같은 보수적 비용을 쓰도록 맞춤.
- * 통과 불가(디스크 일부가 금지 지형)면 Infinity → 그 방향 간선 제외.
- */
-function hexNeighborStepCostForPath(unit,fromCell,toCell){
-  if(!unit||!fromCell||!toCell) return 10;
-  const role=getUnitMoveRole(unit);
-  const dx=toCell.x-fromCell.x, dy=toCell.y-fromCell.y;
-  const mx=(fromCell.x+toCell.x)*0.5, my=(fromCell.y+toCell.y)*0.5;
-  const eff=getEffectiveTerrainCellForMoveWithUnitDisk(unit,mx,my,dx,dy);
-  if(!eff) return Infinity;
-  const cFrom=terrainMoveCost(fromCell,role);
-  const cTo=terrainMoveCost(toCell,role);
-  const cEff=terrainMoveCost(eff,role);
-  // 이웃 한 칸: 연결선 중점만 보면 경계에서 평지로 잡혀 '강 칸 밟기'가 과소평가됨 → 출발·도착·샘플을 함께 반영
-  let c=Math.max((cFrom+cTo)*0.5,cEff,cTo);
-  // 강 구간: 실제 spd 매우 낮음(TERRAIN.river) — 직선 지름길로 강만 연속 밟는 루트 억제
-  if(eff.type==='river'||fromCell.type==='river'||toCell.type==='river'){
-    c*=1.35;
-    if(toCell.type==='river') c+=1.2;
-  }
-  return c;
-}
+/** 프로브 **중심점**이 속한 칸이 해당 직업에게 금지면 true */
 function isProbeInsideForbiddenTerrain(role,probeX,probeY){
-  const near=nearestCell(probeX,probeY);
-  if(!near) return false;
-  const cells=[near];
-  const nr=Number(near.r),nc=Number(near.c);
-  if(Number.isFinite(nr)&&Number.isFinite(nc)){
-    const offs=(nr%2===0)?HEX_NEIGHBOR_OFFSETS_EVEN:HEX_NEIGHBOR_OFFSETS_ODD;
-    for(let i=0;i<offs.length;i++){
-      const r2=nr+offs[i][0],c2=nc+offs[i][1];
-      if(r2<0||r2>=ROWS||c2<0||c2>=COLS) continue;
-      const c=hexMap[r2]&&hexMap[r2][c2];
-      if(c) cells.push(c);
-    }
-  }
-  for(let i=0;i<cells.length;i++){
-    const cell=cells[i];
-    if(!cell||roleCanTraverseCellType(role,cell)) continue;
-    if(Math.hypot(probeX-cell.x,probeY-cell.y)<=TERRAIN_FORBIDDEN_AWARE_R) return true;
-  }
-  return false;
+  const cell=nearestCell(probeX,probeY);
+  if(!cell) return false;
+  return !roleCanTraverseCellType(role,cell);
 }
-/** 유닛 중심뿐 아니라 외곽 샘플로 금지 지형 접촉을 먼저 감지 (강·산 경계 선제 차단) */
-function isForbiddenTerrainTouchingUnitCircle(unit,cx,cy,dx,dy){
+/** 유닛 **중심**이 금지 지형 칸이면 true (외곽 샘플 없음) */
+function isForbiddenTerrainTouchingUnitCircle(unit,cx,cy,_dx,_dy){
   if(!unit||!ensureHexMapReady()) return false;
-  const role=getUnitMoveRole(unit);
-  const probeR=UNIT_BODY_RADIUS_PX;
-  const mag=Math.hypot(dx,dy);
-  const ux=mag>0.0001?(dx/mag):0;
-  const uy=mag>0.0001?(dy/mag):0;
-  const tx=-uy, ty=ux;
-  const probes=[[0,0]];
-  if(mag>0.0001){
-    probes.push([ux*probeR,uy*probeR]);
-    probes.push([ux*probeR*0.78+tx*probeR*0.45,uy*probeR*0.78+ty*probeR*0.45]);
-    probes.push([ux*probeR*0.78-tx*probeR*0.45,uy*probeR*0.78-ty*probeR*0.45]);
-  }
-  probes.push([probeR,0],[-probeR,0],[0,probeR],[0,-probeR]);
-  for(let i=0;i<probes.length;i++){
-    const p=probes[i];
-    if(isProbeInsideForbiddenTerrain(role,cx+p[0],cy+p[1])) return true;
-  }
-  return false;
+  return isProbeInsideForbiddenTerrain(getUnitMoveRole(unit),cx,cy);
 }
 /** 금지 지형에 갇혔을 때 가장 가까운 통과 가능 헥스 중심으로 탈출 */
 function findNearestTraversableHexCell(unit,fromX,fromY){
@@ -3325,7 +3345,7 @@ function findNearestTraversableHexCell(unit,fromX,fromY){
   }
   return best;
 }
-/** 경로·우회 점수용: 유닛 있으면 통과 가능 지형까지 고려한 칸, 없으면 직업만으로 강 도하 판정 */
+/** 경로·우회 점수용(4/5): 코어·픽으로 경로 비용 샘플 — nearest 단독보다 우회 판단 안정 */
 function getPathTerrainCellAt(x,y,role){
   const near=nearestCell(x,y);
   if(!near) return null;
@@ -3480,7 +3500,12 @@ function getHexNeighborCells(r,c){
 function getHexNeighbors(r,c){
   return getHexNeighborCells(r,c).map(o=>[o.nr,o.nc]);
 }
-/** 헥스 그리드 위 가중 최단경로: 이웃으로 넘어갈 때 비용 = hexNeighborStepCostForPath(입구 중점+디스크), 실제 이동과 정합. */
+/**
+ * 헥스 연결: 통과 가능 칸만. 이웃 칸 **진입 시** terrainMoveCost(직업별) 가중치 합 최소(Dijkstra)
+ * → 칸 수가 아니라 상대적 **이동 시간**에 가깝게 고름.
+ * 강은 비용이 유한(도하 가능 직업)이라 ‘짧은 강 몇 칸’이 ‘긴 육로’보다 쌀 수 있음 →
+ * 1차는 강 칸 **진입을 제외**(목표 칸이 강이면 예외)한 최소시간 경로, 2차는 강 포함.
+ */
 function findHexPathCells(unit,goalCell){
   if(!unit||!goalCell) return null;
   const startCell=nearestCell(unit.x,unit.y);
@@ -3491,92 +3516,73 @@ function findHexPathCells(unit,goalCell){
     if(hexMap[r][c]===goalCell){ gr=r; gc=c; }
   }
   if(sr<0||sc<0||gr<0||gc<0) return null;
-  if(sr===gr&&sc===gc) return [startCell];
-  const gCell=hexMap[gr][gc];
-  if(!gCell||!canTraverseTerrain(unit,gCell)) return null;
+  if(sr===gr&&sc===gc) return {cells:[startCell],skirtRiver:false};
+  const role=getUnitMoveRole(unit);
   const key=(r,c)=>`${r}|${c}`;
-  const startKey=key(sr,sc);
-  const goalKey=key(gr,gc);
-  const dist=new Map([[startKey,0]]);
-  const parent=new Map();
-  const heap=[];
-  const heapPush=(d,r,c)=>{
-    const o={d,r,c,k:key(r,c)};
-    heap.push(o);
-    let i=heap.length-1;
-    while(i>0){
-      const p=(i-1)>>1;
-      if(heap[p].d<=o.d) break;
-      const t=heap[p]; heap[p]=heap[i]; heap[i]=t;
-      i=p;
-    }
+  const goalK=key(gr,gc);
+  const INF=1e30;
+  const edgeW=(nCell)=>{
+    if(!nCell) return INF;
+    let w=terrainMoveCost(nCell,role);
+    const ab=terrainAdvantageBias(role,nCell);
+    if(Number.isFinite(ab)) w+=ab;
+    return Math.max(0.05,w);
   };
-  const heapPop=()=>{
-    if(!heap.length) return null;
-    const out=heap[0];
-    const last=heap.pop();
-    if(heap.length){
-      heap[0]=last;
-      let i=0;
-      const L=heap.length;
-      for(;;){
-        const l=i*2+1,r=l+1;
-        let sm=i;
-        if(l<L&&heap[l].d<heap[sm].d) sm=l;
-        if(r<L&&heap[r].d<heap[sm].d) sm=r;
-        if(sm===i) break;
-        const t=heap[i]; heap[i]=heap[sm]; heap[sm]=t;
-        i=sm;
+  const dijkstra=(skipRiverEnter)=>{
+    const dist=new Map();
+    const parent=new Map();
+    dist.set(key(sr,sc),0);
+    const done=new Set();
+    while(done.size<ROWS*COLS){
+      let bestK=null,bestD=INF;
+      for(const [k,d] of dist){
+        if(done.has(k)||d>=INF) continue;
+        if(d<bestD){ bestD=d; bestK=k; }
+      }
+      if(bestK==null||bestD>=INF) break;
+      done.add(bestK);
+      if(bestK===goalK){
+        const path=[];
+        let cur=goalK;
+        while(cur){
+          const parts=cur.split('|');
+          const cr=Number(parts[0]),cc=Number(parts[1]);
+          path.push(hexMap[cr][cc]);
+          cur=parent.get(cur);
+        }
+        path.reverse();
+        return path;
+      }
+      const bp=bestK.split('|');
+      const r=Number(bp[0]),c=Number(bp[1]);
+      const nbrs=getHexNeighbors(r,c);
+      for(let i=0;i<nbrs.length;i++){
+        const [nr,nc]=nbrs[i];
+        const nKey=key(nr,nc);
+        const nCell=hexMap[nr][nc];
+        if(!nCell||!canTraverseTerrain(unit,nCell)) continue;
+        if(skipRiverEnter&&nCell.type==='river'&&!(nr===gr&&nc===gc)) continue;
+        const nd=bestD+edgeW(nCell);
+        const prev=dist.get(nKey);
+        if(prev===undefined||nd<prev){
+          dist.set(nKey,nd);
+          parent.set(nKey,bestK);
+        }
       }
     }
-    return out;
+    return null;
   };
-  heapPush(0,sr,sc);
-  const maxIter=Math.min(ROWS*COLS*10,48000);
-  let iter=0;
-  while(heap.length&&iter<maxIter){
-    iter++;
-    const cur=heapPop();
-    if(!cur) break;
-    const {d,r,c,k}=cur;
-    const dk=dist.get(k);
-    if(dk!==undefined&&cur.d>dk+1e-6) continue;
-    if(k===goalKey){
-      const path=[];
-      let ck=k;
-      while(ck){
-        const parts=ck.split('|');
-        const cr=Number(parts[0]),cc=Number(parts[1]);
-        if(cr>=0&&cr<ROWS&&cc>=0&&cc<COLS) path.push(hexMap[cr][cc]);
-        ck=parent.get(ck);
-      }
-      path.reverse();
-      return path.length?path:null;
-    }
-    const nbrs=getHexNeighbors(r,c);
-    const curCell=hexMap[r][c];
-    for(let i=0;i<nbrs.length;i++){
-      const [nr,nc]=nbrs[i];
-      const nCell=hexMap[nr][nc];
-      if(!nCell||!canTraverseTerrain(unit,nCell)) continue;
-      const nk=key(nr,nc);
-      const stepCost=hexNeighborStepCostForPath(unit,curCell,nCell);
-      if(!Number.isFinite(stepCost)||stepCost>99990) continue;
-      const nd=d+stepCost;
-      const prev=dist.get(nk);
-      if(prev===undefined||nd<prev-1e-9){
-        dist.set(nk,nd);
-        parent.set(nk,k);
-        heapPush(nd,nr,nc);
-      }
-    }
-  }
-  return null;
+  const land=dijkstra(true);
+  if(land) return {cells:land,skirtRiver:true};
+  const any=dijkstra(false);
+  if(!any) return null;
+  return {cells:any,skirtRiver:false};
 }
 function findHexPathAStar(unit,sr,sc,gr,gc){
   const g=hexMap[gr]&&hexMap[gr][gc];
   if(!g) return null;
-  return findHexPathCells(unit,g);
+  const res=findHexPathCells(unit,g);
+  return res&&res.cells?res.cells:null;
 }
 
 function bestAdjacentCell(unit,targetX,targetY){
@@ -3588,6 +3594,7 @@ function bestAdjacentCell(unit,targetX,targetY){
     return c.result;
   }
   const role=getUnitMoveRole(unit);
+  const standCellForBias=getTerrainCellForUnitCenter(unit);
   const baseAngle=Math.atan2(targetY-unit.y,targetX-unit.x);
   const bestByKey=new Map();
   function consider(nx,ny,cell,score){
@@ -3607,7 +3614,7 @@ function bestAdjacentCell(unit,targetX,targetY){
     const dirPenalty=Math.abs(i-6)*0.4;
     const toTarget=Math.hypot(targetX-nx,targetY-ny)/Math.max(1,HW);
     const targetPenalty=toTarget*0.22;
-    const advBias=terrainAdvantageBias(role,getEffectiveTerrainCellForMoveWithUnitDisk(unit,nx,ny,nx-unit.x,ny-unit.y)||cell);
+    const advBias=terrainAdvantageBias(role,standCellForBias||cell);
     const lookPenalty=localPathPenalty(unit,nx,ny,targetX,targetY);
     const heavyPenalty=moveCost>=4?0.85:0;
     const score=moveCost+dirPenalty+targetPenalty+lookPenalty+heavyPenalty+advBias;
@@ -3645,7 +3652,7 @@ function bestAdjacentCell(unit,targetX,targetY){
         const dirPenalty=(Math.abs(delta)/Math.PI)*6*0.4;
         const toTarget=Math.hypot(targetX-nx,targetY-ny)/Math.max(1,HW);
         const targetPenalty=toTarget*0.22;
-        const advBias=terrainAdvantageBias(role,getEffectiveTerrainCellForMoveWithUnitDisk(unit,nx,ny,nx-unit.x,ny-unit.y)||cell);
+        const advBias=terrainAdvantageBias(role,standCellForBias||cell);
         const lookPenalty=localPathPenalty(unit,nx,ny,targetX,targetY);
         const heavyPenalty=moveCost>=4?0.85:0;
         const score=moveCost+dirPenalty+targetPenalty+lookPenalty+heavyPenalty+advBias;
@@ -3680,7 +3687,7 @@ function bestAdjacentCell(unit,targetX,targetY){
         const dirPenalty=(Math.abs(delta)/Math.PI)*6*0.4+0.35;
         const toTarget=Math.hypot(targetX-nx,targetY-ny)/Math.max(1,HW);
         const targetPenalty=toTarget*0.22;
-        const advBias=terrainAdvantageBias(role,getEffectiveTerrainCellForMoveWithUnitDisk(unit,nx,ny,nx-unit.x,ny-unit.y)||cell);
+        const advBias=terrainAdvantageBias(role,standCellForBias||cell);
         const lookPenalty=localPathPenalty(unit,nx,ny,targetX,targetY);
         const heavyPenalty=moveCost>=4?0.85:0;
         const score=moveCost+dirPenalty+targetPenalty+lookPenalty+heavyPenalty+advBias;
@@ -3706,7 +3713,7 @@ function bestAdjacentCell(unit,targetX,targetY){
         const dirPenalty=(Math.abs(dAng)/Math.PI)*6*0.35;
         const toTarget=Math.hypot(targetX-nx,targetY-ny)/Math.max(1,HW);
         const targetPenalty=toTarget*0.22+ri*0.12;
-        const advBias=terrainAdvantageBias(role,getEffectiveTerrainCellForMoveWithUnitDisk(unit,nx,ny,nx-unit.x,ny-unit.y)||cell);
+        const advBias=terrainAdvantageBias(role,standCellForBias||cell);
         const lookPenalty=localPathPenalty(unit,nx,ny,targetX,targetY);
         const score=moveCost+dirPenalty+targetPenalty+lookPenalty+advBias+0.25;
         consider(nx,ny,cell,score);
@@ -4287,12 +4294,6 @@ function enterPlacement() {
   }
   
   markDirty();
-  setTimeout(function(){
-    if(!isBattle && getSortedUd().length>0){
-      const dm=document.getElementById('deploy-pending-modal');
-      if(dm) dm.classList.add('show');
-    }
-  }, 520);
 }
 // [통합 버전] 안내 메시지 충돌 해결 및 가독성 개선
 function updatePG() {
@@ -4645,18 +4646,19 @@ function clearAllyHexPath(u){
   u._hexPathCells=null;
   u._hexPathIdx=0;
   u._pathCorners=null;
+  u._pathSkirtRiver=false;
 }
+/** 5.html: 클릭 이동 — BFS 꼭짓점만 중간 경유, 직선 지름길로 강 관통 방지 */
 function applyWaypointPath(u,wp){
   if(!u||!wp) return;
   u.wx=wp.x; u.wy=wp.y;
   clearAllyHexPath(u);
   const goal=nearestCell(wp.x,wp.y);
-  const path=findHexPathCells(u,goal);
-  // 직선으로만 목표까지 가면 헥 경계를 가로질러 강·느린 타일을 '지름길'로 밟음 → 헥스 경로의 각 칸 중심을 순서대로만 추종
-  if(path&&path.length>=2){
-    u._hexPathCells=path.map(c=>({x:c.x,y:c.y}));
-    u._hexPathIdx=1;
-  }
+  const res=findHexPathCells(u,goal);
+  const path=res&&res.cells;
+  u._pathSkirtRiver=!!(res&&res.skirtRiver);
+  if(path&&path.length>2) u._pathCorners=path.slice(1,-1).map(c=>({x:c.x,y:c.y}));
+  else u._pathCorners=null;
 }
 // 드래그 이동을 처리하는 별도 함수
 function executeMoveOrder(u, x, y) {
@@ -5422,7 +5424,7 @@ function battleTick(){
     const secBonus=getUnitSecondaryBonus(a);
     const cityObjBuffActive=isCityMobaBattle()&&Number(a.cityObjBuffUntil||0)>now;
     const cityObjProfile=cityObjBuffActive?getCityObjectiveBuffProfile(a.cityObjBuffType):null;
-    const cell = nearestCell(a.x, a.y);
+    const cell=getTerrainCellForUnitCenter(a);
     const terrSpd = cell ? TERRAIN[cell.type].spd : 1.0;
     if((secBonus.regen>0||cityObjProfile?.regen>0) && (_frameCount%60===0)){
       a.hp=Math.min(a.maxHp,a.hp+(secBonus.regen||0)+(cityObjProfile?.regen||0));
@@ -5583,7 +5585,7 @@ function battleTick(){
       e.ultimateSlowUntil=0;
       e.ultimateSlowMul=1;
     }
-    const moveSpd=(e.spd||0.8)*(e.ultimateSlowMul||1)*MOVE_FEEL_MUL;
+    const moveSpd=(e.spd||0.8)*(e.ultimateSlowMul||1)*MOVE_FEEL_MUL*getFrameMoveMul();
     // 공속 쿨다운
     if(e.atkCd===undefined)e.atkCd=0;
     if(e.atkCd>0)e.atkCd--;
@@ -6390,14 +6392,13 @@ function clampToMap(u){
   u.x=Math.max(MAP_PAD, Math.min(CW-MAP_PAD, u.x));
   u.y=Math.max(MAP_PAD, Math.min(CH-MAP_PAD, u.y));
 }
-
 function moveAlly(a,ae,aa,baseTerrSpd){
   const role=a.classKey||a.class10Key||a.baseRole||'Melee';
   const roleBase=(a.class10Key&&CLASS10[a.class10Key]?.base)||(a.classKey||a.baseRole||'Refugee');
 
   // 대기실 후퇴 명령: 전투 행동을 중단하고 좌측 벽으로 이탈
   if(a.retreatingToStandby){
-    const retreatSpd=Math.max(1.6,(a.spd||1)*1.2)*MOVE_FEEL_MUL;
+    const retreatSpd=Math.max(1.6,(a.spd||1)*1.2)*MOVE_FEEL_MUL*getFrameMoveMul();
     a.x-=retreatSpd;
     clampToMap(a);
     if(a.x<=MAP_PAD+1){
@@ -6407,10 +6408,10 @@ function moveAlly(a,ae,aa,baseTerrSpd){
     return;
   }
 
-  // 현재 지형 이동속도 계산 — 경계 걸림 시 nearest·인접·맵 스캔 순으로 탈출 (발밑: 원반 샘플)
-  let domCell=getEffectiveTerrainCellForMoveWithUnitDisk(a,a.x,a.y,a.wx!=null&&a.wy!=null?(a.wx-a.x):0,a.wy!=null&&a.wy!=null?(a.wy-a.y):0)||getEffectiveTerrainCellForMove(a,a.x,a.y);
+  // 현재 지형 이동속도: 유닛 테두리(이동 방향)에서 샘플
+  let domCell=getTerrainCellForUnitCenter(a);
   if(!domCell||!canTraverseTerrain(a,domCell)){
-    const recoverBaseSpd=Math.max(1,(a.spd||1))*MOVE_FEEL_MUL;
+    const recoverBaseSpd=Math.max(1,(a.spd||1))*MOVE_FEEL_MUL*getFrameMoveMul();
     const recoverStepCap=Math.max(10,HW*0.95);
     const tx=(a.wx!=null&&a.wy!=null)?a.wx:(a.x+HW);
     const ty=(a.wx!=null&&a.wy!=null)?a.wy:(a.y+HR);
@@ -6432,14 +6433,14 @@ function moveAlly(a,ae,aa,baseTerrSpd){
         }
       }
     }
-    domCell=getEffectiveTerrainCellForMoveWithUnitDisk(a,a.x,a.y,a.wx!=null&&a.wy!=null?(a.wx-a.x):0,a.wy!=null&&a.wy!=null?(a.wy-a.y):0)||getEffectiveTerrainCellForMove(a,a.x,a.y);
+    domCell=getTerrainCellForUnitCenter(a);
   }
   const roleMove=getUnitMoveRole(a);
   const terrCost=domCell?terrainMoveCost(domCell,roleMove):1.0;
   // 최소 이동속도 보장: terrCost가 아무리 높아도 기본 속도의 20% 이상
   const terrSpd=Math.max(0.20, Math.min(1.0, 1.0/Math.max(terrCost,1)));
   const secBonus=getUnitSecondaryBonus(a);
-  let spd=a.spd*terrSpd*(a.ultimateSpdMul||1)*(secBonus.heroSpdMul||1)*MOVE_FEEL_MUL;
+  let spd=a.spd*terrSpd*(a.ultimateSpdMul||1)*(secBonus.heroSpdMul||1)*MOVE_FEEL_MUL*getFrameMoveMul();
 
   // 모듈3: 산 지형 클래스 규칙
   if(domCell&&domCell.type==='mountain'){
@@ -6452,35 +6453,32 @@ function moveAlly(a,ae,aa,baseTerrSpd){
   // 홀드: 웨이포인트 있으면 이동, 없으면 정지
   if(a.onHold&&(a.wx===null||a.wy===null)) return;
 
-  // 웨이포인트: 직선 앞 '다음 칸'만 보고 명령 취소하지 않음(샘플이 강/산 등으로 잡히면 조금만 가다 멈추는 현상 방지).
-  // 금지 지형에 밟히면 매 프레임 시작부 curCell 처리·우회로 복구.
+  // 웨이포인트 (5.html): _pathCorners 꼭짓점 순회 후 최종 wx,wy
   if(a.wx!==null&&a.wy!==null){
       let tgx=a.wx,tgy=a.wy;
-      if(Array.isArray(a._hexPathCells)&&a._hexPathCells.length>=2){
-        const last=a._hexPathCells.length-1;
-        let idx=Math.min(Math.max(1,a._hexPathIdx||1),last);
-        a._hexPathIdx=idx;
-        tgx=a._hexPathCells[idx].x;
-        tgy=a._hexPathCells[idx].y;
+      if(Array.isArray(a._pathCorners)&&a._pathCorners.length){
+        tgx=a._pathCorners[0].x; tgy=a._pathCorners[0].y;
       }
       const dx=tgx-a.x, dy=tgy-a.y, d=Math.hypot(dx,dy);
       if(d < 14){
-        if(Array.isArray(a._hexPathCells)&&a._hexPathCells.length>=2){
-          const last=a._hexPathCells.length-1;
-          if((a._hexPathIdx||1)<last) a._hexPathIdx=(a._hexPathIdx||1)+1;
-          else{ a.wx=null; a.wy=null; clearAllyHexPath(a); }
+        if(Array.isArray(a._pathCorners)&&a._pathCorners.length){
+          a._pathCorners.shift();
+          if(!a._pathCorners.length) a._pathCorners=null;
         }else{
           a.wx=null; a.wy=null;
         }
       } else {
-        const nx=a.x+dx/d*spd;
-        const ny=a.y+dy/d*spd;
-        const domAtNext=getEffectiveTerrainCellForMoveWithUnitDisk(a,nx,ny,dx,dy);
+        let nx=a.x+dx/d*spd;
+        let ny=a.y+dy/d*spd;
+        const cl0=clampCenterSkirtRiverInterior(a,a.x,a.y,nx,ny);
+        nx=cl0.x; ny=cl0.y;
+        const domMulti=getEffectiveTerrainCellMoveMulti(a,dx,dy);
+        const domAtNext=getEffectiveTerrainCellForMove(a,nx,ny);
         let detourBest=null;
         if(domAtNext&&canTraverseTerrain(a,domAtNext)&&terrainMoveCost(domAtNext,getUnitMoveRole(a))>=3.8){
           detourBest=bestAdjacentCell(a,a.wx,a.wy);
         }
-        if(!domAtNext||!canTraverseTerrain(a,domAtNext)){
+        if(domMulti.blocked||!domAtNext||!canTraverseTerrain(a,domAtNext)){
           const best=bestAdjacentCell(a,a.wx,a.wy);
           if(best){
             const bdx=best.x-a.x, bdy=best.y-a.y, bn=Math.hypot(bdx,bdy);
@@ -6495,7 +6493,7 @@ function moveAlly(a,ae,aa,baseTerrSpd){
                 a.x+=sdx/sn*step; a.y+=sdy/sn*step; clampToMap(a);
               }
             }
-            else{ a.wx=null; a.wy=null; clearAllyHexPath(a); }
+            else{ a.wx=null; a.wy=null; }
           }
         }else if(detourBest&&shouldDetourForFasterArrival(a,a.wx,a.wy,domAtNext,detourBest)){
           const bdx=detourBest.x-a.x, bdy=detourBest.y-a.y, bn=Math.hypot(bdx,bdy);
@@ -7287,19 +7285,10 @@ function showDay1Tutorial() {
 
   document.getElementById('garrison-title').innerText = '⚔️ 실전 지휘 안내 (1/3)';
   document.getElementById('garrison-body').innerHTML = `
-    <div style="font-size:11px;color:#d1d5db;line-height:1.75;margin-bottom:14px">
-      <div style="margin-bottom:10px;padding:8px 10px;border-radius:6px;background:rgba(30,41,59,0.45);border:1px solid rgba(71,85,105,0.55)">
-        <span style="color:#fbbf24;font-weight:700">👆 드래그 이동</span>
-        <div style="margin-top:4px;color:#e5e7eb">전투 중 대원을 드래그하여 실시간으로 위치를 바꿀 수 있습니다. 위험한 상황에서 대원을 구출하거나 유리한 지형으로 옮기세요.</div>
-      </div>
-      <div style="margin-bottom:10px;padding:8px 10px;border-radius:6px;background:rgba(30,58,95,0.4);border:1px solid rgba(59,130,246,0.35)">
-        <span style="color:#7dd3fc;font-weight:700">🧭 방향 전투</span>
-        <div style="margin-top:4px;color:#e5e7eb">유닛 테두리의 작은 원이 정면입니다. <b style="color:#bae6fd">정면 공격</b>은 방어도가 적용되고, <b style="color:#fecaca">후방·후방측면 공격</b>은 방어를 무시합니다.</div>
-      </div>
-      <div style="margin-bottom:10px;padding:8px 10px;border-radius:6px;background:rgba(88,28,135,0.25);border:1px solid rgba(167,139,250,0.4)">
-        <span style="color:#d8b4fe;font-weight:700">🖱️ 더블 클릭</span>
-        <div style="margin-top:4px;color:#e5e7eb">대원을 더블 클릭하면 그 자리에 고정되는 <b style="color:#e9d5ff">홀드(Hold)</b> 상태가 되어 제자리에서 적을 맞이합니다.</div>
-      </div>
+    <div style="font-size:11px;color:#d1d5db;line-height:1.7;margin-bottom:14px">
+      <div style="margin-bottom:10px">👆 <b style="color:#fbbf24">드래그 이동</b><span style="color:#9ca3af">:</span> 전투 중 대원을 드래그하여 실시간으로 위치를 바꿀 수 있습니다. 위험한 상황에서 대원을 구출하거나 유리한 지형으로 옮기세요!</div>
+      <div style="margin-bottom:10px">🧭 <b style="color:#38bdf8">방향 전투</b><span style="color:#9ca3af">:</span> 유닛 테두리의 작은 원이 정면입니다. <b style="color:#e5e7eb">정면에서의 공격은 방어도가 적용</b>되고, <b style="color:#fca5a5">후방·후방측면에서의 공격은 방어를 무시</b>합니다.</div>
+      <div style="margin-bottom:10px">🖱️ <b style="color:#c084fc">더블 클릭</b><span style="color:#9ca3af">:</span> 대원을 더블 클릭하면 그 자리에 고정되는 <b style="color:#d8b4fe">홀드(Hold)</b> 상태가 되어 제자리에서 적을 맞이합니다.</div>
     </div>
     <button onclick="showTutorialStep2()" 
       style="width:100%;padding:12px;background:#1a5c32;border:none;border-radius:5px;color:#fff;font-weight:bold;cursor:pointer;touch-action:manipulation">
@@ -7313,19 +7302,13 @@ function showDay1Tutorial() {
 function showTutorialStep2() {
   document.getElementById('garrison-title').innerText = '💡 생존·기술 안내 (2/3)';
   document.getElementById('garrison-body').innerHTML = `
-    <div style="font-size:11px;color:#d1d5db;line-height:1.75;margin-bottom:14px">
-      <div style="margin-bottom:10px;padding:10px 12px;border-radius:6px;background:rgba(127,29,29,0.35);border:1px solid rgba(248,113,113,0.45)">
-        <span style="color:#fca5a5;font-weight:700">🚑 영구 사망 주의</span>
-        <div style="margin-top:6px;color:#fecaca">체력이 0이 되면 빈사 상태가 되며, <b style="color:#fff">7초</b> 내에 치료하지 못하면 대원은 <b style="color:#f87171">영구히 사망</b>하여 사라집니다.</div>
-      </div>
-      <div style="margin-bottom:10px;padding:8px 10px;border-radius:6px;background:rgba(120,53,15,0.3);border:1px solid rgba(251,191,36,0.35)">
-        <span style="color:#fcd34d;font-weight:700">★ 스킬 교체로 생존률 UP</span>
-        <div style="margin-top:6px;color:#e5e7eb">전투 상황에 맞게 동료 카드의 스킬 버튼을 눌러 장착 기술을 교체할 수 있습니다. 자주 사용할수록 <b style="color:#fde68a">스킬 레벨</b>이 올라 더욱 강력해집니다.</div>
-      </div>
-      <div style="background:rgba(15,23,42,0.65); padding:10px 12px; border-radius:6px; border:1px solid rgba(56,189,248,0.35); margin-top:4px;">
-        <div style="color:#7dd3fc; font-weight:700; margin-bottom:6px">📢 추천 설정</div>
-        <div style="margin-bottom:6px;color:#cbd5e1">🛡️ <span style="color:#fdba74;font-weight:600">방어력</span> — <span style="color:#86efac;font-weight:600">[몸으로 막기]</span> 활성화</div>
-        <div style="color:#cbd5e1">🚑 <span style="color:#93c5fd;font-weight:600">HP 회복</span> — <span style="color:#86efac;font-weight:600">[상처 처치]</span> 활성화</div>
+    <div style="font-size:11px;color:#d1d5db;line-height:1.7;margin-bottom:14px">
+      <div style="margin-bottom:10px">🚑 <b style="color:#f87171">영구 사망 주의</b><span style="color:#9ca3af">:</span> 체력이 0이 되면 빈사 상태가 되며, <b style="color:#fff">7초</b> 내에 치료하지 못하면 대원은 <b style="color:#ef4444">영구히 사망</b>하여 사라집니다!</div>
+      <div style="margin-bottom:8px">★ <b style="color:#fcd34d">생존을 높이려면 스킬을 바꿔 보세요.</b><br> 전투 상황에 맞게 동료 카드의 스킬 버튼을 눌러 장착 기술을 교체할 수 있습니다. 자주 사용할수록 <b style="color:#fde047">스킬 레벨</b>이 올라 더욱 강력해집니다.</div>
+      <div style="background:rgba(0,0,0,0.3); padding:8px; border-radius:5px; border:1px solid #1e3a5f; margin-top:10px;">
+        <div style="color:#7dd3fc; font-weight:bold; margin-bottom:4px">📢 추천 설정</div>
+        <div style="margin-bottom:4px">🛡️ <b style="color:#fdba74">방어력을 높이려면</b><span style="color:#9ca3af">:</span> <span style="color:#4ade80">[몸으로 막기]</span> 활성화</div>
+        <div>🚑 <b style="color:#93c5fd">HP를 회복시키려면</b><span style="color:#9ca3af">:</span> <span style="color:#4ade80">[상처 처치]</span> 활성화</div>
       </div>
     </div>
     <button onclick="showTutorialStep3()" 
@@ -7338,27 +7321,11 @@ function showTutorialStep2() {
 function showTutorialStep3() {
   document.getElementById('garrison-title').innerText = '🎊 부대·거점 안내 (3/3)';
   document.getElementById('garrison-body').innerHTML = `
-    <div style="font-size:11px;color:#d1d5db;line-height:1.75;margin-bottom:14px">
-      <div style="margin-bottom:10px;padding:8px 10px;border-radius:6px;border-left:4px solid #38bdf8;background:rgba(30,41,59,0.45)">
-        <div style="color:#38bdf8;font-weight:700;margin-bottom:4px">👥 최대 파티원</div>
-        <div style="color:#e5e7eb">이번 전장에서 나갈 수 있는 파티원은 최대 <b style="color:#fff">${PARTY_LIMIT}명</b>까지입니다.</div>
-      </div>
-      <div style="margin-bottom:10px;padding:8px 10px;border-radius:6px;border-left:4px solid #f59e0b;background:rgba(120,53,15,0.28)">
-        <div style="color:#fbbf24;font-weight:700;margin-bottom:4px">🍖 유닛 고용</div>
-        <div style="color:#e5e7eb">식량으로 피난민을 합류시키거나, 금화로 이미 전직된 강력한 용병을 고용하세요.</div>
-      </div>
-      <div style="margin-bottom:10px;padding:8px 10px;border-radius:6px;border-left:4px solid #a78bfa;background:rgba(49,46,129,0.35)">
-        <div style="color:#c4b5fd;font-weight:700;margin-bottom:6px">🚩 거점</div>
-        <div style="color:#e5e7eb">사냥터를 끝까지 클리어하면 거점을 세우고, 자동 자원·주둔 편성을 이용할 수 있습니다.</div>
-        <div style="margin-top:8px;padding:10px 11px;border-radius:6px;background:rgba(30,58,138,0.45);border:1px solid rgba(96,165,250,0.4)">
-          <div style="color:#7dd3fc;font-weight:700;font-size:10.5px;margin-bottom:6px">⏱ 기록 시간 · 단계 보너스</div>
-          <div style="color:#bfdbfe;line-height:1.65"><b style="color:#e0f2fe">1일차 첫 출발부터 15일차 승리까지 걸린 기록 시간</b>이 짧을수록 재원 획득에 유리합니다. 거점 <b style="color:#fff">단계</b>와 <b style="color:#fff">건물 업그레이드</b>로 효율과 보너스가 함께 올라갑니다.</div>
-        </div>
-      </div>
-      <div style="margin-bottom:6px;padding:8px 10px;border-radius:6px;border-left:4px solid #22c55e;background:rgba(20,83,45,0.28)">
-        <div style="color:#4ade80;font-weight:700;margin-bottom:4px">🔄 자동 진행</div>
-        <div style="color:#e5e7eb">ON 설정 시 전투가 끝나면 대기 시간 없이 즉시 다음 사냥을 시작합니다.</div>
-      </div>
+    <div style="font-size:11px;color:#d1d5db;line-height:1.7;margin-bottom:14px">
+      <div style="margin-bottom:8px">👥 <b style="color:#38bdf8">최대 파티원</b><span style="color:#9ca3af">:</span> 이번 전장에서 나갈 수 있는 파티원은 최대 <b style="color:#fff">${PARTY_LIMIT}명</b>까지입니다.</div>
+      <div style="margin-bottom:8px">🍖 <b style="color:#fbbf24">유닛 고용</b><span style="color:#9ca3af">:</span> 식량으로 피난민을 합류시키거나, 금화로 이미 전직된 강력한 용병을 고용하세요.</div>
+      <div style="margin-bottom:8px">🚩 <b style="color:#c084fc">거점</b><span style="color:#9ca3af">:</span> 사냥터를 끝까지 클리어하면 거점을 세우고, 자동 자원·주둔 편성을 이용할 수 있습니다. <b style="color:#7dd3fc"><br>1일차 첫 출발부터 15일차 승리까지 걸린 기록 시간</b>이 짧을수록 재원 얻기에 유리하고, 거점 <b style="color:#e5e7eb">단계</b>·<b style="color:#e5e7eb">건물 업그레이드</b>로 효율과 보너스가 함께 올라갑니다.</div>
+      <div style="margin-bottom:8px">🔄 <b style="color:#4ade80">자동 진행</b><span style="color:#9ca3af">:</span> ON 설정 시 전투가 끝나면 대기 시간 없이 즉시 다음 사냥을 시작합니다.</div>
     </div>
     
     <div style="display:flex;gap:8px">
@@ -10138,10 +10105,8 @@ function draw(crowdedBattle){
     }
     if(a.wx!==null){
       let gx=a.wx, gy=a.wy;
-      if(Array.isArray(a._hexPathCells)&&a._hexPathCells.length>=2){
-        const last=a._hexPathCells.length-1;
-        const idx=Math.min(Math.max(1,a._hexPathIdx||1),last);
-        gx=a._hexPathCells[idx].x; gy=a._hexPathCells[idx].y;
+      if(Array.isArray(a._pathCorners)&&a._pathCorners.length){
+        gx=a._pathCorners[0].x; gy=a._pathCorners[0].y;
       }
       ctx.save();ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(gx,gy);ctx.strokeStyle='#f1c40f99';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);ctx.stroke();ctx.beginPath();ctx.arc(gx,gy,5,0,Math.PI*2);ctx.strokeStyle='#f1c40f';ctx.lineWidth=2;ctx.setLineDash([]);ctx.stroke();ctx.restore();
     }
@@ -10229,8 +10194,8 @@ function draw(crowdedBattle){
 function drawUnit(u) {
   const isAlly = u.type === 'ally';
   const baseR = 13;
-  const pgMul=(isAlly&&getUnitPartyGroupId(u.id)>0)?3:1;
-  const R = baseR * pgMul;
+  const pgMul=(isAlly&&typeof getUnitPartyGroupId==='function'&&getUnitPartyGroupId(u.id)>0)?3:1;
+  const R = isAlly ? baseR * pgMul : baseR;
   const role = u.classKey || u.baseRole || 'Refugee';
   const colorRole = u.class10Key ? (CLASS10[u.class10Key]?.base || role) : role;
   const rd = BASE_ROLES[colorRole] || BASE_ROLES[role];
@@ -11339,7 +11304,7 @@ function updateRetreatingAllies(){
   for(let i=0;i<allies.length;i++){
     const u=allies[i];
     if(!u||!u.retreatingToStandby||u.dead||u.permanentlyDead) continue;
-    const retreatSpd=Math.max(1.6,(u.spd||1)*1.2)*MOVE_FEEL_MUL;
+    const retreatSpd=Math.max(1.6,(u.spd||1)*1.2)*MOVE_FEEL_MUL*getFrameMoveMul();
     u.x-=retreatSpd;
     clampToMap(u);
     if(u.x<=MAP_PAD+1) finishedIds.push(u.id);
@@ -12133,10 +12098,11 @@ function resolveOverlap() {
   }
 }
 
-function loop(gen) {
+function loop(gen,rafTs) {
   if(gen!==_loopGen) return;
+  updateFrameMoveMul(rafTs);
   if(!ensureHexMapReady()){
-    requestAnimationFrame(function(){ loop(_loopGen); });
+    requestAnimationFrame(function(ts){ loop(_loopGen,ts); });
     return;
   }
   _loopRunning=true;
@@ -12310,7 +12276,7 @@ function loop(gen) {
     _loopRunning=false;
     _loopHeartbeatAt=Date.now();
     const nextGen=_loopGen;
-    requestAnimationFrame(function(){ loop(nextGen); });
+    requestAnimationFrame(function(ts){ loop(nextGen,ts); });
   }
 }
 
