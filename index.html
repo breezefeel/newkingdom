@@ -461,18 +461,27 @@ button, .cb, .skb, .ub, .zone-btn, .class-btn, .gz-unit, .gz-add, .collapse-btn 
     display: flex;
     justify-content: center;
 }
-/* 지도 좌측 상단 자원 HUD — 모서리 밀착·얇은 반투명+블러로 지도 가림 최소화 */
-#map-res-hud {
+/* 지도 좌측 상단: 자원 HUD + 파티 그룹 궁극 버튼 스택 */
+.map-hud-stack {
   position: absolute;
   left: 3px;
   top: 3px;
   z-index: 60;
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  max-width: min(calc(100% - 6px), 480px);
+  pointer-events: none;
+}
+/* 자원 HUD — 모서리 밀착·얇은 반투명+블러로 지도 가림 최소화 */
+#map-res-hud {
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 3px 8px;
   row-gap: 2px;
-  max-width: min(calc(100% - 6px), 480px);
+  width: 100%;
   padding: 4px 7px;
   border-radius: 6px;
   border: 1px solid rgba(30, 58, 95, 0.45);
@@ -485,6 +494,21 @@ button, .cb, .skb, .ub, .zone-btn, .class-btn, .gz-unit, .gz-add, .collapse-btn 
   pointer-events: none;
 }
 #map-res-hud .rv { white-space: nowrap; }
+/* 재원 아래 파티 그룹 궁극 — 클릭 가능 */
+#party-group-ult-hud {
+  display: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 6px;
+  padding: 4px 7px;
+  border-radius: 6px;
+  border: 1px solid rgba(91, 45, 130, 0.5);
+  background: rgba(10, 14, 22, 0.52);
+  -webkit-backdrop-filter: blur(8px) saturate(1.1);
+  backdrop-filter: blur(8px) saturate(1.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  pointer-events: auto;
+}
 
 canvas {
     width: 100% !important;
@@ -574,6 +598,31 @@ canvas {
 .zone-btn .zn { font-size:1em; font-weight:bold; margin-bottom:5px; }
 .zone-btn .zd { font-size:0.75em; color:#9ca3af; line-height:1.4; margin-bottom:6px; }
 .zone-cur { font-size:9px; color:#f1c40f; margin-top:5px; }
+/* 전투지 모달: 그리드만 스크롤 · 닫기 버튼은 항상 하단에 고정 */
+.zone-modal-box {
+  max-width: 900px !important;
+  width: min(900px, 94vw);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.zone-modal-box .modal-title,
+.zone-modal-box .modal-sub { flex-shrink: 0; }
+.zone-grid-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: min(62vh, calc(90vh - 200px));
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  margin-bottom: 4px;
+  padding-right: 4px;
+}
+.zone-modal-box .zone-modal-close { flex-shrink: 0; margin-top: 8px; }
 .zr-hunt{background:#1a3d20;color:#2ecc71} .zr-bandit{background:#3d1010;color:#e74c3c}
 /* ── 거점 현황 ── */
 #garrison-bar {
@@ -600,37 +649,19 @@ canvas {
 }
 .gz-move-grip .cb { padding:0 4px; line-height:1; font-size:8px; min-height:0; }
 .gz-unit.standby { border-color:#5b2d82; color:#a855f7; }
-/* 주둔·통합 목록 좌측 ⇅ (파티창 순서 버튼과 동일 U+21C5) */
-.gz-refugee-arrow {
-  flex-shrink: 0;
-  align-self: stretch;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: max(12px, 0.83em);
-  padding: 0 2px 0 0;
-  font-size: clamp(12px, 0.87em, 17px);
-  line-height: 1;
-  user-select: none;
-  color: #eab308;
-  font-weight: 600;
-}
-.gz-standby-open-menu { cursor: pointer; touch-action: manipulation; }
-.gz-standby-menu-fallback {
-  flex-shrink: 0; align-self: stretch; display: inline-flex; align-items: center; justify-content: center;
-  min-width: 18px; padding: 0 2px 0 0; font-size: 14px; line-height: 1; color: #eab308; font-weight: 600; user-select: none;
-}
+/* 대기 유닛 카드 좌측 ⇅ — 파티창 순서 버튼과 동일 마크업·스타일(collapse-btn + U+21C5) */
+.gz-standby-open-menu { cursor: pointer; touch-action: manipulation; align-self: center; }
 /* 대기 바·유닛 목록·배치 인원 보기 — 동일 카드 수치(패딩·gap·flex) */
 .gz .gz-unit.standby,
 .standby-list-pop .standby-list-grid .gz-unit.standby,
 .integrated-members-pop .standby-list-grid .gz-unit.standby {
   box-sizing: border-box;
   margin: 0;
-  padding: 4px 4px;
+  padding: 2px 4px;
   display: flex;
   flex-direction: row;
-  align-items: stretch;
-  gap: 2px;
+  align-items: flex-start;
+  gap: 1ch;
   min-width: 0;
 }
 /* 거점 바 2열: 칸 너비에 맞춤 */
@@ -649,7 +680,7 @@ canvas {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   justify-content: center;
 }
 .gz-unit.standby .gz-standby-card-name-row {
@@ -759,29 +790,13 @@ canvas {
   font-weight: 700;
   color: #e2e8f0;
 }
-/* 목록·통합 그리드 안 ⇅ — 거점 바(.gz) 내 카드와 동일 */
-.standby-list-pop .standby-list-grid .gz-unit.standby .gz-refugee-arrow,
-.integrated-members-pop .standby-list-grid .gz-unit.standby .gz-refugee-arrow {
-  width: max(12px, 0.83em);
-  min-width: 0;
-  max-width: none;
-  padding: 0 2px 0 0;
-  font-size: clamp(12px, 0.87em, 17px);
-  font-weight: 600;
-}
-.standby-list-pop .standby-list-grid .gz-unit.standby .gz-standby-menu-fallback,
-.integrated-members-pop .standby-list-grid .gz-unit.standby .gz-standby-menu-fallback {
-  min-width: 18px;
-  padding: 0 2px 0 0;
-  font-size: 14px;
-  font-weight: 600;
-}
-/* 거점 바「대기 인원」2열 — gap 5px */
+/* 거점 바「대기 인원」2열 — gap 5px · 제목과의 간격 */
 .gz-standby-bar-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 5px;
   min-height: 24px;
+  margin-top: 10px;
 }
 .gz-standby-head {
   display: flex;
@@ -1108,7 +1123,7 @@ canvas {
 
 <div id="garrison-bar">
   <div id="garrison-bar-header" style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:#0f1923;flex-wrap:nowrap">
-    <span id="garrison-title-btn" onclick="event.stopPropagation();showGarrisonSummaryModal()"><span id="garrison-hud-main">🚩 주둔지 : 집합소</span><span id="garrison-hud-grade"></span><span id="garrison-hud-up" class="garrison-hud-pin garrison-hud-up" style="display:none" title="거점 업그레이드 가능">⬆</span><span id="garrison-hud-rebuild" class="garrison-hud-pin garrison-hud-rebuild" title="문명 재건">🏘마을 재건</span></span>
+    <span id="garrison-title-btn" onclick="event.stopPropagation();showGarrisonSummaryModal()"><span id="garrison-hud-main">🚩 집합소</span><span id="garrison-hud-grade"></span><span id="garrison-hud-up" class="garrison-hud-pin garrison-hud-up" style="display:none" title="거점 업그레이드 가능">⬆</span><span id="garrison-hud-rebuild" class="garrison-hud-pin garrison-hud-rebuild" title="문명 재건">🏘마을 재건</span></span>
     <span id="shop-btn" style="display:none"></span>
     <span id="garrison-bar-toggle" class="garrison-expand-btn" role="button" tabindex="0" onclick="event.stopPropagation();toggleGarrisonBar()">▼ 펼치기</span>
   </div>
@@ -1129,6 +1144,7 @@ canvas {
   <div id="map-row">
     <div id="center-col">
       <div id="mw">
+        <div class="map-hud-stack">
         <div id="map-res-hud" class="map-res-hud">
           <span class="rv">🍖<span class="fo" id="fd">50</span></span>
           <span class="rv" style="color:#8d6e63">🌲<span id="r-wood">0</span></span>
@@ -1140,6 +1156,8 @@ canvas {
           <span class="rv">💰<span id="gd">100</span></span>
           <span class="rv" style="color:#b3e5fc">💎<span id="r-diamond">0</span></span>
           <span class="rv" style="color:#c084fc">🔮<span id="r-manaCrystal">0</span></span>
+        </div>
+        <div id="party-group-ult-hud" aria-live="polite"></div>
         </div>
         <canvas id="gc"></canvas>
         <div id="pg">배치 중</div>
@@ -1249,11 +1267,13 @@ canvas {
 
 <!-- 전투지 선택 모달 -->
 <div id="zone-modal" class="overlay">
-  <div class="modal-box" style="max-width:900px">
+  <div class="modal-box zone-modal-box">
     <div class="modal-title">🗺 전투 장소 선택</div>
     <div class="modal-sub">전투지에 따라 적 유형과 획득 자원 비율이 달라집니다</div>
-    <div class="zone-grid" id="zone-grid"></div>
-    <button class="cb" style="background:#374151;width:100%;margin-top:12px;padding:8px" onclick="closeZoneModal()">닫기</button>
+    <div class="zone-grid-scroll">
+      <div class="zone-grid" id="zone-grid"></div>
+    </div>
+    <button type="button" class="cb zone-modal-close" style="background:#374151;width:100%;padding:8px" onclick="closeZoneModal()">닫기</button>
   </div>
 </div>
 
@@ -1275,7 +1295,7 @@ canvas {
     <div id="garrison-body" style="margin-bottom:12px"></div>
     <div id="garrison-footer" style="display:none;gap:8px">
       <button class="cb" type="button" style="background:#1a5c32;flex:1;padding:10px" onclick="confirmGarrison()">✅ 거점 배치</button>
-      <button class="cb" type="button" style="background:#374151;flex:1;padding:10px" onclick="closeGarrisonModal()">나중에</button>
+      <button class="cb" type="button" id="garrison-btn-exit" style="background:#374151;flex:1;padding:10px" onclick="closeGarrisonModal()">나가기</button>
     </div>
   </div>
 </div>
@@ -1298,6 +1318,14 @@ canvas {
       <button type="button" class="cb" id="ref-hire-btn" style="background:#e67e22;flex:1;padding:10px" onclick="hireFood()">🍖 영입</button>
       <button class="cb" style="background:#374151;flex:1;padding:10px" onclick="closeRefugeeModal()">취소</button>
     </div>
+  </div>
+</div>
+<!-- 배치 미완료 안내 (전투 종료 후 배치 단계에서만) -->
+<div id="deploy-pending-modal" class="overlay" style="z-index:4100">
+  <div class="modal-box" style="max-width:400px">
+    <div class="modal-title" style="color:#c084fc">📍 배치가 필요합니다</div>
+    <div style="font-size:12px;color:#cbd5e1;line-height:1.65;margin:12px 0 16px 0">아직 전장에 올리지 않은 통솔 대원이 있습니다.<br>좌측 <b style="color:#c084fc">보라색 배치 구역</b>을 눌러 주세요.</div>
+    <button type="button" class="cb" style="width:100%;background:#374151" onclick="document.getElementById('deploy-pending-modal').classList.remove('show')">확인</button>
   </div>
 </div>
 
@@ -1500,13 +1528,16 @@ function buildStandbyUnitCardHtml(a, opts){
   const bdW=(t.label&&t.label!=='Normal')?2:1;
   const rdColorKey=a.class10Key?(CLASS10[a.class10Key]?.base||(a.classKey||a.baseRole)):(a.classKey||a.baseRole);
   const rd=BASE_ROLES[rdColorKey]||BASE_ROLES[a.classKey||a.baseRole];
-  const isRef=!a.classKey&&!a.class10Key;
   const clsLabel=a.classKey?BASE_ROLES[a.classKey]?.name||'':'피난민';
-  const menuClick=(opts.garrisonZid!==undefined&&opts.garrisonZid!==null)
-    ? `clickGarrisonUnit(${JSON.stringify(String(opts.garrisonZid))},${a.id},event)`
-    : `clickStandbyUnit(${a.id},event)`;
+  const rawGz=opts.garrisonZid;
+  const hasGz=rawGz!==undefined&&rawGz!==null&&String(rawGz).length>0;
+  const menuClick=opts.useStandbyMoveMenu
+    ? `clickStandbyUnit(${a.id},event)`
+    :(hasGz
+    ? `clickGarrisonUnit(${JSON.stringify(String(rawGz))},${a.id},event)`
+    : `clickStandbyUnit(${a.id},event)`);
   const menuTrig=
-    `<span class="${isRef?'gz-refugee-arrow':'gz-standby-menu-fallback'} gz-standby-open-menu" role="button" tabindex="0" title="이동 메뉴" onclick="event.stopPropagation();${menuClick}" onpointerup="event.stopPropagation()">\u21C5</span>`;
+    `<button type="button" class="collapse-btn gz-standby-open-menu" title="이동 메뉴" style="padding:1px 4px;line-height:1;flex-shrink:0;font-size:10px;color:#eab308;font-weight:600;min-width:0;border-radius:4px;touch-action:manipulation" onclick="event.stopPropagation();${menuClick};return false;" onpointerup="event.stopPropagation()">\u21C5</button>`;
   const dragAttr=opts.noDrag?'':' draggable="true" ondragstart="standbyDragStart(event,'+a.id+')"';
   const wantStatClick=!!opts.statCardClick;
   const statCls=wantStatClick?' gz-standby-card--stat-tap':'';
@@ -1939,6 +1970,7 @@ let PARTY_LIMIT=6; // 파티 최대 인원(Phase별 동적)
 let uid=1,pendingClass=null;
 let isAutoSortEnabled = false; // 자동 정렬 비활성화(수동 버튼 정렬만)
 let _partyGroups={1:[],2:[]};  // 도시: G1 / 왕국: G1,G2
+let _partyGroupNames={1:'G1 파티',2:'G2 파티'};
 const PARTY_GROUP_UNIT_CAP=4;  // 그룹당 최대 영웅 수
 let _cityDuelUnlocked=false;   // 도시 2:2 듀오 해금 여부
 let savedPositions={};
@@ -2099,6 +2131,8 @@ function buildSavePayload(){
     sorrowDebuffUntil:cloneSafe(_sorrowDebuffUntil),
     savedPositions:cloneSafe(savedPositions),
     initialPositions:cloneSafe(initialPositions),
+    partyGroups:cloneSafe(_partyGroups),
+    partyGroupNames:cloneSafe(_partyGroupNames),
   };
 }
 function saveKeyForSlot(slot){
@@ -2166,6 +2200,23 @@ function hydrateGameState(data){
   _sorrowDebuffUntil=Array.isArray(data.sorrowDebuffUntil)?data.sorrowDebuffUntil.filter(ts=>Number(ts)>Date.now()):[];
   savedPositions=data.savedPositions||{};
   initialPositions=data.initialPositions||{};
+  if(data.partyGroups&&typeof data.partyGroups==='object'){
+    _partyGroups={
+      1:Array.isArray(data.partyGroups[1])?data.partyGroups[1].map(Number).filter(Number.isFinite):[],
+      2:Array.isArray(data.partyGroups[2])?data.partyGroups[2].map(Number).filter(Number.isFinite):[],
+    };
+  }else{
+    _partyGroups={1:[],2:[]};
+  }
+  if(data.partyGroupNames&&typeof data.partyGroupNames==='object'){
+    _partyGroupNames={
+      1:String(data.partyGroupNames[1]||'G1 파티').slice(0,32),
+      2:String(data.partyGroupNames[2]||'G2 파티').slice(0,32),
+    };
+  }else{
+    _partyGroupNames={1:'G1 파티',2:'G2 파티'};
+  }
+  sanitizePartyGroups();
   uid=Math.max(1,...allies.map(a=>Number(a.id)||0))+1;
   isBattle=false; isPaused=false; isPlacing=true;
   resetPartyUltimateState();
@@ -2594,6 +2645,7 @@ window.selectZone = function(id) {
     a.y = -300;
     a.wx = null; // 이동 경로 초기화
     a.wy = null;
+    clearAllyHexPath(a);
   });
 
   // 3. 맵 재구축 및 적군 생성
@@ -2913,8 +2965,9 @@ function tryMoveWithTerrain(unit,dx,dy,opts={}){
   if(!unit||!Number.isFinite(dx)||!Number.isFinite(dy)) return false;
   const nx=unit.x+dx;
   const ny=unit.y+dy;
-  const effNext=getEffectiveTerrainCellForMove(unit,nx,ny);
-  if(effNext&&!canTraverseTerrain(unit,effNext)) return false;
+  const effNext=getEffectiveTerrainCellForMoveWithUnitDisk(unit,nx,ny,dx,dy);
+  if(!effNext||!canTraverseTerrain(unit,effNext)) return false;
+  if(isForbiddenTerrainTouchingUnitCircle(unit,nx,ny,dx,dy)) return false;
 
   let mul=1;
   if(opts.useTerrainSpeed!==false){
@@ -2994,6 +3047,12 @@ const TERRAIN_STAND_CORE_R=HR*0.5;
 const TERRAIN_DEBUFF_ENTER_R=HR*0.36;
 /** 경로 판단용(우회 인지) 불리 지형 사전 인지 반경: 타일 절반 진입 전에도 인지 */
 const TERRAIN_PATH_AWARE_R=HR*0.62;
+/** 지도 drawUnit 아군 원과 동일 — 중심만이 아니라 테두리가 먼저 타일을 스캔 */
+const UNIT_BODY_RADIUS_PX=13;
+/** 금지 지형(강 등) 인접·중심 근처 판정: 유닛 외곽 샘플이 이 반경 안에 들어오면 차단 */
+const TERRAIN_FORBIDDEN_AWARE_R=HR*0.48;
+const HEX_NEIGHBOR_OFFSETS_EVEN=[[0,-1],[0,1],[-1,-1],[-1,0],[1,-1],[1,0]];
+const HEX_NEIGHBOR_OFFSETS_ODD=[[0,-1],[0,1],[-1,0],[-1,1],[1,0],[1,1]];
 function roleCanTraverseCellType(role,cell){
   if(!cell) return true;
   if(cell.type==='river'&&(role==='Tank'||role==='Warrior'||role==='Melee')) return false;
@@ -3054,6 +3113,18 @@ function getDominantHexCellAt(x,y){
     const ang=(Math.PI/3)*k+Math.PI/6;
     add(nearestCell(x+Math.cos(ang)*R*0.78,y+Math.sin(ang)*R*0.78));
   }
+  // 중심~헥스 외곽 사이 추가 샘플(원형에 가깝게) — 한 점만으로는 옆 칸 표결이 빗나가는 경우 완화
+  for(let fi=0;fi<3;fi++){
+    const frac=[0.28,0.52,0.78][fi];
+    for(let k=0;k<6;k++){
+      const ang=(Math.PI/3)*k;
+      add(nearestCell(x+Math.cos(ang)*HR*frac,y+Math.sin(ang)*HR*frac));
+    }
+    for(let k=0;k<6;k++){
+      const ang=(Math.PI/3)*k+Math.PI/6;
+      add(nearestCell(x+Math.cos(ang)*HR*frac,y+Math.sin(ang)*HR*frac));
+    }
+  }
   if(!votes.size) return nearestCell(x,y);
   let total=0;
   for(const v of votes.values()) total+=v.n;
@@ -3079,6 +3150,98 @@ function getEffectiveTerrainCellForMove(unit,x,y){
   if(near&&canTraverseTerrain(unit,near)) return near;
   if(dom&&canTraverseTerrain(unit,dom)) return dom;
   return picked||dom||near;
+}
+/**
+ * 유닛 원(반지름 UNIT_BODY_RADIUS_PX) 위 샘플로 다음 위치의 지형을 본다.
+ * 중심이 아직 이웃 칸 중심에 없어도 원의 절반 이상이 금지/불리 칸에 닿으면 그에 맞게 막거나(반환 null) 이속은 가장 불리한 칸 기준(최소 시간 추정에 보수적).
+ */
+function getEffectiveTerrainCellForMoveWithUnitDisk(unit,x,y,dirDx,dirDy){
+  if(!unit) return getEffectiveTerrainCellForMove(unit,x,y);
+  const r=UNIT_BODY_RADIUS_PX;
+  const pts=[[x,y]];
+  const m=Math.hypot(dirDx,dirDy);
+  const ux=m>1e-6?dirDx/m:1, uy=m>1e-6?dirDy/m:0;
+  const px=-uy, py=ux;
+  if(m>1e-6){
+    pts.push([x+ux*r,y+uy*r],[x+ux*r*0.52,y+uy*r*0.52]);
+    pts.push([x+px*r*0.92,y+py*r*0.92],[x-px*r*0.92,y-py*r*0.92]);
+  }
+  pts.push([x+r,y],[x-r,y],[x,y+r],[x,y-r]);
+  let worst=null, worstCost=-1;
+  for(let i=0;i<pts.length;i++){
+    const c=getEffectiveTerrainCellForMove(unit,pts[i][0],pts[i][1]);
+    if(!c||!canTraverseTerrain(unit,c)) return null;
+    const tc=terrainMoveCost(c,getUnitMoveRole(unit));
+    if(tc>worstCost){ worstCost=tc; worst=c; }
+  }
+  return worst;
+}
+/**
+ * 이웃 헥스로 한 칸 넘어갈 때 A* 비용: 두 칸 중심 연결선의 **중점**에서 유닛 디스크 샘플링.
+ * 실제 이동의 getEffectiveTerrainCellForMoveWithUnitDisk와 같은 보수적 비용을 쓰도록 맞춤.
+ * 통과 불가(디스크 일부가 금지 지형)면 Infinity → 그 방향 간선 제외.
+ */
+function hexNeighborStepCostForPath(unit,fromCell,toCell){
+  if(!unit||!fromCell||!toCell) return 10;
+  const role=getUnitMoveRole(unit);
+  const dx=toCell.x-fromCell.x, dy=toCell.y-fromCell.y;
+  const mx=(fromCell.x+toCell.x)*0.5, my=(fromCell.y+toCell.y)*0.5;
+  const eff=getEffectiveTerrainCellForMoveWithUnitDisk(unit,mx,my,dx,dy);
+  if(!eff) return Infinity;
+  const cFrom=terrainMoveCost(fromCell,role);
+  const cTo=terrainMoveCost(toCell,role);
+  const cEff=terrainMoveCost(eff,role);
+  // 이웃 한 칸: 연결선 중점만 보면 경계에서 평지로 잡혀 '강 칸 밟기'가 과소평가됨 → 출발·도착·샘플을 함께 반영
+  let c=Math.max((cFrom+cTo)*0.5,cEff,cTo);
+  // 강 구간: 실제 spd 매우 낮음(TERRAIN.river) — 직선 지름길로 강만 연속 밟는 루트 억제
+  if(eff.type==='river'||fromCell.type==='river'||toCell.type==='river'){
+    c*=1.35;
+    if(toCell.type==='river') c+=1.2;
+  }
+  return c;
+}
+function isProbeInsideForbiddenTerrain(role,probeX,probeY){
+  const near=nearestCell(probeX,probeY);
+  if(!near) return false;
+  const cells=[near];
+  const nr=Number(near.r),nc=Number(near.c);
+  if(Number.isFinite(nr)&&Number.isFinite(nc)){
+    const offs=(nr%2===0)?HEX_NEIGHBOR_OFFSETS_EVEN:HEX_NEIGHBOR_OFFSETS_ODD;
+    for(let i=0;i<offs.length;i++){
+      const r2=nr+offs[i][0],c2=nc+offs[i][1];
+      if(r2<0||r2>=ROWS||c2<0||c2>=COLS) continue;
+      const c=hexMap[r2]&&hexMap[r2][c2];
+      if(c) cells.push(c);
+    }
+  }
+  for(let i=0;i<cells.length;i++){
+    const cell=cells[i];
+    if(!cell||roleCanTraverseCellType(role,cell)) continue;
+    if(Math.hypot(probeX-cell.x,probeY-cell.y)<=TERRAIN_FORBIDDEN_AWARE_R) return true;
+  }
+  return false;
+}
+/** 유닛 중심뿐 아니라 외곽 샘플로 금지 지형 접촉을 먼저 감지 (강·산 경계 선제 차단) */
+function isForbiddenTerrainTouchingUnitCircle(unit,cx,cy,dx,dy){
+  if(!unit||!ensureHexMapReady()) return false;
+  const role=getUnitMoveRole(unit);
+  const probeR=UNIT_BODY_RADIUS_PX;
+  const mag=Math.hypot(dx,dy);
+  const ux=mag>0.0001?(dx/mag):0;
+  const uy=mag>0.0001?(dy/mag):0;
+  const tx=-uy, ty=ux;
+  const probes=[[0,0]];
+  if(mag>0.0001){
+    probes.push([ux*probeR,uy*probeR]);
+    probes.push([ux*probeR*0.78+tx*probeR*0.45,uy*probeR*0.78+ty*probeR*0.45]);
+    probes.push([ux*probeR*0.78-tx*probeR*0.45,uy*probeR*0.78-ty*probeR*0.45]);
+  }
+  probes.push([probeR,0],[-probeR,0],[0,probeR],[0,-probeR]);
+  for(let i=0;i<probes.length;i++){
+    const p=probes[i];
+    if(isProbeInsideForbiddenTerrain(role,cx+p[0],cy+p[1])) return true;
+  }
+  return false;
 }
 /** 금지 지형에 갇혔을 때 가장 가까운 통과 가능 헥스 중심으로 탈출 */
 function findNearestTraversableHexCell(unit,fromX,fromY){
@@ -3317,6 +3480,7 @@ function getHexNeighborCells(r,c){
 function getHexNeighbors(r,c){
   return getHexNeighborCells(r,c).map(o=>[o.nr,o.nc]);
 }
+/** 헥스 그리드 위 가중 최단경로: 이웃으로 넘어갈 때 비용 = hexNeighborStepCostForPath(입구 중점+디스크), 실제 이동과 정합. */
 function findHexPathCells(unit,goalCell){
   if(!unit||!goalCell) return null;
   const startCell=nearestCell(unit.x,unit.y);
@@ -3328,34 +3492,83 @@ function findHexPathCells(unit,goalCell){
   }
   if(sr<0||sc<0||gr<0||gc<0) return null;
   if(sr===gr&&sc===gc) return [startCell];
+  const gCell=hexMap[gr][gc];
+  if(!gCell||!canTraverseTerrain(unit,gCell)) return null;
   const key=(r,c)=>`${r}|${c}`;
-  const queue=[[sr,sc]];
-  const visited=new Set([key(sr,sc)]);
+  const startKey=key(sr,sc);
+  const goalKey=key(gr,gc);
+  const dist=new Map([[startKey,0]]);
   const parent=new Map();
-  while(queue.length){
-    const [r,c]=queue.shift();
-    if(r===gr&&c===gc){
+  const heap=[];
+  const heapPush=(d,r,c)=>{
+    const o={d,r,c,k:key(r,c)};
+    heap.push(o);
+    let i=heap.length-1;
+    while(i>0){
+      const p=(i-1)>>1;
+      if(heap[p].d<=o.d) break;
+      const t=heap[p]; heap[p]=heap[i]; heap[i]=t;
+      i=p;
+    }
+  };
+  const heapPop=()=>{
+    if(!heap.length) return null;
+    const out=heap[0];
+    const last=heap.pop();
+    if(heap.length){
+      heap[0]=last;
+      let i=0;
+      const L=heap.length;
+      for(;;){
+        const l=i*2+1,r=l+1;
+        let sm=i;
+        if(l<L&&heap[l].d<heap[sm].d) sm=l;
+        if(r<L&&heap[r].d<heap[sm].d) sm=r;
+        if(sm===i) break;
+        const t=heap[i]; heap[i]=heap[sm]; heap[sm]=t;
+        i=sm;
+      }
+    }
+    return out;
+  };
+  heapPush(0,sr,sc);
+  const maxIter=Math.min(ROWS*COLS*10,48000);
+  let iter=0;
+  while(heap.length&&iter<maxIter){
+    iter++;
+    const cur=heapPop();
+    if(!cur) break;
+    const {d,r,c,k}=cur;
+    const dk=dist.get(k);
+    if(dk!==undefined&&cur.d>dk+1e-6) continue;
+    if(k===goalKey){
       const path=[];
-      let cur=key(gr,gc);
-      while(cur){
-        const parts=cur.split('|');
+      let ck=k;
+      while(ck){
+        const parts=ck.split('|');
         const cr=Number(parts[0]),cc=Number(parts[1]);
-        path.push(hexMap[cr][cc]);
-        cur=parent.get(cur);
+        if(cr>=0&&cr<ROWS&&cc>=0&&cc<COLS) path.push(hexMap[cr][cc]);
+        ck=parent.get(ck);
       }
       path.reverse();
-      return path;
+      return path.length?path:null;
     }
     const nbrs=getHexNeighbors(r,c);
+    const curCell=hexMap[r][c];
     for(let i=0;i<nbrs.length;i++){
       const [nr,nc]=nbrs[i];
-      const nKey=key(nr,nc);
-      if(visited.has(nKey)) continue;
       const nCell=hexMap[nr][nc];
       if(!nCell||!canTraverseTerrain(unit,nCell)) continue;
-      visited.add(nKey);
-      parent.set(nKey,key(r,c));
-      queue.push([nr,nc]);
+      const nk=key(nr,nc);
+      const stepCost=hexNeighborStepCostForPath(unit,curCell,nCell);
+      if(!Number.isFinite(stepCost)||stepCost>99990) continue;
+      const nd=d+stepCost;
+      const prev=dist.get(nk);
+      if(prev===undefined||nd<prev-1e-9){
+        dist.set(nk,nd);
+        parent.set(nk,k);
+        heapPush(nd,nr,nc);
+      }
     }
   }
   return null;
@@ -3394,7 +3607,7 @@ function bestAdjacentCell(unit,targetX,targetY){
     const dirPenalty=Math.abs(i-6)*0.4;
     const toTarget=Math.hypot(targetX-nx,targetY-ny)/Math.max(1,HW);
     const targetPenalty=toTarget*0.22;
-    const advBias=terrainAdvantageBias(role,getEffectiveTerrainCellForMove(unit,nx,ny)||cell);
+    const advBias=terrainAdvantageBias(role,getEffectiveTerrainCellForMoveWithUnitDisk(unit,nx,ny,nx-unit.x,ny-unit.y)||cell);
     const lookPenalty=localPathPenalty(unit,nx,ny,targetX,targetY);
     const heavyPenalty=moveCost>=4?0.85:0;
     const score=moveCost+dirPenalty+targetPenalty+lookPenalty+heavyPenalty+advBias;
@@ -3432,7 +3645,7 @@ function bestAdjacentCell(unit,targetX,targetY){
         const dirPenalty=(Math.abs(delta)/Math.PI)*6*0.4;
         const toTarget=Math.hypot(targetX-nx,targetY-ny)/Math.max(1,HW);
         const targetPenalty=toTarget*0.22;
-        const advBias=terrainAdvantageBias(role,getEffectiveTerrainCellForMove(unit,nx,ny)||cell);
+        const advBias=terrainAdvantageBias(role,getEffectiveTerrainCellForMoveWithUnitDisk(unit,nx,ny,nx-unit.x,ny-unit.y)||cell);
         const lookPenalty=localPathPenalty(unit,nx,ny,targetX,targetY);
         const heavyPenalty=moveCost>=4?0.85:0;
         const score=moveCost+dirPenalty+targetPenalty+lookPenalty+heavyPenalty+advBias;
@@ -3467,7 +3680,7 @@ function bestAdjacentCell(unit,targetX,targetY){
         const dirPenalty=(Math.abs(delta)/Math.PI)*6*0.4+0.35;
         const toTarget=Math.hypot(targetX-nx,targetY-ny)/Math.max(1,HW);
         const targetPenalty=toTarget*0.22;
-        const advBias=terrainAdvantageBias(role,getEffectiveTerrainCellForMove(unit,nx,ny)||cell);
+        const advBias=terrainAdvantageBias(role,getEffectiveTerrainCellForMoveWithUnitDisk(unit,nx,ny,nx-unit.x,ny-unit.y)||cell);
         const lookPenalty=localPathPenalty(unit,nx,ny,targetX,targetY);
         const heavyPenalty=moveCost>=4?0.85:0;
         const score=moveCost+dirPenalty+targetPenalty+lookPenalty+heavyPenalty+advBias;
@@ -3493,7 +3706,7 @@ function bestAdjacentCell(unit,targetX,targetY){
         const dirPenalty=(Math.abs(dAng)/Math.PI)*6*0.35;
         const toTarget=Math.hypot(targetX-nx,targetY-ny)/Math.max(1,HW);
         const targetPenalty=toTarget*0.22+ri*0.12;
-        const advBias=terrainAdvantageBias(role,getEffectiveTerrainCellForMove(unit,nx,ny)||cell);
+        const advBias=terrainAdvantageBias(role,getEffectiveTerrainCellForMoveWithUnitDisk(unit,nx,ny,nx-unit.x,ny-unit.y)||cell);
         const lookPenalty=localPathPenalty(unit,nx,ny,targetX,targetY);
         const score=moveCost+dirPenalty+targetPenalty+lookPenalty+advBias+0.25;
         consider(nx,ny,cell,score);
@@ -3767,7 +3980,8 @@ function resetDeployment() {
       }
       
       // 3. 이동 경로(웨이포인트) 초기화
-      a.wx = null; a.wy = null; 
+      a.wx = null; a.wy = null;
+      clearAllyHexPath(a);
     } else {
       a.isDeployed = false; 
     }
@@ -3781,6 +3995,7 @@ function resetDeploymentForReorg(){
     a.isDeployed=false;
     a.wx=null;
     a.wy=null;
+    clearAllyHexPath(a);
   });
   markDirty();
 }
@@ -4072,16 +4287,25 @@ function enterPlacement() {
   }
   
   markDirty();
+  setTimeout(function(){
+    if(!isBattle && getSortedUd().length>0){
+      const dm=document.getElementById('deploy-pending-modal');
+      if(dm) dm.classList.add('show');
+    }
+  }, 520);
 }
 // [통합 버전] 안내 메시지 충돌 해결 및 가독성 개선
 function updatePG() {
   const pg = document.getElementById('pg');
-  if (!pg || isBattle) { 
-    if (pg) pg.style.display = 'none';
-    return;
-  }
+  if (!pg) return;
 
   const ud = getSortedUd(); // 배치 대기 중인 유닛 목록
+
+  // 전투 중: 지도 보라 배치 구역만 표시(캔버스) — 텍스트 오버레이(#pg)는 띄우지 않음
+  if (isBattle) {
+    pg.style.display = 'none';
+    return;
+  }
 
   // 1. 모든 유닛 배치가 끝났을 때
   if (ud.length === 0) {
@@ -4092,7 +4316,7 @@ function updatePG() {
       pg.style.border = '1px solid #2ecc71'; // 성공의 초록 테두리
       pg.innerHTML = `
       <div style="white-space:nowrap"><b style="color:#2ecc71">배치 완료!</b></div>
-      <div style="font-size:11px;color:#fff;white-space:nowrap;margin-top:4px">상단의 <b style="color:#e74c3c">▶ 출발</b> 버튼 </div>
+      <div style="font-size:11px;color:#fff;white-space:nowrap;margin-top:4px">상단의 <b style="color:#e74c3c">▶출발</b> 버튼 </div>
       <div style="font-size:11px;color:#fff;white-space:nowrap;margin-top:2px">or <b style="color:#e74c3c">스페이스 바</b> 클릭</div>`;
     }
   } 
@@ -4175,12 +4399,20 @@ function onDown(e){
     const u=pendingUd[0];
     u.x=finalCell.x; u.y=finalCell.y;
     u.isDeployed=true; u.wx=null; u.wy=null;
+    clearAllyHexPath(u);
     savedPositions[u.id]={x:u.x,y:u.y};
     initialPositions[u.id]={x:u.x,y:u.y};
     _selectedUnitId=u.id;
     updatePG();
     renderAllyPanel();
     markDirty();
+    if (autoStart && getSortedUd().length === 0) {
+      if (!isBattle) {
+        setTimeout(() => { if(!isBattle && autoStart) toggleBattle(); }, 800);
+      } else if (isPaused) {
+        togglePause();
+      }
+    }
     return;
   }
 
@@ -4246,7 +4478,7 @@ function onDown(e){
     const u = ud[0];
     u.x = finalCell.x; u.y = finalCell.y;
     u.isDeployed = true; u.wx = null; u.wy = null;
-    
+    clearAllyHexPath(u);
     savedPositions[u.id] = {x: u.x, y: u.y};
     initialPositions[u.id] = {x: u.x, y: u.y};
     
@@ -4255,9 +4487,13 @@ function onDown(e){
     renderAllyPanel();
     markDirty();
 
-    // [핵심 추가] 배치가 끝났고 자동 시작이 ON이면 즉시 출발!
+    // [핵심 추가] 배치가 끝났고 자동 시작이 ON이면 즉시 출발! (전투 중 교체 배치는 출발 버튼 불필요)
     if (autoStart && getSortedUd().length === 0) {
-      setTimeout(() => { if(!isBattle && autoStart) toggleBattle(); }, 800);
+      if (!isBattle) {
+        setTimeout(() => { if(!isBattle && autoStart) toggleBattle(); }, 800);
+      } else if (isPaused) {
+        togglePause();
+      }
     }
     return;
   }
@@ -4404,13 +4640,23 @@ function triggerActiveSkill(u) {
   }
 }
 
+function clearAllyHexPath(u){
+  if(!u) return;
+  u._hexPathCells=null;
+  u._hexPathIdx=0;
+  u._pathCorners=null;
+}
 function applyWaypointPath(u,wp){
   if(!u||!wp) return;
   u.wx=wp.x; u.wy=wp.y;
+  clearAllyHexPath(u);
   const goal=nearestCell(wp.x,wp.y);
   const path=findHexPathCells(u,goal);
-  if(path&&path.length>2) u._pathCorners=path.slice(1,-1).map(c=>({x:c.x,y:c.y}));
-  else u._pathCorners=null;
+  // 직선으로만 목표까지 가면 헥 경계를 가로질러 강·느린 타일을 '지름길'로 밟음 → 헥스 경로의 각 칸 중심을 순서대로만 추종
+  if(path&&path.length>=2){
+    u._hexPathCells=path.map(c=>({x:c.x,y:c.y}));
+    u._hexPathIdx=1;
+  }
 }
 // 드래그 이동을 처리하는 별도 함수
 function executeMoveOrder(u, x, y) {
@@ -4845,10 +5091,10 @@ function hireFood(){
   res.food-=cost;
   food=res.food;
   for(let i=0;i<_refCount;i++){
-    spawnRefugee();
+    spawnRefugee({silent:isBattle});
   }
   closeRefugeeModal();
-  alog(`👤 피난민 ${_refCount}명 영입 (−${cost}🍖)`);
+  if(!isBattle) alog(`👤 피난민 ${_refCount}명 영입 (−${cost}🍖)`);
   
   // [수정] 이 위치에 추가
   afterHireAction(); 
@@ -4865,7 +5111,7 @@ function hireGold(){
   allies.push(u);
   afterHireAction(); 
 
-  alog(`💰 새로운 지원자가 도착했습니다! 보직을 결정하세요.`);
+  if(!isBattle) alog(`💰 새로운 지원자가 도착했습니다! 보직을 결정하세요.`);
   
   setTimeout(() => {
     if (typeof showClassModal === 'function') {
@@ -4878,9 +5124,7 @@ function hireGold(){
 function afterHireAction() {
   isPlacing = true; 
   const pg = document.getElementById('pg');
-  if(pg) {
-    pg.style.display = 'block'; 
-  }
+  if(pg) pg.style.display = isBattle ? 'none' : 'block';
   updatePG(); 
   markDirty();
 }
@@ -5589,6 +5833,9 @@ function battleTick(){
         const prevBest=Number(zoneRecords[currentZone.id].bestClearTime||0);
         zoneRecords[currentZone.id].bestClearTime = (prevBest>0)?Math.min(prevBest,clearMs):clearMs;
         ensureGarrisonRecMeta(zoneRecords[currentZone.id],currentZone.id);
+        // 정복 직후 거점 단계·주둔 한도 반영 (모달 표시 전에 시퀀스 증가 — autoStartNextZone에서 중복 증가하지 않음)
+        const _gzid=currentZone.id;
+        _autoZoneSeq[_gzid]=(_autoZoneSeq[_gzid]||0)+1;
 
         // 도시 1:1 → 2:2 듀오 해금: 도시급 전투지에서 첫 최종일 클리어 시 해금
         const isCityPhase=(civPhase===2);
@@ -6101,13 +6348,26 @@ function applyDmg(a,tgt,cell,sk,mult=1){
   }
   if(sk)useSkill(a,sk);
   let effDef=Math.max(0,Math.min(0.75,(tgt.def||0)-(secBonus.magicPen||0)));
-  if(isRearOrRearSideHit(a,tgt)){
+  const isRearPenetrationHit=isRearOrRearSideHit(a,tgt);
+  if(isRearPenetrationHit){
     effDef=0;
   }
   const reduced=Math.floor(dmg*(1-effDef));
   tgt.hp-=reduced;
   if(reduced>0) addBattleContribution(a,'damage',reduced);
-  addFloat(tgt.x,tgt.y-12,`-${reduced}`,'#f1c40f');
+  if(isRearPenetrationHit){
+    addFloat(tgt.x,tgt.y-12,`↣ -${reduced}`,'#ff4d9d',{
+      fontSize:13,
+      strokeColor:'rgba(34,16,42,0.95)',
+      strokeWidth:2.3
+    });
+  }else{
+    addFloat(tgt.x,tgt.y-12,`-${reduced}`,'#f1c40f',{
+      fontSize:12,
+      strokeColor:'rgba(10,15,25,0.92)',
+      strokeWidth:2
+    });
+  }
   if(tgt.hp<=0){
     tgt.dead=true;
     addBattleContribution(a,'kills',1);
@@ -6147,8 +6407,8 @@ function moveAlly(a,ae,aa,baseTerrSpd){
     return;
   }
 
-  // 현재 지형 이동속도 계산 — 경계 걸림 시 nearest·인접·맵 스캔 순으로 탈출
-  let domCell=getEffectiveTerrainCellForMove(a,a.x,a.y);
+  // 현재 지형 이동속도 계산 — 경계 걸림 시 nearest·인접·맵 스캔 순으로 탈출 (발밑: 원반 샘플)
+  let domCell=getEffectiveTerrainCellForMoveWithUnitDisk(a,a.x,a.y,a.wx!=null&&a.wy!=null?(a.wx-a.x):0,a.wy!=null&&a.wy!=null?(a.wy-a.y):0)||getEffectiveTerrainCellForMove(a,a.x,a.y);
   if(!domCell||!canTraverseTerrain(a,domCell)){
     const recoverBaseSpd=Math.max(1,(a.spd||1))*MOVE_FEEL_MUL;
     const recoverStepCap=Math.max(10,HW*0.95);
@@ -6172,7 +6432,7 @@ function moveAlly(a,ae,aa,baseTerrSpd){
         }
       }
     }
-    domCell=getEffectiveTerrainCellForMove(a,a.x,a.y);
+    domCell=getEffectiveTerrainCellForMoveWithUnitDisk(a,a.x,a.y,a.wx!=null&&a.wy!=null?(a.wx-a.x):0,a.wy!=null&&a.wy!=null?(a.wy-a.y):0)||getEffectiveTerrainCellForMove(a,a.x,a.y);
   }
   const roleMove=getUnitMoveRole(a);
   const terrCost=domCell?terrainMoveCost(domCell,roleMove):1.0;
@@ -6196,21 +6456,26 @@ function moveAlly(a,ae,aa,baseTerrSpd){
   // 금지 지형에 밟히면 매 프레임 시작부 curCell 처리·우회로 복구.
   if(a.wx!==null&&a.wy!==null){
       let tgx=a.wx,tgy=a.wy;
-      if(Array.isArray(a._pathCorners)&&a._pathCorners.length){
-        tgx=a._pathCorners[0].x; tgy=a._pathCorners[0].y;
+      if(Array.isArray(a._hexPathCells)&&a._hexPathCells.length>=2){
+        const last=a._hexPathCells.length-1;
+        let idx=Math.min(Math.max(1,a._hexPathIdx||1),last);
+        a._hexPathIdx=idx;
+        tgx=a._hexPathCells[idx].x;
+        tgy=a._hexPathCells[idx].y;
       }
       const dx=tgx-a.x, dy=tgy-a.y, d=Math.hypot(dx,dy);
       if(d < 14){
-        if(Array.isArray(a._pathCorners)&&a._pathCorners.length){
-          a._pathCorners.shift();
-          if(!a._pathCorners.length) a._pathCorners=null;
+        if(Array.isArray(a._hexPathCells)&&a._hexPathCells.length>=2){
+          const last=a._hexPathCells.length-1;
+          if((a._hexPathIdx||1)<last) a._hexPathIdx=(a._hexPathIdx||1)+1;
+          else{ a.wx=null; a.wy=null; clearAllyHexPath(a); }
         }else{
           a.wx=null; a.wy=null;
         }
       } else {
         const nx=a.x+dx/d*spd;
         const ny=a.y+dy/d*spd;
-        const domAtNext=getEffectiveTerrainCellForMove(a,nx,ny);
+        const domAtNext=getEffectiveTerrainCellForMoveWithUnitDisk(a,nx,ny,dx,dy);
         let detourBest=null;
         if(domAtNext&&canTraverseTerrain(a,domAtNext)&&terrainMoveCost(domAtNext,getUnitMoveRole(a))>=3.8){
           detourBest=bestAdjacentCell(a,a.wx,a.wy);
@@ -6230,7 +6495,7 @@ function moveAlly(a,ae,aa,baseTerrSpd){
                 a.x+=sdx/sn*step; a.y+=sdy/sn*step; clampToMap(a);
               }
             }
-            else{ a.wx=null; a.wy=null; }
+            else{ a.wx=null; a.wy=null; clearAllyHexPath(a); }
           }
         }else if(detourBest&&shouldDetourForFasterArrival(a,a.wx,a.wy,domAtNext,detourBest)){
           const bdx=detourBest.x-a.x, bdy=detourBest.y-a.y, bn=Math.hypot(bdx,bdy);
@@ -6325,11 +6590,11 @@ function showGarrisonModal(zid) {
 
   const slotCap=getEffectiveGarrisonSlotCap(zid);
   const maxAfford=Math.floor((res.food||0)/30);
-  const standbyRoom=Math.max(0,getStandbyCapacity()-getStandbyCount());
-  const maxHire=Math.max(0,Math.min(slotCap,maxAfford,standbyRoom));
+  // 주둔 고용은 대기실 정원과 무관하게 거점으로 직접 배치됨 (대기 한도로 0명 되는 오류 방지)
+  const maxHire=Math.max(0,Math.min(slotCap,maxAfford));
   window._garrisonSlotCap=slotCap;
   window._garrisonMaxHire=maxHire;
-  // 거점 안내문 기본 선택: 항상 6명(가능 범위 내)로 시작
+  // 거점 안내문 기본 선택: 가능 범위 내에서 최대 6명까지
   window._garrisonHireCount=Math.min(maxHire,6);
 
   document.getElementById('garrison-title').innerText = `🚩 ${zone.name} — 정복 완료!`;
@@ -6337,16 +6602,29 @@ function showGarrisonModal(zid) {
 
   // 2. 내부 렌더링 로직 (이미지 속 숫자와 식량 소모량 표시)
   const renderBody = () => {
-    const sc=window._garrisonSlotCap||6;
-    const standbyRoom=Math.max(0,getStandbyCapacity()-getStandbyCount());
-    const mh=Math.max(0,Math.min(sc,Math.floor((res.food||0)/30),standbyRoom));
+    const zid=_garrisonZoneId;
+    const sc=(typeof getEffectiveGarrisonSlotCap==='function'&&zid)?getEffectiveGarrisonSlotCap(zid):(window._garrisonSlotCap||6);
+    window._garrisonSlotCap=sc;
+    const byFood=Math.floor((res.food||0)/30);
+    const mh=Math.max(0,Math.min(sc,byFood));
     window._garrisonMaxHire=mh;
     if((window._garrisonHireCount||0)>mh) window._garrisonHireCount=mh;
     const cost = window._garrisonHireCount * 30;
     const canAfford = res.food >= cost;
+    const limFood=(byFood<sc);
+    const limSlot=(sc<byFood);
+    let hint='';
+    if(mh>=sc && sc>0) hint=`<div style="font-size:10px;color:#6ee7b7;margin-top:6px;line-height:1.45">거점·식량 한도 내에서 <b>최대 ${sc}명</b>까지 고용할 수 있습니다.</div>`;
+    else if(mh===0) hint=`<div style="font-size:10px;color:#fca5a5;margin-top:6px;line-height:1.45">${(res.food||0)<30?'식량이 <b>30</b> 미만이어서 고용할 수 없습니다. (1명당 🍖30)':'제한으로 이번에 고용 가능 인원이 <b>0</b>명입니다.'}</div>`;
+    else{
+      const parts=[];
+      if(limFood) parts.push(`식량: 보유로는 최대 <b>${byFood}</b>명분 (1명당 🍖30, 거점 한도 ${sc}명)`);
+      if(limSlot) parts.push(`거점 주둔 한도: 단계·지역 상한 <b>${sc}</b>명`);
+      hint=`<div style="font-size:10px;color:#fdba74;margin-top:6px;line-height:1.45"><b>최대 ${mh}명</b>까지 선택 가능 — ${parts.join(' · ')||'식량 또는 거점 한도'}</div>`;
+    }
     document.getElementById('garrison-body').innerHTML = `
       <div style="background:rgba(0,0,0,0.3); padding:12px; border-radius:8px; border:1px solid #1e3a5f; text-align:center;">
-        <div style="font-size:11px; color:#9ca3af; margin-bottom:10px;">거점을 지킬 주둔군을 편성하세요. (1명당 🍖30 · 최대 <b style="color:#93c5fd">${sc}</b>명)</div>
+        <div style="font-size:11px; color:#9ca3af; margin-bottom:10px;">거점을 지킬 주둔군을 편성하세요. (1명당 🍖30 · 거점 최대 <b style="color:#93c5fd">${sc}</b>명)</div>
         <div style="display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:15px; flex-wrap:wrap;">
           <button onclick="garrisonChangeHire(-1)" style="width:35px; height:35px; border-radius:50%; border:1px solid #374151; background:#0f1923; color:#f1c40f; cursor:pointer;">-</button>
           <div style="min-width:60px;">
@@ -6358,7 +6636,8 @@ function showGarrisonModal(zid) {
             <button type="button" onclick="garrisonSetHireMax()" style="padding:8px 10px; border-radius:8px; border:1px solid #6d28d9; background:#4c1d95; color:#e9d5ff; font-size:11px; font-weight:600; cursor:pointer; touch-action:manipulation;">최대</button>
           </div>
         </div>
-        <div style="font-size:10px; color:#9ca3af;">보유 식량: 🍖 ${Math.floor(res.food)} · 대기 여유 반영 시 이번에 고용 가능 최대 ${mh}명</div>
+        <div style="font-size:10px; color:#cbd5e1; line-height:1.5;">보유 식량: 🍖 ${Math.floor(res.food)} · <b style="color:#f1c40f">이번에 고용 가능 최대 ${mh}명</b> (거점 한도 ${sc}명 · 식량으로 ${byFood}명분)</div>
+        ${hint}
       </div>`;
   };
   window._renderGarrisonBody = renderBody;
@@ -6404,7 +6683,6 @@ function confirmGarrison() {
   const slotCap=getEffectiveGarrisonSlotCap(_garrisonZoneId);
   let finalCnt = Math.min(window._garrisonHireCount || 0, slotCap);
   finalCnt = Math.min(finalCnt, Math.floor(res.food / 30));
-  finalCnt = Math.min(finalCnt, Math.max(0, getStandbyCapacity() - getStandbyCount()));
 
   // 2. 자원 차감 반영
   res.food -= (finalCnt * 30);
@@ -6456,7 +6734,7 @@ function closeGarrisonModal(){
   clearTimeout(_garrisonTimer);
   document.getElementById('garrison-modal').classList.remove('show');
   _garrisonSelected=new Set();
-  // 정복 직후 "나중에"를 눌러도 전장이 멈춰 보이지 않게 다음 구역으로 진행
+  // 정복 직후 "나가기"를 눌러도 전장이 멈춰 보이지 않게 다음 구역으로 진행
   const clearedNow=!!(_garrisonZoneId&&zoneRecords[_garrisonZoneId]&&zoneRecords[_garrisonZoneId].cleared);
   const isFinalAfterBattle=!isBattle&&zoneStage>=Math.max(1,Number(currentZone?.finalStage||15));
   if(clearedNow&&isFinalAfterBattle){
@@ -6520,7 +6798,7 @@ function updateGarrisonHeaderHud(){
     const civStageLabel={0:'집합소',1:'마을',2:'도시',3:'왕국'};
     const phaseKey=Math.max(0,Math.min(3,Number(civPhase)||0));
     const civLabel=civStageLabel[phaseKey]||'집합소';
-    mainEl.textContent=`🚩 주둔지 : ${civLabel}`;
+    mainEl.textContent=`🚩 ${civLabel}`;
   }
   let maxLv=0,has=false;
   Object.entries(zoneRecords).forEach(([zid,rec])=>{
@@ -7009,47 +7287,78 @@ function showDay1Tutorial() {
 
   document.getElementById('garrison-title').innerText = '⚔️ 실전 지휘 안내 (1/3)';
   document.getElementById('garrison-body').innerHTML = `
-    <div style="font-size:11px;color:#ccc;line-height:1.7;margin-bottom:14px">
-      <div style="margin-bottom:10px">🚑 <b style="color:#e74c3c">영구 사망 주의</b>: 체력이 0이 되면 빈사 상태가 되며, <b style="color:#fff">7초</b> 내에 치료하지 못하면 대원은 <b style="color:#e74c3c">영구히 사망</b>하여 사라집니다!</div>
-      <div style="margin-bottom:10px">👆 <b style="color:#f1c40f">드래그 이동</b>: 전투 중 대원을 드래그하여 실시간으로 위치를 바꿀 수 있습니다. 위험한 상황에서 대원을 구출하거나 유리한 지형으로 옮기세요!</div>
-      <div style="margin-bottom:10px">🧭 <b style="color:#93c5fd">방향 전투</b>: 유닛 테두리의 작은 원이 정면입니다. <b style="color:#e5e7eb">정면에서의 공격은 방어도가 적용</b>되고, <b style="color:#fca5a5">후방·후방측면에서의 공격은 방어를 무시</b>합니다.</div>
-      <div style="margin-bottom:10px">🖱️ <b style="color:#a855f7">더블 클릭</b>: 대원을 더블 클릭하면 그 자리에 고정되는 <b style="color:#a855f7">홀드(Hold)</b> 상태가 되어 제자리에서 적을 맞이합니다.</div>
+    <div style="font-size:11px;color:#d1d5db;line-height:1.75;margin-bottom:14px">
+      <div style="margin-bottom:10px;padding:8px 10px;border-radius:6px;background:rgba(30,41,59,0.45);border:1px solid rgba(71,85,105,0.55)">
+        <span style="color:#fbbf24;font-weight:700">👆 드래그 이동</span>
+        <div style="margin-top:4px;color:#e5e7eb">전투 중 대원을 드래그하여 실시간으로 위치를 바꿀 수 있습니다. 위험한 상황에서 대원을 구출하거나 유리한 지형으로 옮기세요.</div>
+      </div>
+      <div style="margin-bottom:10px;padding:8px 10px;border-radius:6px;background:rgba(30,58,95,0.4);border:1px solid rgba(59,130,246,0.35)">
+        <span style="color:#7dd3fc;font-weight:700">🧭 방향 전투</span>
+        <div style="margin-top:4px;color:#e5e7eb">유닛 테두리의 작은 원이 정면입니다. <b style="color:#bae6fd">정면 공격</b>은 방어도가 적용되고, <b style="color:#fecaca">후방·후방측면 공격</b>은 방어를 무시합니다.</div>
+      </div>
+      <div style="margin-bottom:10px;padding:8px 10px;border-radius:6px;background:rgba(88,28,135,0.25);border:1px solid rgba(167,139,250,0.4)">
+        <span style="color:#d8b4fe;font-weight:700">🖱️ 더블 클릭</span>
+        <div style="margin-top:4px;color:#e5e7eb">대원을 더블 클릭하면 그 자리에 고정되는 <b style="color:#e9d5ff">홀드(Hold)</b> 상태가 되어 제자리에서 적을 맞이합니다.</div>
+      </div>
     </div>
     <button onclick="showTutorialStep2()" 
       style="width:100%;padding:12px;background:#1a5c32;border:none;border-radius:5px;color:#fff;font-weight:bold;cursor:pointer;touch-action:manipulation">
-      다음 (기술과 생존) ▶
+      다음 (생존·기술) ▶
     </button>`;
     
   document.getElementById('garrison-modal').classList.add('show');
 }
 
-// [수정] 1일차 완료 안내 - 2단계: 스킬과 생존
+// [수정] 1일차 완료 안내 - 2단계: 영구 사망 안내 + 스킬과 생존
 function showTutorialStep2() {
-  document.getElementById('garrison-title').innerText = '💡 기술과 생존 안내 (2/3)';
+  document.getElementById('garrison-title').innerText = '💡 생존·기술 안내 (2/3)';
   document.getElementById('garrison-body').innerHTML = `
-    <div style="font-size:11px;color:#ccc;line-height:1.7;margin-bottom:14px">
-      <div style="margin-bottom:8px">★ <b style="color:#f1c40f">생존을 높이려면 스킬을 바꿔 보세요.</b></br> 전투 상황에 맞게 동료 카드의 스킬 버튼을 눌러 장착 기술을 교체할 수 있습니다. 자주 사용할수록 <b style="color:#f1c40f">스킬 레벨</b>이 올라 더욱 강력해집니다.</div>
-      <div style="background:rgba(0,0,0,0.3); padding:8px; border-radius:5px; border:1px solid #1e3a5f; margin-top:10px;">
-        <div style="color:#f1c40f; font-weight:bold; margin-bottom:4px">📢 추천 설정</div>
-        <div style="margin-bottom:4px">🛡️ <b style="color:#8d6e63">방어력을 높이려면</b>: <span style="color:#2ecc71">[몸으로 막기]</span> 활성화</div>
-        <div>🚑 <b style="color:#f0f4f8">HP를 회복시키려면</b>: <span style="color:#2ecc71">[상처 처치]</span> 활성화</div>
+    <div style="font-size:11px;color:#d1d5db;line-height:1.75;margin-bottom:14px">
+      <div style="margin-bottom:10px;padding:10px 12px;border-radius:6px;background:rgba(127,29,29,0.35);border:1px solid rgba(248,113,113,0.45)">
+        <span style="color:#fca5a5;font-weight:700">🚑 영구 사망 주의</span>
+        <div style="margin-top:6px;color:#fecaca">체력이 0이 되면 빈사 상태가 되며, <b style="color:#fff">7초</b> 내에 치료하지 못하면 대원은 <b style="color:#f87171">영구히 사망</b>하여 사라집니다.</div>
+      </div>
+      <div style="margin-bottom:10px;padding:8px 10px;border-radius:6px;background:rgba(120,53,15,0.3);border:1px solid rgba(251,191,36,0.35)">
+        <span style="color:#fcd34d;font-weight:700">★ 스킬 교체로 생존률 UP</span>
+        <div style="margin-top:6px;color:#e5e7eb">전투 상황에 맞게 동료 카드의 스킬 버튼을 눌러 장착 기술을 교체할 수 있습니다. 자주 사용할수록 <b style="color:#fde68a">스킬 레벨</b>이 올라 더욱 강력해집니다.</div>
+      </div>
+      <div style="background:rgba(15,23,42,0.65); padding:10px 12px; border-radius:6px; border:1px solid rgba(56,189,248,0.35); margin-top:4px;">
+        <div style="color:#7dd3fc; font-weight:700; margin-bottom:6px">📢 추천 설정</div>
+        <div style="margin-bottom:6px;color:#cbd5e1">🛡️ <span style="color:#fdba74;font-weight:600">방어력</span> — <span style="color:#86efac;font-weight:600">[몸으로 막기]</span> 활성화</div>
+        <div style="color:#cbd5e1">🚑 <span style="color:#93c5fd;font-weight:600">HP 회복</span> — <span style="color:#86efac;font-weight:600">[상처 처치]</span> 활성화</div>
       </div>
     </div>
     <button onclick="showTutorialStep3()" 
       style="width:100%;padding:12px;background:#1a5c32;border:none;border-radius:5px;color:#fff;font-weight:bold;cursor:pointer;touch-action:manipulation">
-      다음 (부대 관리) ▶
+      다음 (부대·거점) ▶
     </button>`;
 }
 
 // [수정] 1일차 완료 안내 - 3단계: 부대 관리와 성장 (함수 중복 제거 및 버튼 연결)
 function showTutorialStep3() {
-  document.getElementById('garrison-title').innerText = '🎊 부대 관리와 성장 (3/3)';
+  document.getElementById('garrison-title').innerText = '🎊 부대·거점 안내 (3/3)';
   document.getElementById('garrison-body').innerHTML = `
-    <div style="font-size:11px;color:#ccc;line-height:1.7;margin-bottom:14px">
-      <div style="margin-bottom:8px">🚩 <b style="color:#f1c40f">거점</b>: 사냥터를 끝까지 클리어하면 거점을 세우고, 자동 자원·주둔 편성을 이용할 수 있습니다. <b style="color:#93c5fd"></br>1일차 첫 출발부터 15일차 승리까지 걸린 기록 시간</b>이 짧을수록 재원 얻기에에 유리하고, 거점 <b>단계</b>·<b>건물 업그레이드</b>로 효율과 보너스가 함께 올라갑니다.</div>
-      <div style="margin-bottom:8px">👥 <b style="color:#f1c40f">최대 파티원</b>: 이번 전장에서 나갈 수 있는 파티원은 최대 <b style="color:#fff">6명</b>까지입니다.</div>
-      <div style="margin-bottom:8px">🍖 <b style="color:#f1c40f">피난민/용병</b>: 식량으로 피난민을 합류시키거나, 금화로 이미 전직된 강력한 용병을 고용하세요.</div>
-      <div style="margin-bottom:8px">🔄 <b style="color:#2ecc71">자동 진행</b>: ON 설정 시 전투가 끝나면 대기 시간 없이 즉시 다음 사냥을 시작합니다.</div>
+    <div style="font-size:11px;color:#d1d5db;line-height:1.75;margin-bottom:14px">
+      <div style="margin-bottom:10px;padding:8px 10px;border-radius:6px;border-left:4px solid #38bdf8;background:rgba(30,41,59,0.45)">
+        <div style="color:#38bdf8;font-weight:700;margin-bottom:4px">👥 최대 파티원</div>
+        <div style="color:#e5e7eb">이번 전장에서 나갈 수 있는 파티원은 최대 <b style="color:#fff">${PARTY_LIMIT}명</b>까지입니다.</div>
+      </div>
+      <div style="margin-bottom:10px;padding:8px 10px;border-radius:6px;border-left:4px solid #f59e0b;background:rgba(120,53,15,0.28)">
+        <div style="color:#fbbf24;font-weight:700;margin-bottom:4px">🍖 유닛 고용</div>
+        <div style="color:#e5e7eb">식량으로 피난민을 합류시키거나, 금화로 이미 전직된 강력한 용병을 고용하세요.</div>
+      </div>
+      <div style="margin-bottom:10px;padding:8px 10px;border-radius:6px;border-left:4px solid #a78bfa;background:rgba(49,46,129,0.35)">
+        <div style="color:#c4b5fd;font-weight:700;margin-bottom:6px">🚩 거점</div>
+        <div style="color:#e5e7eb">사냥터를 끝까지 클리어하면 거점을 세우고, 자동 자원·주둔 편성을 이용할 수 있습니다.</div>
+        <div style="margin-top:8px;padding:10px 11px;border-radius:6px;background:rgba(30,58,138,0.45);border:1px solid rgba(96,165,250,0.4)">
+          <div style="color:#7dd3fc;font-weight:700;font-size:10.5px;margin-bottom:6px">⏱ 기록 시간 · 단계 보너스</div>
+          <div style="color:#bfdbfe;line-height:1.65"><b style="color:#e0f2fe">1일차 첫 출발부터 15일차 승리까지 걸린 기록 시간</b>이 짧을수록 재원 획득에 유리합니다. 거점 <b style="color:#fff">단계</b>와 <b style="color:#fff">건물 업그레이드</b>로 효율과 보너스가 함께 올라갑니다.</div>
+        </div>
+      </div>
+      <div style="margin-bottom:6px;padding:8px 10px;border-radius:6px;border-left:4px solid #22c55e;background:rgba(20,83,45,0.28)">
+        <div style="color:#4ade80;font-weight:700;margin-bottom:4px">🔄 자동 진행</div>
+        <div style="color:#e5e7eb">ON 설정 시 전투가 끝나면 대기 시간 없이 즉시 다음 사냥을 시작합니다.</div>
+      </div>
     </div>
     
     <div style="display:flex;gap:8px">
@@ -7088,10 +7397,10 @@ function autoStartNextZone(clearedZid) {
   const cleared = ZONES[clearedZid];
   if (!cleared) return;
 
-  // 1. 진행 단계(Sequence) 계산
-  const prevSeq=(_autoZoneSeq[clearedZid] || 0);
-  const seq = prevSeq + 1;
-  _autoZoneSeq[clearedZid] = seq;
+  // 1. 진행 단계: 최종일 정복 시 이미 _autoZoneSeq가 증가한 상태(모달·한도와 동일). 여기서는 중복 증가하지 않음.
+  let seq=Number(_autoZoneSeq[clearedZid])||0;
+  if(seq<1){ seq=1; _autoZoneSeq[clearedZid]=1; }
+  const prevSeq=Math.max(0,seq-1);
   const prevCap=Math.max(6,Math.max(1,prevSeq)*6);
   const nextCap=Math.max(6,Math.max(1,seq)*6);
   const capDelta=Math.max(0,nextCap-prevCap);
@@ -7673,6 +7982,118 @@ function getPartyGroupUltButtonLabel(gid){
   if(st.phase==='cooldown') return `G${gid} ${def.name} ${sec}s`;
   return `G${gid} 준비 ${sec}s`;
 }
+function escapeHtmlLite(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+}
+function formatGroupPassiveEffectSummary(effect){
+  if(!effect||typeof effect!=='object') return '';
+  const e=effect;
+  const parts=[];
+  if(typeof e.dmgRed==='number'&&e.dmgRed>0) parts.push(`피해감소 +${Math.round(e.dmgRed*100)}%`);
+  if(typeof e.regen==='number'&&e.regen>0) parts.push(`재생 +${e.regen}`);
+  if(typeof e.heroDmgMul==='number'&&e.heroDmgMul&&e.heroDmgMul!==1) parts.push(`아군 피해 ${(e.heroDmgMul*100-100).toFixed(0)}%`);
+  if(typeof e.heroDefBonus==='number'&&e.heroDefBonus>0) parts.push(`방어 +${Math.round(e.heroDefBonus*100)}%`);
+  if(typeof e.magicAmp==='number'&&e.magicAmp>0) parts.push(`마법 +${Math.round(e.magicAmp*100)}%`);
+  if(typeof e.cdr==='number'&&e.cdr>0) parts.push(`재사용 -${Math.round(e.cdr*100)}%`);
+  if(typeof e.atkSpd==='number'&&e.atkSpd>0) parts.push(`공속 +${Math.round(e.atkSpd*100)}%`);
+  if(typeof e.heroSpdMul==='number'&&e.heroSpdMul&&e.heroSpdMul!==1) parts.push(`이속 +${((e.heroSpdMul-1)*100).toFixed(0)}%`);
+  if(typeof e.crit==='number'&&e.crit>0) parts.push(`크리 +${Math.round(e.crit*100)}%`);
+  return parts.join(' · ');
+}
+function renderPartyGroupUltHud(){
+  const el=document.getElementById('party-group-ult-hud');
+  if(!el) return;
+  const groupCnt=getPartyGroupCountByPhase();
+  if(groupCnt<=0){
+    el.innerHTML='';
+    el.style.display='none';
+    return;
+  }
+  const hasAny=(_partyGroups[1]||[]).length>0||(_partyGroups[2]||[]).length>0;
+  if(!hasAny){
+    el.innerHTML='';
+    el.style.display='none';
+    return;
+  }
+  el.style.display='flex';
+  const html=Array.from({length:groupCnt},(_,i)=>{
+    const gid=i+1;
+    const st=_partyGroupUltimate[gid]||{};
+    const isReady=st.phase==='ready'&&isBattle&&!isPaused;
+    const txt=getPartyGroupUltButtonLabel(gid);
+    const bg=isReady?'#2d2600':'#1f2937';
+    const col=isReady?'#f1c40f':'#9ca3af';
+    const bd=isReady?'#f1c40f':'#334155';
+    return `<button type="button" class="collapse-btn party-group-ult-btn" onclick="event.stopPropagation();castPartyGroupUltimate(${gid},event)" style="font-size:9px;padding:3px 8px;background:${bg};color:${col};border-color:${bd}">${txt}</button>`;
+  }).join('');
+  if(el.innerHTML!==html) el.innerHTML=html;
+}
+function buildPartyGroupSummaryCardsHtml(){
+  const groupCnt=getPartyGroupCountByPhase();
+  if(groupCnt<=0) return '';
+  let out='';
+  for(let gid=1;gid<=groupCnt;gid++){
+    const members=getPartyGroupMembers(gid);
+    if(members.length===0) continue;
+    const pname=(_partyGroupNames&&_partyGroupNames[gid])?String(_partyGroupNames[gid]):(`G${gid} 파티`);
+    const ult=detectGroupUltimate(gid,members);
+    const activeDef=detectGroupActiveUltimate(gid,members);
+    const st=_partyGroupUltimate[gid]||{};
+    let ultLine='';
+    if(activeDef){
+      let sub='';
+      if(st.phase==='ready'&&isBattle&&!isPaused) sub=' <span style="color:#f1c40f;font-weight:bold">⚡발동 가능</span>';
+      else if(st.phase==='charge') sub=` <span style="color:#9ca3af">충전 ${Math.max(0,Math.ceil((Number(st.timer)||0)/60))}s</span>`;
+      else if(st.phase==='cooldown') sub=` <span style="color:#9ca3af">재사용 ${Math.max(0,Math.ceil((Number(st.timer)||0)/60))}s</span>`;
+      const c=(PARTY_GROUP_ACTIVE_ULT_DEFS[activeDef.key]&&PARTY_GROUP_ACTIVE_ULT_DEFS[activeDef.key].color)||'#93c5fd';
+      ultLine=`<div style="font-size:9px;color:#cbd5e1;margin-top:3px">궁극: <b style="color:${c}">${escapeHtmlLite(activeDef.name)}</b>${sub}</div>`;
+    }
+    const n=members.length;
+    const sumHp=Math.round(members.reduce((s,u)=>s+(u.maxHp||0),0));
+    const sumAtk=Math.round(members.reduce((s,u)=>{
+      const rd=BASE_ROLES[u.classKey||u.baseRole||'Refugee'];
+      return s+((rd?.atk||30)+(u.bonusAtk||0));
+    },0));
+    const avgDef=Math.round(members.reduce((s,u)=>s+Math.floor((u.def||0)*100),0)/Math.max(1,n));
+    const passiveLine=ult?`<div style="font-size:9px;color:#a78bfa;margin-top:2px;line-height:1.35">연계: <b>${escapeHtmlLite(ult.name)}</b>${ult.effect?` — ${escapeHtmlLite(formatGroupPassiveEffectSummary(ult.effect))}`:''}</div>`:'';
+    out+=`<div class="uc party-group-card" style="border-color:#5b2d82;background:linear-gradient(180deg,#121a28 0%,#0c1220 100%);cursor:pointer;margin-bottom:6px" onclick="partyGroupCardSelect(${gid},event)">
+      <div class="uch" style="align-items:flex-start">
+        <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0">
+          <span style="font-size:10px;color:#c4b5fd;font-weight:bold;border:1px solid #5b2d82;padding:1px 6px;border-radius:4px;flex-shrink:0">파티</span>
+          <span class="un" style="color:#e9d5ff;font-weight:bold;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtmlLite(pname)}</span>
+        </div>
+        <div style="font-size:9px;color:#9ca3af;flex-shrink:0">G${gid} · ${n}명</div>
+      </div>
+      <div class="uc-stats" style="font-size:9px;margin:4px 0;color:#9ca3af">
+        합계 HP <b style="color:#86efac">${sumHp}</b>&nbsp;
+        합계 ATK <b style="color:#fca5a5">${sumAtk}</b>&nbsp;
+        평균 DEF <b style="color:#93c5fd">${avgDef}%</b>
+      </div>
+      ${passiveLine}
+      ${ultLine}
+    </div>`;
+  }
+  return out;
+}
+window.partyGroupCardSelect=function(gid,e){
+  if(e) e.stopPropagation();
+  sanitizePartyGroups();
+  const g=Math.max(1,Math.min(2,Number(gid)||1));
+  const m=getPartyGroupMembers(g).filter(u=>u&&!u.garrisoned&&!u.inStandby&&!u.permanentlyDead);
+  const deployed=m.find(u=>u.isDeployed);
+  const pick=deployed||m[0];
+  if(pick){
+    _selectedUnitId=pick.id;
+    markDirty();
+  }else{
+    alog('⚠️ 파티에 선택할 유닛이 없습니다.');
+  }
+};
+window.setPartyGroupNameFromModal=function(gid,val){
+  const g=Math.max(1,Math.min(2,Number(gid)||1));
+  _partyGroupNames[g]=String(val||'').trim()||`G${g} 파티`;
+  markDirty();
+};
 function applyTimedCombatBuff(u,{def=0,atkSpd=0,spdMul=1,durFrames=600}){
   ensureUnitGear(u);
   const nowTs=Date.now();
@@ -8139,7 +8560,7 @@ function getRewardBiasByFamily(fam){
   if(fam==='kingdomFort') return {food:0.4,wood:0.4,stone:0.45,iron:0.35,copper:0.35,herb:0.4,gold:1.25,diamond:1.45,warSupply:0.4,manaCrystal:1.35};
   return {food:0.75,wood:0.75,stone:0.8,iron:1.35,copper:1.25,herb:1.0,gold:1.3,diamond:1.35,warSupply:1.25,manaCrystal:1.15};
 }
-function formatIncomeLine(r){
+function getIncomeLineParts(r){
   const parts=[];
   if(r.food>0)parts.push(`🍖+${r.food}`);
   if((r.wood||0)>0)parts.push(`🌲+${r.wood}`);
@@ -8151,7 +8572,10 @@ function formatIncomeLine(r){
   if((r.diamond||0)>0)parts.push(`💎+${r.diamond}`);
   if((r.warSupply||0)>0)parts.push(`📦+${r.warSupply}`);
   if((r.manaCrystal||0)>0)parts.push(`🔮+${r.manaCrystal}`);
-  return parts.join(' ');
+  return parts;
+}
+function formatIncomeLine(r){
+  return getIncomeLineParts(r).join(' ');
 }
 function getZoneFamilyLabel(fam){
   return ({
@@ -9506,7 +9930,8 @@ function draw(crowdedBattle){
     ctx.strokeStyle=t.border;ctx.lineWidth=0.7;ctx.stroke();
     if(t.sym){ctx.font='9px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='rgba(255,255,255,0.3)';ctx.fillText(t.sym,h.x,h.y);}
   }
-  if(isPlacing){
+  const _deployTintUd=getSortedUd();
+  if(isPlacing||(isBattle&&_deployTintUd.length>0)){
     for(let r=0;r<ROWS;r++)for(let c=0;c<7;c++){
       const h=hexMap[r][c];drawHexPath(h.x,h.y,HR);
       ctx.fillStyle='rgba(91,45,130,0.15)';ctx.fill();ctx.strokeStyle='#5b2d82';ctx.lineWidth=0.6;ctx.stroke();
@@ -9711,7 +10136,15 @@ function draw(crowdedBattle){
       ctx.setLineDash([5,4]);ctx.stroke();
       ctx.restore();
     }
-    if(a.wx!==null){ctx.save();ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(a.wx,a.wy);ctx.strokeStyle='#f1c40f99';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);ctx.stroke();ctx.beginPath();ctx.arc(a.wx,a.wy,5,0,Math.PI*2);ctx.strokeStyle='#f1c40f';ctx.lineWidth=2;ctx.setLineDash([]);ctx.stroke();ctx.restore();}
+    if(a.wx!==null){
+      let gx=a.wx, gy=a.wy;
+      if(Array.isArray(a._hexPathCells)&&a._hexPathCells.length>=2){
+        const last=a._hexPathCells.length-1;
+        const idx=Math.min(Math.max(1,a._hexPathIdx||1),last);
+        gx=a._hexPathCells[idx].x; gy=a._hexPathCells[idx].y;
+      }
+      ctx.save();ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(gx,gy);ctx.strokeStyle='#f1c40f99';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);ctx.stroke();ctx.beginPath();ctx.arc(gx,gy,5,0,Math.PI*2);ctx.strokeStyle='#f1c40f';ctx.lineWidth=2;ctx.setLineDash([]);ctx.stroke();ctx.restore();
+    }
   });
   if(dragUnit&&isDragging){ctx.save();ctx.beginPath();ctx.moveTo(dragUnit.x,dragUnit.y);ctx.lineTo(mouseX,mouseY);ctx.strokeStyle='#f1c40faa';ctx.lineWidth=1.5;ctx.setLineDash([5,3]);ctx.stroke();ctx.beginPath();ctx.arc(mouseX,mouseY,6,0,Math.PI*2);ctx.strokeStyle='#f1c40f';ctx.lineWidth=2;ctx.setLineDash([]);ctx.stroke();ctx.restore();}
   function drawEntityOnMap(u){
@@ -9721,17 +10154,17 @@ function draw(crowdedBattle){
       if(u.dead&&!u.permanentlyDead&&u.deathTime){
         const elapsed=Date.now()-u.deathTime;
         const left=Math.max(0,Math.ceil((7000-elapsed)/1000));
-        const R=13;
+        const Rdead=(getUnitPartyGroupId(u.id)>0)?39:13;
         ctx.save();
-        ctx.beginPath();ctx.arc(u.x,u.y,R,0,Math.PI*2);
+        ctx.beginPath();ctx.arc(u.x,u.y,Rdead,0,Math.PI*2);
         ctx.fillStyle='rgba(50,0,0,0.85)';ctx.fill();
         ctx.strokeStyle='#e74c3c';ctx.lineWidth=2;
-        ctx.beginPath();ctx.arc(u.x,u.y,R,- Math.PI/2,(2*Math.PI*((7000-elapsed)/5000))-Math.PI/2);
+        ctx.beginPath();ctx.arc(u.x,u.y,Rdead,- Math.PI/2,(2*Math.PI*((7000-elapsed)/5000))-Math.PI/2);
         ctx.strokeStyle='#e74c3c';ctx.lineWidth=3;ctx.stroke();
-        ctx.fillStyle='#fff';ctx.font='bold 10px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillStyle='#fff';ctx.font=Rdead>20?'bold 16px Arial':'bold 10px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
         ctx.fillText(left>0?left:'!',u.x,u.y);
         ctx.font='7px Arial';ctx.fillStyle='#e74c3c';
-        ctx.fillText('빈사',u.x,u.y+R+7);
+        ctx.fillText('빈사',u.x,u.y+Rdead+7);
         ctx.restore();
         return;
       }
@@ -9777,16 +10210,27 @@ function draw(crowdedBattle){
       ctx.save();
       ctx.globalAlpha=alpha;
       ctx.fillStyle=f.color||'#fff';
-      ctx.font='bold 11px Arial';
+      const fs=Math.max(8,Number(f.fontSize)||11);
+      ctx.font=`bold ${fs}px Arial`;
       ctx.textAlign='center';
       ctx.textBaseline='middle';
+      if((f.strokeWidth||0)>0){
+        ctx.lineJoin='round';
+        ctx.miterLimit=2;
+        ctx.lineWidth=Number(f.strokeWidth)||2;
+        ctx.strokeStyle=f.strokeColor||'rgba(10,15,25,0.92)';
+        ctx.strokeText(f.text,f.x,f.y);
+      }
       ctx.fillText(f.text,f.x,f.y);
       ctx.restore();
     }
   });
 }
 function drawUnit(u) {
-  const isAlly = u.type === 'ally', R = 13;
+  const isAlly = u.type === 'ally';
+  const baseR = 13;
+  const pgMul=(isAlly&&getUnitPartyGroupId(u.id)>0)?3:1;
+  const R = baseR * pgMul;
   const role = u.classKey || u.baseRole || 'Refugee';
   const colorRole = u.class10Key ? (CLASS10[u.class10Key]?.base || role) : role;
   const rd = BASE_ROLES[colorRole] || BASE_ROLES[role];
@@ -9822,10 +10266,10 @@ function drawUnit(u) {
     if(isBattle){
       cdState=getUnitSkillCdState(u);
     }
-    ctx.font='11px Arial';
+    ctx.font=`${Math.max(11,Math.min(22,Math.round(R*0.42)))}px Arial`;
   } else {
     centerText = isAlly ? (u.class10Key ? CLASS10[u.class10Key].name.slice(0, 2) : u.classKey || u.baseRole).slice(0, 2) : u.mark;
-    ctx.font='bold 8px Arial';
+    ctx.font=`bold ${Math.max(8,Math.min(16,Math.round(R*0.35)))}px Arial`;
   }
   ctx.fillText(centerText, u.x, u.y);
 
@@ -9838,7 +10282,7 @@ function drawUnit(u) {
     ctx.fill();
     ctx.fillStyle='#e5e7eb';
     ctx.font='bold 7px Arial';
-    ctx.fillText(String(Math.max(1,Math.ceil(cdState.cd/60))),u.x,u.y+R-3);
+    ctx.fillText(String(Math.max(1,Math.ceil(cdState.cd/60))),u.x,u.y+R-Math.min(5,R*0.12));
   }
 
   // 5. READY 상태 테두리
@@ -9875,7 +10319,7 @@ function drawUnit(u) {
   ctx.stroke();
 
   // 6. 체력바 및 이름표 (기존 유지)
-  const bw = 28, bh = 3, bx = u.x - bw / 2, by = u.y - R - 6;
+  const bw = Math.min(52, Math.max(28, Math.round(R * 1.35))), bh = 3, bx = u.x - bw / 2, by = u.y - R - 6;
   ctx.fillStyle = '#111'; ctx.fillRect(bx, by, bw, bh);
   const pct = Math.max(0, u.hp / u.maxHp);
   ctx.fillStyle = (isAlly && u.id === _selectedUnitId) ? '#f1c40f' : (pct > 0.5 ? '#2ecc71' : '#e74c3c');
@@ -9925,18 +10369,6 @@ function renderAllyPanel() {
   const groupBtnHtml=groupCnt>0
     ? `<button type="button" class="collapse-btn" id="btn-party-group" onclick="event.stopPropagation();showPartyGroupModal(event)" style="font-size:9px;padding:2px 6px;background:#1a1525;color:#c4b5fd;border-color:#5b2d82">파티 그룹</button>`
     : '';
-  const groupUltBtnHtml=groupCnt>0
-    ? Array.from({length:groupCnt},(_,i)=>{
-        const gid=i+1;
-        const st=_partyGroupUltimate[gid]||{};
-        const isReady=st.phase==='ready'&&isBattle&&!isPaused;
-        const txt=getPartyGroupUltButtonLabel(gid);
-        const bg=isReady?'#2d2600':'#1f2937';
-        const col=isReady?'#f1c40f':'#9ca3af';
-        const bd=isReady?'#f1c40f':'#334155';
-        return `<button type="button" class="collapse-btn" onclick="event.stopPropagation();castPartyGroupUltimate(${gid},event)" style="font-size:9px;padding:2px 6px;background:${bg};color:${col};border-color:${bd}">${txt}</button>`;
-      }).join('')
-    : '';
   
   // 4. 헤더 및 버튼 구성 (기존 유지)
   const headerHtml = `
@@ -9944,7 +10376,6 @@ function renderAllyPanel() {
       <span>👥 함께하는 동료 <b id="party-count" style="color:#f1c40f">(${activeAllies.length}/${PARTY_LIMIT})</b></span>
       <div style="display:flex;gap:4px;align-items:center">
         ${groupBtnHtml}
-        ${groupUltBtnHtml}
         <button type="button" class="collapse-btn" id="btn-party-sort" onclick="event.stopPropagation();enableAutoSort();" style="font-size:9px;padding:2px 6px;background:#1a3d5c;color:#60a5fa;border-color:#1e3a5f">유닛 정렬</button>
         <button class="collapse-btn" id="btn-compact" onclick="toggleCompactView()" style="font-size:9px;padding:2px 6px">간략히</button>
       </div>
@@ -9956,8 +10387,9 @@ function renderAllyPanel() {
     if(ptEl) ptEl.outerHTML = headerHtml;
   }
 
-  // 5. 카드 렌더링 루프
-  document.getElementById('al').innerHTML = activeAllies.map(a => {
+  // 5. 카드 렌더링 루프 (파티 그룹 요약 카드 → 개별 유닛)
+  const groupCardsHtml=buildPartyGroupSummaryCardsHtml();
+  document.getElementById('al').innerHTML = groupCardsHtml+activeAllies.map(a => {
     const role = a.classKey || a.baseRole;
     const rd = BASE_ROLES[role];
     const isSelected = _selectedUnitId === a.id;
@@ -10075,6 +10507,7 @@ function renderAllyPanel() {
       <div class="ur" onclick="event.stopPropagation()">${upgBtns}</div>
     </div>`;
   }).join('');
+  renderPartyGroupUltHud();
 }
 
 function updateAllyPanelBattleStats(){
@@ -10149,8 +10582,14 @@ window.showPartyGroupModal=function(e){
     const m=getPartyGroupMembers(gid);
     const ult=detectGroupUltimate(gid);
     const names=m.map(x=>x.name).join(', ')||'없음';
+    const curName=(_partyGroupNames&&_partyGroupNames[gid])||`G${gid} 파티`;
     return `<div style="margin-bottom:6px;padding:6px;border:1px solid #2b3344;border-radius:6px;background:#0a1520">
       <div style="font-size:10px;color:#c4b5fd"><b>G${gid}</b> (${m.length}/${PARTY_GROUP_UNIT_CAP}) · ${ult?`연계: ${ult.name}`:'연계 없음'}</div>
+      <div style="margin-top:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <label style="font-size:9px;color:#9ca3af;white-space:nowrap">표시 이름</label>
+        <input type="text" maxlength="32" value="${escapeHtmlLite(curName)}" oninput="setPartyGroupNameFromModal(${gid},this.value)"
+          style="flex:1;min-width:120px;font-size:10px;padding:3px 6px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#e5e7eb" />
+      </div>
       <div style="font-size:9px;color:#9ca3af;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${names}</div>
     </div>`;
   }).join('');
@@ -10404,7 +10843,10 @@ function addFloat(x,y,t,c,opts={}){
     radius:opts.radius||16,
     progress:0,
     grow:opts.grow||1.2,
-    lineWidth:opts.lineWidth||2
+    lineWidth:opts.lineWidth||2,
+    fontSize:opts.fontSize||11,
+    strokeColor:opts.strokeColor||'',
+    strokeWidth:opts.strokeWidth||0
   });
 }
 
@@ -10451,7 +10893,7 @@ window.showIntegratedMembersPopup=function(family){
     if(!u) return '';
     const t=getTierUiMeta(u);
     if(t.grow) growCnt++; else normalCnt++;
-    return buildStandbyUnitCardHtml(u,{noDrag:true,garrisonZid:g._zid,statCardClick:true});
+    return buildStandbyUnitCardHtml(u,{noDrag:true,garrisonZid:g._zid,statCardClick:true,useStandbyMoveMenu:true});
   }).join('');
   const html=`<div class="integrated-members-pop" style="position:fixed;inset:0;z-index:12050;background:rgba(3,8,16,0.72);display:flex;align-items:center;justify-content:center;padding:10px" onclick="closeIntegratedMembersPopup()">
     <div class="unit-list-frame" style="max-height:min(88vh,800px);overflow:auto;background:#08121d;border:1px solid #1e3a5f;border-radius:10px;padding:12px" onclick="event.stopPropagation()">
@@ -10505,9 +10947,7 @@ function renderGarrisonBar(){
   const sbCap=getStandbyCapacity();
   const standbySorted=sortStandbyListForModal(standby,'lv');
   const standbyShown=standbySorted.slice(0,6);
-  const listBtn=standby.length>6
-    ? `<button type="button" class="cb" style="padding:3px 8px;font-size:9px;flex-shrink:0;touch-action:manipulation;background:#1b1530;border-color:#7c3aed;color:#c4b5fd" onclick="event.stopPropagation();openStandbyListModal()">유닛 목록</button>`
-    : '';
+  const listBtn=`<button type="button" class="cb" style="padding:3px 8px;font-size:9px;flex-shrink:0;touch-action:manipulation;background:#1b1530;border-color:#7c3aed;color:#c4b5fd" onclick="event.stopPropagation();openStandbyListModal()">유닛 목록</button>`;
   const standbyHtml=`<div class="gz" ondragover="event.preventDefault()" ondrop="standbyFrameDrop(event)">
     <div class="gz-standby-head">
       <div class="gz-title" style="color:#a855f7">⏳ 대기 인원 (${standby.length}/${sbCap})</div>
@@ -10549,56 +10989,30 @@ function renderGarrisonBar(){
       members.push(...(rr.garrison||[]).map(g=>({...g,_zid:z})));
     });
     const displayName=`${getGarrisonGroupDisplayName(item.family,item.zones)} 거점 ${toRomanNumeral(familyLv)}`;
-    const recordLabel=bestBattleMs>0?`- 최고 기록 ${formatBattleRecordMs(bestBattleMs)}`:'- 최고 기록 없음';
+    const recordLabel=bestBattleMs>0?`최단 기록 ${formatBattleRecordMs(bestBattleMs)}`:'최단 기록';
     effPct=Math.round(Math.max(effPct,getGarrisonEfficiencyPctByLevel(familyLv)));
     Object.keys(inc).forEach(k=>inc[k]=Math.floor((inc[k]||0)*synergyMul));
     expPerMin=Math.floor(expPerMin*(1+Math.max(0,zoneCount-2)*0.12));
     effColor=effPct>=90?'#2ecc71':effPct>=70?'#f1c40f':'#e67e22';
-    const unitItems = members.map(g => {
-      const u = allyById.get(g.id);
-      if (!u) return '';
-      const zid2=g._zid||zid;
-      const canPromote = canUnitPromote(u);
-      const t=getTierUiMeta(u);
-      const gzColorKey=u.class10Key?(CLASS10[u.class10Key]?.base||(u.classKey||u.baseRole)):(u.classKey||u.baseRole);
-      const rd = BASE_ROLES[gzColorKey]||BASE_ROLES[u.classKey||u.baseRole];
-      return `
-      <div class="gz-unit ${canPromote ? 'gz-promote' : ''}" 
-          draggable="true" 
-          ondragstart="garrisonDragStart(event, '${zid2}', ${u.id})"
-          style="border:1px solid ${canPromote?'#f1c40f':t.border};cursor:grab;">
-        <div class="gz-unit-inner-row">
-          <div class="gz-move-grip" title="순서 이동 (▲▼)" onclick="event.stopPropagation()">
-            <button type="button" class="cb" onclick="event.stopPropagation();moveGarrisonMemberRelative('${zid2}',${u.id},-1)">▲</button>
-            <span style="font-size:8px;line-height:1;color:#fbbf24;font-weight:600">\u21C5</span>
-            <button type="button" class="cb" onclick="event.stopPropagation();moveGarrisonMemberRelative('${zid2}',${u.id},1)">▼</button>
-          </div>
-          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;justify-content:center">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px">
-              <span onclick="event.stopPropagation();clickGarrisonUnit('${zid2}', ${u.id}, event)" 
-                    title="클릭: 이동 메뉴" 
-                    style="cursor:pointer;color:${rd?.color || '#9ca3af'};font-weight:bold;">
-                ${u.name}
-              </span>
-              ${canPromote ? `<span onclick="event.stopPropagation(); showClassModal(allies.find(x => x.id === ${u.id}))" style="cursor:pointer;font-size:8px;background:#f1c40f;color:#111;padding:1px 3px;border-radius:2px;font-weight:bold;">전직</span>` : ''}
-            </div>
-            <span style="font-size:7px;color:#9ca3af;line-height:1.2">Lv.${u.lv} ${u.classKey ? BASE_ROLES[u.classKey]?.name || '' : '피난민'}</span>
-          </div>
-        </div>
-      </div>`;
-    }).join('');
+    const incParts=getIncomeLineParts(inc);
+    const incLineFirst=incParts.slice(0,3);
+    const incLineRest=incParts.slice(3);
+    const incomeHtmlRow2=incLineFirst.length?`${incLineFirst.join(' ')}/분`:'';
+    let incomeHtmlRow3='';
+    if(incLineRest.length) incomeHtmlRow3+=`${incLineRest.join(' ')}/분 `;
+    incomeHtmlRow3+=`✨+${expPerMin}/분`;
     return `<div class="gz" ondragover="event.preventDefault()" ondrop="zoneFrameDrop(event,'${dropZid}')">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:3px">
-        <div class="gz-title" style="color:${zone?.color||'#f1c40f'};margin:0">${displayName}</div>
-        <span style="font-size:8px;color:#94a3b8;white-space:nowrap">${recordLabel}</span>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap">
+        <div class="gz-title" style="color:${zone?.color||'#f1c40f'};margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${displayName}</div>
+        <span style="font-size:9px;font-weight:bold;color:${effColor};white-space:nowrap;flex-shrink:0">효율 ${effPct}%</span>
+        <span style="font-size:8px;color:#94a3b8;white-space:nowrap;flex-shrink:0">${recordLabel}</span>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:3px">
-        <div class="gz-income" style="margin:0">${formatIncomeLine(inc)}/분 ✨+${expPerMin}/분</div>
-        <span style="font-size:9px;font-weight:bold;color:${effColor};white-space:nowrap">효율 ${effPct}%</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
-        <button type="button" class="cb" style="padding:3px 8px;font-size:9px;background:#1a3d5c;border:1px solid #60a5fa;color:#93c5fd" onclick="event.stopPropagation();showIntegratedMembersPopup('${item.family}')">👥 배치 인원 보기</button>
-        <span style="font-size:8px;color:#9ca3af;white-space:nowrap">배치 ${members.length}/${memberCap}명</span>
+      <div style="position:relative;margin-bottom:3px;padding-right:86px;box-sizing:border-box;min-height:40px">
+        <div style="display:flex;flex-direction:column;justify-content:flex-start;gap:2px;line-height:1.35">
+          <div class="gz-income" style="margin:0;font-size:9px">${incomeHtmlRow2}</div>
+          <div class="gz-income" style="margin:0;font-size:9px">${incomeHtmlRow3}</div>
+        </div>
+        <button type="button" class="cb" style="position:absolute;top:0;right:0;bottom:0;width:78px;margin:0;padding:3px 2px;font-size:8px;background:#1a3d5c;border:1px solid #60a5fa;color:#93c5fd;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:1px;line-height:1.1;text-align:center;white-space:normal;overflow:hidden" onclick="event.stopPropagation();showIntegratedMembersPopup('${item.family}')"><span style="display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis">👥 배치 인원</span><span style="font-size:9px;font-weight:700;line-height:1">${members.length}/${memberCap}명</span></button>
       </div>
     </div>`;
   }).join('');
@@ -10820,6 +11234,19 @@ function sendToStandbyCore(uid){
   }
   removeUnitFromAllGroups(uid);
   const u2=allies.find(a=>a.id===uid);
+  if(pendingSwap){
+    // 교체 예약: 통솔→대기·대기→통솔을 동시에 반영해야 함. 먼저 p를 대기로 찍으면 sanitize가 그룹에서 pu를 지워 치환 실패·정원 11명 순간 등 문제가 난다.
+    if(u2){
+      u2.retreatingToStandby=false;
+      u2.wx=null;
+      u2.wy=null;
+    }
+    finalizeBattleSwapAfterRetreat(pendingSwap);
+    delete _pendingBattleSwapByPartyId[Number(uid)];
+    markDirty();
+    renderGarrisonBar();
+    return;
+  }
   if(u2){
     u2.inStandby=true;
     u2.isDeployed=false;
@@ -10828,16 +11255,25 @@ function sendToStandbyCore(uid){
     u2.wy=null;
     u2.x=-300;
     u2.y=-300;
-    if(!pendingSwap) alog(`⏳ ${u2.name} → 대기`);
-  }
-  if(pendingSwap){
-    finalizeBattleSwapAfterRetreat(pendingSwap);
-    delete _pendingBattleSwapByPartyId[Number(uid)];
+    alog(`⏳ ${u2.name} → 대기`);
   }
   markDirty();renderGarrisonBar();
 }
 
 let _pendingBattleSwapByPartyId={};
+function getPendingSwapJobForParty(partyId){
+  return (_pendingBattleSwapByPartyId&&_pendingBattleSwapByPartyId[Number(partyId)])||null;
+}
+/** 현재 이 대기 유닛이 이미 예약한 교체(전투 중) — 다른 통솔 동료를 동시에 고를 수 없음 */
+function getPendingSwapJobForStandby(standbyUid){
+  const o=_pendingBattleSwapByPartyId||{};
+  const keys=Object.keys(o);
+  for(let i=0;i<keys.length;i++){
+    const j=o[keys[i]];
+    if(j&&Number(j.standbyUid)===Number(standbyUid)) return j;
+  }
+  return null;
+}
 function finalizeBattleSwapAfterRetreat(job){
   if(!job) return;
   const su=Number(job.standbyUid), pu=Number(job.partyUid);
@@ -10845,34 +11281,43 @@ function finalizeBattleSwapAfterRetreat(job){
   const p=allies.find(a=>a.id===pu);
   if(!s||!p) return;
   if(s.dead||p.dead||s.permanentlyDead||p.permanentlyDead) return;
-  if(typeof sanitizePartyGroups==='function')sanitizePartyGroups();
+  // 선행 sanitize 금지: sendToStandbyCore 직전에 p.inStandby가 켜지면 pu가 그룹에서 제거되어 pu→su 치환이 실패한다.
   [1,2].forEach(gid=>{
     if(!_partyGroups||!_partyGroups[gid]) return;
     const arr=Array.isArray(_partyGroups[gid])?_partyGroups[gid]:[];
     const cleaned=arr.map(id=>Number(id)).filter(id=>id!==su);
     _partyGroups[gid]=cleaned.map(id=>id===pu?su:id);
   });
+  p.inStandby=true;
+  p.garrisoned=null;
+  p.isDeployed=false;
+  p.retreatingToStandby=false;
+  p.onHold=false;
+  p.wx=null;
+  p.wy=null;
+  p.x=-300;
+  p.y=-300;
   s.inStandby=false;
   s.garrisoned=null;
   s.retreatingToStandby=false;
-  s.isDeployed=true;
-  s.onHold=!!job.partyHold;
+  // 교체 직후에는 자동 좌표 배치하지 않음 — 사용자가 보라색 구역에서 다시 배치
+  s.isDeployed=false;
+  s.onHold=false;
   s.wx=null; s.wy=null;
-  s.x=Number.isFinite(job.spawnX)?job.spawnX:Math.max(MAP_PAD+26,Math.min(CW*0.35,CW-MAP_PAD-26));
-  s.y=Number.isFinite(job.spawnY)?job.spawnY:Math.max(MAP_PAD+26,Math.min(CH*0.5,CH-MAP_PAD-26));
-  clampToMap(s);
+  s.x=-300; s.y=-300;
   const si=allies.indexOf(s), pi=allies.indexOf(p);
   if(si>=0&&pi>=0&&si!==pi){
     allies[si]=p;
     allies[pi]=s;
   }
   if(typeof sanitizePartyGroups==='function')sanitizePartyGroups();
-  addFloat(s.x,s.y-16,'🔁 교체 완료','#f1c40f');
-  alog(`🔁 ${s.name} ↔ ${p.name} 통솔 교체`);
+  addFloat(CW*0.22,42,'🔁 교체 — 보라 영역에 배치','#c084fc');
+  alog(`🔁 ${s.name} ↔ ${p.name} 통솔 교체 — 좌측 보라색 영역에 ${s.name}을(를) 배치하세요.`);
   isPlacing=true;
   const pg=document.getElementById('pg');
   if(pg) pg.style.display='block';
   updatePG();
+  markDirty();
   if(typeof renderAllyPanel==='function') renderAllyPanel();
 }
 
@@ -10883,6 +11328,7 @@ function startRetreatToStandby(uid){
   u.onHold=false;
   u.wx=null;
   u.wy=null;
+  clearAllyHexPath(u);
   addFloat(u.x,u.y-16,'↩ 후퇴','#60a5fa');
   markDirty();
   return true;
@@ -11134,17 +11580,46 @@ window.clickStandbyUnit=function(uid, evt){
     if(partyPick.length===0){
       html+=`<div style="padding:6px;color:#64748b;font-size:10px;margin-bottom:4px">교체 가능한 통솔 대원이 없습니다.</div>`;
     }else{
+      const jobForOpener=getPendingSwapJobForStandby(uid);
       partyPick.forEach(p=>{
         const rk=p.class10Key?(CLASS10[p.class10Key]?.base||(p.classKey||p.baseRole)):(p.classKey||p.baseRole);
         const rn=(BASE_ROLES[rk]&&BASE_ROLES[rk].name)||'';
         const t=getTierUiMeta(p);
         const bdW=(t.label&&t.label!=='Normal')?2:1;
-        html+=`<div onclick="swapStandbyWithPartyMember(${uid},${p.id})" style="padding:7px 8px;cursor:pointer;border-radius:4px;margin-bottom:4px;background:#111d2b;border:${bdW}px solid ${t.border};color:#e5e7eb;touch-action:manipulation;display:flex;justify-content:flex-start;align-items:center;gap:4px;flex-wrap:nowrap;overflow:hidden">
-          <span style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;max-width:calc(100% - 78px)">${p.name}</span>
-          <span style="font-size:10px;color:#9ca3af;flex-shrink:0;white-space:nowrap">Lv.${p.lv} ${rn}</span>
+        const pend=getPendingSwapJobForParty(p.id);
+        let rowDisabled=false;
+        let statusNote='';
+        if(p.retreatingToStandby){
+          rowDisabled=true;
+          statusNote='<span style="font-size:9px;color:#fb923c;font-weight:600;flex-shrink:0">후퇴 중</span>';
+        }else if(pend){
+          const suNm=(allies.find(a=>a.id===pend.standbyUid)||{}).name||'대기';
+          if(Number(pend.standbyUid)===Number(uid)){
+            rowDisabled=true;
+            statusNote='<span style="font-size:9px;color:#fbbf24;font-weight:600;flex-shrink:0">교체 진행</span>';
+          }else{
+            rowDisabled=true;
+            statusNote='<span style="font-size:9px;color:#94a3b8;font-weight:600;flex-shrink:0;text-align:right;max-width:72px;line-height:1.2" title="다른 대기 유닛과 교체 예약됨">🔁 '+suNm+'</span>';
+          }
+        }else if(jobForOpener&&Number(jobForOpener.partyUid)!==Number(p.id)){
+          rowDisabled=true;
+          statusNote='<span style="font-size:9px;color:#64748b;font-weight:600;flex-shrink:0">선택 불가</span>';
+        }
+        const rowClick=rowDisabled?'':`onclick="swapStandbyWithPartyMember(${uid},${p.id})"`;
+        const rowOp=rowDisabled?'0.58':'1';
+        const rowCur=rowDisabled?'default':'pointer';
+        html+=`<div ${rowClick} style="padding:7px 8px;cursor:${rowCur};border-radius:4px;margin-bottom:4px;background:#111d2b;border:${bdW}px solid ${t.border};color:#e5e7eb;touch-action:manipulation;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;opacity:${rowOp}">
+          <span style="display:flex;min-width:0;align-items:center;gap:4px;flex:1">
+            <span style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${p.name}</span>
+            <span style="font-size:10px;color:#9ca3af;flex-shrink:0;white-space:nowrap">Lv.${p.lv} ${rn}</span>
+          </span>
+          ${statusNote}
         </div>`;
       });
     }
+  }
+  if(u.garrisoned&&!u.inStandby){
+    html+=`<div onclick="releaseFromGarrison(${JSON.stringify(String(u.garrisoned))},${uid},'standby')" style="padding:8px;cursor:pointer;border-radius:4px;margin-bottom:4px;background:#1b1530;color:#a78bfa;border:1px solid rgba(167,139,250,0.35);touch-action:manipulation">⏳ 대기실로 이동</div>`;
   }
   cleared.forEach(([zid])=>{
     const z=ZONES[zid]||{name:zid,color:'#aaa'};
@@ -11161,6 +11636,7 @@ window.clickStandbyUnit=function(uid, evt){
 
 window.standbyToParty=function(uid){
   closeStandbyPopup();
+  removeUnitFromAllGroups(uid);
   const u=allies.find(a=>a.id===uid);if(!u)return;
   u.inStandby=false;
   // 대기 인원에서 새로 통솔에 합류한 유닛은 항상 수동 배치 대상으로 둔다.
@@ -11178,11 +11654,60 @@ window.swapStandbyWithPartyMember=function(standbyUid, partyUid){
   closeStandbyPopup();
   const s=allies.find(a=>a.id===standbyUid);
   const p=allies.find(a=>a.id===partyUid);
-  if(!s||!p||!s.inStandby||p.inStandby||p.garrisoned||s.garrisoned)return;
+  if(!s||!p||p.inStandby||p.garrisoned)return;
+  if(!(s.inStandby||s.garrisoned))return;
+  if(s.inStandby&&s.garrisoned)return;
   if(s.dead||p.dead||s.permanentlyDead||p.permanentlyDead)return;
   if(isBattle){
     if(!p.isDeployed){alog('❌ 전투 중 교체 대상은 현재 전장에 있어야 합니다.');return;}
     if(p.retreatingToStandby){alog('⏳ 이미 좌측으로 후퇴 중입니다.');return;}
+    const pend0=getPendingSwapJobForParty(partyUid);
+    if(pend0){
+      if(Number(pend0.standbyUid)===Number(standbyUid)) alog('⏳ 이미 이 동료와 교체를 진행 중입니다.');
+      else{
+        const oNm=(allies.find(a=>a.id===pend0.standbyUid)||{}).name||'대기 유닛';
+        alog(`⏳ ${oNm}과(와)의 교체가 이미 예약된 동료입니다.`);
+      }
+      return;
+    }
+    const jobMine=getPendingSwapJobForStandby(standbyUid);
+    if(jobMine&&Number(jobMine.partyUid)!==Number(partyUid)){
+      alog('⏳ 이미 다른 통솔 동료와 교체를 진행 중입니다. 끝난 뒤 다시 시도하세요.');
+      return;
+    }
+    _pendingBattleSwapByPartyId[Number(partyUid)]={
+      standbyUid:Number(standbyUid),
+      partyUid:Number(partyUid),
+      spawnX:Number.isFinite(p.x)?p.x:null,
+      spawnY:Number.isFinite(p.y)?p.y:null,
+      partyHold:!!p.onHold
+    };
+    if(!startRetreatToStandby(partyUid)){
+      delete _pendingBattleSwapByPartyId[Number(partyUid)];
+      alog('❌ 교체를 시작할 수 없습니다.');
+      return;
+    }
+    alog(`↩ ${p.name} 좌측 이탈 후 ${s.name}로 교체합니다.`);
+    return;
+  }
+
+  // 배치 대기·출격 전 등 전투 외: 이미 맵에 둔 통솔은 좌측 경계까지 후퇴한 뒤 교체 (경계 도달 시 finalizeBattleSwapAfterRetreat)
+  if(p.isDeployed){
+    if(p.retreatingToStandby){alog('⏳ 이미 좌측으로 후퇴 중입니다.');return;}
+    const pend0=getPendingSwapJobForParty(partyUid);
+    if(pend0){
+      if(Number(pend0.standbyUid)===Number(standbyUid)) alog('⏳ 이미 이 동료와 교체를 진행 중입니다.');
+      else{
+        const oNm=(allies.find(a=>a.id===pend0.standbyUid)||{}).name||'대기 유닛';
+        alog(`⏳ ${oNm}과(와)의 교체가 이미 예약된 동료입니다.`);
+      }
+      return;
+    }
+    const jobMine=getPendingSwapJobForStandby(standbyUid);
+    if(jobMine&&Number(jobMine.partyUid)!==Number(partyUid)){
+      alog('⏳ 이미 다른 통솔 동료와 교체를 진행 중입니다. 끝난 뒤 다시 시도하세요.');
+      return;
+    }
     _pendingBattleSwapByPartyId[Number(partyUid)]={
       standbyUid:Number(standbyUid),
       partyUid:Number(partyUid),
@@ -11295,7 +11820,7 @@ window.clickGarrisonUnit=function(zid,uid,evt){
   }else{
     html+=`<div style="padding:6px;color:#555;font-size:10px;margin-bottom:4px">통솔 ${PARTY_LIMIT}명 꽉 참</div>`;
   }
-  html+=`<div onclick="releaseFromGarrison('${zid}',${uid},'standby')" style="padding:8px;cursor:pointer;border-radius:4px;margin-bottom:4px;background:#1b1530;color:#a78bfa;touch-action:manipulation">⏳ 대기 인원으로 이동</div>`;
+  html+=`<div onclick="releaseFromGarrison('${zid}',${uid},'standby')" style="padding:8px;cursor:pointer;border-radius:4px;margin-bottom:4px;background:#1b1530;color:#a78bfa;touch-action:manipulation">⏳ 대기실실로 이동</div>`;
   html+=`<div onclick="grantFoodAndDismissUnit(${uid},100)" style="padding:8px;cursor:pointer;border-radius:4px;margin-bottom:4px;background:#2a2008;color:#f1c40f;touch-action:manipulation">🍖 식량 100 지급 후 내보내기</div>`;
   html+=`<div onclick="closeStandbyPopup()" style="padding:6px;cursor:pointer;color:#6b7280;margin-top:4px;text-align:center;touch-action:manipulation">✕ 취소</div>`;
   html+=`</div>`;
@@ -11666,6 +12191,9 @@ function loop(gen) {
   } 
   else if (isBattle && _frameCount % 30 === 0) {
     updateAllyPanelBattleStats();
+  }
+  if(getPartyGroupCountByPhase()>0&&_frameCount%12===0){
+    renderPartyGroupUltHud();
   }
 
   // 6. 자원 데이터 동기화
