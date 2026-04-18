@@ -121,6 +121,41 @@ body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #cc
   opacity: 0.92;
   margin-top: 2px;
 }
+/* 거점 헤더: 피난민·용병 (펼치기 좌측) — ctrl-recruit 버튼과 동일 스타일 */
+#garrison-bar-header .garrison-header-recruit {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+#garrison-bar-header .garrison-header-recruit .cb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.15;
+  min-height: 2.6em;
+  padding: 5px 8px;
+  font-size: clamp(0.68rem, 0.35vw + 0.62rem, 0.82rem);
+}
+#garrison-bar-header .garrison-header-recruit .cb-cost {
+  display: block;
+  font-size: 0.72em;
+  font-weight: 700;
+  opacity: 0.92;
+  margin-top: 2px;
+}
+.garrison-header-trailing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.garrison-header-trailing .garrison-expand-btn {
+  margin-left: 0 !important;
+}
 .ctrl-row::-webkit-scrollbar { display: none; } /* 스크롤바 숨기기 (Chrome/Safari) */
 
 /* 버튼·상태뱃지(#sb) 동일: 좌우 패딩·글자 크기·폭(내용 기준) 통일 */
@@ -688,9 +723,11 @@ canvas {
     background: #0a1520;
     border: 1px solid #1e3a5f;
     border-radius: 7px;
-    width: 98% !important;
+    width: 100% !important;
     max-width: 100% !important;
-    margin: 5px auto 6px auto;
+    margin: 0;
+    box-sizing: border-box;
+    flex-shrink: 0;
 }
 #garrison-bar-header { display:flex; align-items:center; gap:8px; padding:6px 12px; background:#0f1923; flex-wrap:nowrap; }
 #garrison-bar-body { padding:8px; display:flex; gap:6px; flex-wrap:nowrap; overflow-x:auto; }
@@ -1005,6 +1042,9 @@ canvas {
   justify-content: flex-end;
   flex-wrap: wrap;
 }
+.ctrl-row .ctrl-recruit #garrison-benefit-wrap {
+  max-width: min(480px, 52vw);
+}
 #garrison-bar-benefit { font-size: 0.78em; color: #f1c40f; text-align: right; line-height: 1.35; }
 #btn-garrison-buffs {
   flex-shrink: 0;
@@ -1231,33 +1271,16 @@ canvas {
     </div>
     <div id="battle-potion-row" style="display:none;flex-wrap:wrap;gap:5px;align-items:center;width:100%;padding:4px 0 0 0;margin-top:2px;border-top:1px solid #1e293b;box-sizing:border-box"></div>
     <div class="ctrl-recruit">
-      <button class="cb cb-fo" onclick="event.stopPropagation(); showRefugeeModal()">피난민 합류<span class="cb-cost">🍖30</span></button>
-      <button class="cb cb-hi" onclick="event.stopPropagation(); hireGold()">용병 고용<span class="cb-cost">💰100</span></button>
+      <div id="garrison-benefit-wrap">
+        <span id="garrison-bar-benefit"></span>
+        <button type="button" class="cb" id="btn-garrison-buffs" onclick="event.stopPropagation();openGarrisonBuffsModal()">거점 버프</button>
+      </div>
     </div>
-  </div>
-</div>
-
-<div id="garrison-bar">
-  <div id="garrison-bar-header" style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:#0f1923;flex-wrap:nowrap">
-    <span id="garrison-title-btn" onclick="event.stopPropagation();showGarrisonSummaryModal()"><span id="garrison-hud-main">🚩 집합소</span><span id="garrison-hud-grade"></span><span id="garrison-hud-up" class="garrison-hud-pin garrison-hud-up" style="display:none" title="거점 업그레이드 가능">⬆</span><span id="garrison-hud-rebuild" class="garrison-hud-pin garrison-hud-rebuild" title="문명 재건">🏘마을 재건</span></span>
-    <button type="button" class="collapse-btn" id="btn-hub-sg-list" onclick="event.stopPropagation();openHubStandbyGarrisonModal()" style="font-size:9px;padding:2px 8px;background:#1a3d5c;color:#93c5fd;border:1px solid #1e3a5f;flex-shrink:0;touch-action:manipulation;white-space:nowrap;margin-left:2px" title="대기실·거점 주둔 전체">전체 유닛 목록</button>
-    <span id="shop-btn" style="display:none"></span>
-    <span id="garrison-bar-toggle" class="garrison-expand-btn" role="button" tabindex="0" onclick="event.stopPropagation();toggleGarrisonBar()">▼ 펼치기</span>
-  </div>
-  <div id="garrison-bar-summary" class="garrison-res-line">
-    <span id="garrison-bar-income"></span>
-    <div id="garrison-benefit-wrap">
-      <span id="garrison-bar-benefit"></span>
-      <button type="button" class="cb" id="btn-garrison-buffs" onclick="event.stopPropagation();openGarrisonBuffsModal()">거점 버프</button>
-    </div>
-  </div>
-  <div id="garrison-bar-body" style="display:none;padding:8px;flex-wrap:nowrap;overflow-x:auto;align-items:flex-start">
-    <div id="garrison-zones-container" style="display:flex;gap:6px;width:100%;overflow-x:auto;align-items:flex-start"></div>
   </div>
 </div>
 
 <div id="lay">
-  <!-- 지도 → 동료 → 적 (동일 .sp 프레임) -->
+  <!-- 지도 → 거점 바 → 동료 → 적 -->
   <div id="map-row">
     <div id="center-col">
       <div id="mw">
@@ -1279,6 +1302,26 @@ canvas {
         <canvas id="gc"></canvas>
         <div id="pg">배치 중</div>
       </div>
+    </div>
+  </div>
+  <div id="garrison-bar">
+    <div id="garrison-bar-header" style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:#0f1923;flex-wrap:nowrap">
+      <span id="garrison-title-btn" onclick="event.stopPropagation();showGarrisonSummaryModal()"><span id="garrison-hud-main">🚩 집합소</span><span id="garrison-hud-grade"></span><span id="garrison-hud-up" class="garrison-hud-pin garrison-hud-up" style="display:none" title="거점 업그레이드 가능">⬆</span><span id="garrison-hud-rebuild" class="garrison-hud-pin garrison-hud-rebuild" title="문명 재건">🏘마을 재건</span></span>
+      <button type="button" class="collapse-btn" id="btn-hub-sg-list" onclick="event.stopPropagation();openHubStandbyGarrisonModal()" style="font-size:9px;padding:2px 8px;background:#1a3d5c;color:#93c5fd;border:1px solid #1e3a5f;flex-shrink:0;touch-action:manipulation;white-space:nowrap;margin-left:2px" title="대기실·거점 주둔 전체">전체 유닛 목록</button>
+      <span id="shop-btn" style="display:none"></span>
+      <div class="garrison-header-trailing">
+        <div class="garrison-header-recruit">
+          <button class="cb cb-fo" onclick="event.stopPropagation(); showRefugeeModal()">피난민 합류<span class="cb-cost">🍖30</span></button>
+          <button class="cb cb-hi" onclick="event.stopPropagation(); hireGold()">용병 고용<span class="cb-cost">💰100</span></button>
+        </div>
+        <span id="garrison-bar-toggle" class="garrison-expand-btn" role="button" tabindex="0" onclick="event.stopPropagation();toggleGarrisonBar()">▼ 펼치기</span>
+      </div>
+    </div>
+    <div id="garrison-bar-summary" class="garrison-res-line">
+      <span id="garrison-bar-income"></span>
+    </div>
+    <div id="garrison-bar-body" style="display:none;padding:8px;flex-wrap:nowrap;overflow-x:auto;align-items:flex-start">
+      <div id="garrison-zones-container" style="display:flex;gap:6px;width:100%;overflow-x:auto;align-items:flex-start"></div>
     </div>
   </div>
   <div class="sp panel-ally-below" id="panel-ally">
@@ -4814,7 +4857,7 @@ function shouldDetourForFasterArrival(unit,targetX,targetY,nextCell,detourCandid
 const TIERS = [
   {name:'Poor',    mult:0.84, color:'#7c92a8', maxLv:76},
   {name:'Common',  mult:0.90, color:'#b89f84', maxLv:77},
-  {name:'Trained', mult:0.96, color:'#4d9b8f', maxLv:78},
+  {name:'Trained', mult:0.96, color:'#6d5340', maxLv:78},
   {name:'Veteran', mult:1.04, color:'#86efac', maxLv:79},
   {name:'Rare',    mult:1.14, color:'#60a5fa', maxLv:80},
   {name:'Elite',   mult:1.28, color:'#4f46e5', maxLv:81},
@@ -7735,8 +7778,9 @@ function battleTick(){
     return;
   }
   /* --- [수정] 15일차 거점 전환 및 프리징 방지 로직 --- */
-  /* ae가 []이면 every가 항상 true → 전투 종료 후(isBattle false)에도 승리 분기가 매 프레임 도는 버그 방지 */
-  if(isBattle && ae.every(e => e.hp <= 0 || e.dead)){
+  /* 빈 배열 every()는 true — 적이 한 명도 없으면 즉시 승리로 오인하지 않도록 생존 적만 검사 */
+  const _anyLivingEnemy=enemies.some(e=>e&&(e.hp>0)&&!e.dead);
+  if(isBattle && !_anyLivingEnemy && enemies.length>0){
     // 1. 보상 수치 먼저 계산 (15일차 체크에서도 사용하기 위함)
     const base = 10 + zoneStage * 4;
     const rewardMul=0.72; // 재건 밸런스: 전투 획득 재화 축소
@@ -7771,7 +7815,9 @@ function battleTick(){
         isBattle = false;
         isPlacing = false;
         healAlliesAfterBattle();
-        
+        resetDeployment();
+        enemies = [];
+
         // zoneRecords 초기화 확인
         if (!zoneRecords[currentZone.id]) {
           zoneRecords[currentZone.id] = { cleared: true, garrison: [], upgradeLv:1, bestEff:50, effCarry:50, family:getZoneFamily(currentZone.id,currentZone) };
@@ -9505,7 +9551,7 @@ function autoStartNextZone(clearedZid) {
     diffTier:newTier,
     diffMult:newDiffMult,
     expMult:+(1 + seq * expStep).toFixed(2),
-    desc:`${baseName}의 더 깊은 곳, ${suffix} 단계 도전!`,
+    desc:`${baseName}의 더 깊은 곳, ${label} 단계 도전!`,
     finalStage:15,
   };
   if(up<=0){
@@ -9563,7 +9609,7 @@ function autoStartNextZone(clearedZid) {
     }
   });
 
-  alog(`🗺 구역 확장: ${newName} (난이도 ×${newMult})`);
+  alog(`🗺 구역 확장: ${newName} (난이도 ×${newDiffMult})`);
   
   // 자동 진행 처리
   autoStart = true;
@@ -13565,7 +13611,7 @@ function renderGarrisonBar(){
   const benefitEl=document.getElementById('garrison-bar-benefit');
   const hasIncome=Object.values(total).some(v=>v>0);
   if(incomeEl){
-    incomeEl.innerText=hasIncome?`자동 획득 통합: ${formatIncomeLine(total)}/분`:'자동 획득 통합: -';
+    incomeEl.innerText=hasIncome?`거점 획득 자원: ${formatIncomeLine(total)}/분`:'거점 획득 자원: -';
   }
   if(benefitEl) applyGarrisonBenefitMessages(buildActiveGarrisonAuraBenefitMessages());
   if(summaryEl){
