@@ -1229,6 +1229,7 @@ canvas {
       </div>
       <button class="cb cb-pa" id="btn-pa" onclick="togglePause()" style="display:none">휴식</button>
     </div>
+    <div id="battle-potion-row" style="display:none;flex-wrap:wrap;gap:5px;align-items:center;width:100%;padding:4px 0 0 0;margin-top:2px;border-top:1px solid #1e293b;box-sizing:border-box"></div>
     <div class="ctrl-recruit">
       <button class="cb cb-fo" onclick="event.stopPropagation(); showRefugeeModal()">피난민 합류<span class="cb-cost">🍖30</span></button>
       <button class="cb cb-hi" onclick="event.stopPropagation(); hireGold()">용병 고용<span class="cb-cost">💰100</span></button>
@@ -2190,6 +2191,7 @@ function applyPhaseSettings(rebuildMap=false){
   if(typeof ensureCityFacilities==='function') ensureCityFacilities();
   const logo=document.querySelector('.logo');
   if(logo) logo.innerText=`⚔️ 왕국 연대기 [${cfg.name}] :`;
+  sanitizeArcaneResearchForCivPhase();
   markDirty();
 }
 
@@ -2208,7 +2210,7 @@ const BASE_SKILLS={
   Guard:  {name:'몸으로 막기', desc:'방어도에 비례해 자신/인근 동료 방어 강화', type:'passive_def',   range:80},
   Strike: {name:'주먹질',      desc:'근접 강타+15, 숲에서+25',            type:'active_melee',  range:65, cooldown:80},
   Arrow:  {name:'돌팔매',      desc:'돌을 던져 원거리 공격, 산 위+40%',  type:'active_ranged', range:200,cooldown:75},
-  Mend:   {name:'상처 처치',   desc:'가장 체력 낮은 동료 치료',            type:'active_heal',   range:210,cooldown:110},
+  Mend:   {name:'상처 처치',   desc:'가장 체력 낮은 동료 치료',            type:'active_heal',   range:210,cooldown:92},
   Fireball:{name:'화염구',     desc:'강력한 마법 원거리 공격',             type:'active_magic',  range:200,cooldown:120},
   Slash:  {name:'난도질',      desc:'빠른 근접 연속 베기',                 type:'active_warrior',range:70,cooldown:85},
   Revive: {name:'응급 소생',   desc:'5초 내 빈사 동료 소생 (힐러 전용)', type:'active_revive', range:200,cooldown:300},
@@ -2390,65 +2392,166 @@ const REFUGEE_BASIC_SKILL_KEYS=['Guard','Arrow','Mend'];
 const RES_IRON_ORE_LABEL='철';
 const RES_COPPER_ORE_LABEL='구리';
 const RES_WAR_SUPPLY_LABEL='전쟁보급품';
+/*
+ * 전투지 난이도(getZoneFinalPowerMult·적 스폰)는 "적 기대 강도" 축이다.
+ * 돌파 가능성은 유닛 Lv·직업·강화만이 아니라 아래가 **합쳐진 총 전투력**으로 설계해야 한다.
+ *   물약·연금(버프) · 장비·드랍/강화 · 파티 그룹·라인 분담 · 파티/개인 궁극기 · 기타 문명 시설
+ * 튜닝 시 DIFF_STEP_LINEAR_K·적 프로필·보상·제작 비용을 같은 진행 타임라인에서 함께 맞출 것.
+ */
+// ── 난이도 테이블 ──
+const ZONE_DIFF_MULTS={
+  1:{mult:1.00,label:'I',enemyCountMult:1.0,powerMult:1.00},
+  2:{mult:1.30,label:'II',enemyCountMult:1.2,powerMult:1.30},
+  3:{mult:1.70,label:'III',enemyCountMult:1.5,powerMult:1.70},
+  4:{mult:2.20,label:'IV',enemyCountMult:1.9,powerMult:2.20},
+  5:{mult:2.80,label:'V',enemyCountMult:2.4,powerMult:2.80},
+};
+function getZoneDisplayName(zone){
+  if(!zone) return '';
+  const tier=zone.diffTier||1;
+  const label=(ZONE_DIFF_MULTS[tier]||ZONE_DIFF_MULTS[1]).label;
+  const base=String(zone.name||'').replace(/\s[IVX]+$/,'').trim();
+  return `${base} ${label}`;
+}
+/** 문명 블록당 9스텝(3존×티어 겹침): 헌트Ⅲ=강가Ⅰ, 강가Ⅲ=숲Ⅰ … 블록 끝 < 다음 문명 시작 */
+const CIV_LADDER_BLOCK_START=[0,9,18,27];
+const ZONE_SLOT_ORDER={
+  hunt:0,river:1,wilds:2,
+  bandit:0,ruins:1,mine:2,
+  raider:0,castle:1,crystal:2,
+  warzone:0,citadel:1,void:2,
+};
+/** step 2 ≈ 1.7 (구 헌트 III 체감) — 이후 문명·존도 한 줄로 단조 증가 */
+const DIFF_STEP_LINEAR_K=0.35;
+function getZoneSlotOrder(zone){
+  if(!zone) return 0;
+  const id=zone.id||'';
+  if(ZONE_SLOT_ORDER[id]!==undefined) return ZONE_SLOT_ORDER[id];
+  const ch=/^chapter_([^_]+)_\d+$/.exec(id);
+  if(ch&&ZONE_SLOT_ORDER[ch[1]]!==undefined) return ZONE_SLOT_ORDER[ch[1]];
+  return 0;
+}
+function getDifficultyStep(zone){
+  const civ=Math.min(3,Math.max(0,Number(zone.conceptPhase!=null?zone.conceptPhase:zone.unlockPhase)||0));
+  const slot=Math.min(2,Math.max(0,getZoneSlotOrder(zone)));
+  const tier=Math.min(5,Math.max(1,Number(zone.diffTier)||1));
+  return CIV_LADDER_BLOCK_START[civ]+slot*2+(tier-1);
+}
+function getZoneFinalPowerMult(zone){
+  if(!zone) return 1;
+  const step=getDifficultyStep(zone);
+  return (1+step*DIFF_STEP_LINEAR_K)*(zone.diffMult||1.0);
+}
+/** 초반 난이도: 적→아군 피해만 감소(스폰 atk/hp는 그대로). 떠돌이·난이도 I 중심 */
+function getEnemyDamageVsAllyScale(){
+  const zp=typeof civPhase==='number'?civPhase:-1;
+  const tier=Math.min(5,Math.max(1,Number((currentZone||{}).diffTier)||1));
+  if(zp<=0&&tier<=1) return 0.84;
+  if(zp<=1&&tier<=1) return 0.92;
+  return 1;
+}
+/** 집합소 야생(동물) 전용: 1~5일차는 조작 미숙해도 즉사급 접촉이 나오지 않게 피해만 추가 완화 */
+function getWildlifeEarlyDayDamageMul(e){
+  if(!e||!(e.animalDefKey||e.animalBehavior)) return 1;
+  const zid=(currentZone&&currentZone.id)||'';
+  if(!getPhase0BaseZoneId(zid)) return 1;
+  const day=Math.min(15,Math.max(1,Number(zoneStage)||Number(stage)||1));
+  if(day>=6) return 1;
+  const m=[0.50,0.56,0.64,0.72,0.82];
+  return m[day-1]||0.82;
+}
+// ── 동물 적 데이터 (TASK 5: 집합소 hunt/river/wilds 구성) ──
+const ANIMAL_ENEMIES={
+  rabbit:{id:'rabbit',name:'🐇 토끼',role:null,baseHp:80,baseAtk:8,baseSpd:2.8,baseDef:0.02,behavior:'flee',fleeRange:200},
+  deer:{id:'deer',name:'🦌 사슴',role:null,baseHp:150,baseAtk:12,baseSpd:2.4,baseDef:0.03,behavior:'flee',fleeRange:180},
+  boar:{id:'boar',name:'🐗 멧돼지',role:'Melee',baseHp:280,baseAtk:35,baseSpd:1.8,baseDef:0.10,behavior:'charge_if_cornered',fleeRange:120},
+  wolf:{id:'wolf',name:'🐺 늑대',role:'Melee',baseHp:220,baseAtk:45,baseSpd:2.2,baseDef:0.08,behavior:'pack_hunt'},
+  wolf_alpha:{id:'wolf_alpha',name:'🐺 알파 늑대',role:'Warrior',baseHp:380,baseAtk:72,baseSpd:2.0,baseDef:0.12,behavior:'pack_hunt',isAlpha:true},
+  bear:{id:'bear',name:'🐻 곰',role:'Tank',baseHp:600,baseAtk:80,baseSpd:1.3,baseDef:0.25,behavior:'territory',territoryRadius:180},
+  tiger:{id:'tiger',name:'🐯 호랑이',role:'Warrior',baseHp:450,baseAtk:110,baseSpd:2.0,baseDef:0.15,behavior:'ambush',ambushRange:250},
+  otter:{id:'otter',name:'🦦 수달',role:'Melee',baseHp:160,baseAtk:28,baseSpd:2.0,baseDef:0.05,behavior:'flee',aquatic:true},
+  heron:{id:'heron',name:'🦢 왜가리',role:'Ranged',baseHp:180,baseAtk:40,baseSpd:1.6,baseDef:0.04,behavior:'retreat'},
+  crocodile:{id:'crocodile',name:'🐊 악어',role:'Tank',baseHp:550,baseAtk:95,baseSpd:0.9,baseDef:0.28,behavior:'ambush',ambushRange:220,aquatic:true},
+  hippo:{id:'hippo',name:'🦛 하마',role:'Tank',baseHp:900,baseAtk:120,baseSpd:0.8,baseDef:0.32,behavior:'territory',territoryRadius:200,aquatic:true},
+  boar_pack:{id:'boar_pack',name:'🐗 멧돼지 무리',role:'Melee',baseHp:300,baseAtk:55,baseSpd:1.7,baseDef:0.12,behavior:'pack_hunt'},
+};
+const HUNT_COMPOSITION={
+  1:{herbivore:0.70,predator:0.30},
+  2:{herbivore:0.50,predator:0.50},
+  3:{herbivore:0.30,predator:0.70},
+  4:{herbivore:0.10,predator:0.90},
+  5:{herbivore:0.00,predator:1.00},
+};
+const HUNT_HERBIVORE_POOL=['rabbit','deer','boar'];
+const HUNT_PREDATOR_POOL=['wolf','wolf_alpha','bear','tiger'];
+const RIVER_ENEMY_POOL=['otter','heron','crocodile','hippo'];
+const WILDS_ENEMY_POOL=['boar_pack','bear','wolf','tiger'];
 // ── 전투 장소 ──
 // tier: hunt=초식동물, pred=맹수, bandit=산적/강도, raider=약탈자, army=군대
 const ZONES={
-  hunt:   {id:'hunt',   name:'🌿 근처 들판 I',   tier:'hunt',   terrain:'hunt',  color:'#2d7a3a',
+  hunt:   {id:'hunt',   name:'🌿 근처 들판', diffTier:1, conceptPhase:0, diffMult:1.0, tier:'hunt',   terrain:'hunt',  color:'#2d7a3a',
            rFood:5, rWood:2, rStone:1, rGold:1, rIron:0, rHerb:0, rDiamond:0,
            desc:'초원의 초식동물. 집합소 전투지 — 식량·나무·돌·금 (약초 없음).', finalStage:15, minLv:0, unlockPhase:0},
-  river:  {id:'river',  name:'🌊 얕은 강가 I',   tier:'hunt',   terrain:'hunt',  color:'#2d5a7a',
+  river:  {id:'river',  name:'🌊 얕은 강가', diffTier:1, conceptPhase:0, diffMult:1.0, tier:'hunt',   terrain:'hunt',  color:'#2d5a7a',
            rFood:4, rWood:3, rStone:1, rGold:1, rIron:0, rHerb:0, rDiamond:0,
            desc:'강가의 초식동물. 식량·나무·돌·금화 (집합소: 약초 없음).', finalStage:15, minLv:0, unlockPhase:0},
-  wilds:  {id:'wilds',  name:'🌲 얕은 숲 I',   tier:'pred',   terrain:'pred',  color:'#a05a00',
+  wilds:  {id:'wilds',  name:'🌲 얕은 숲', diffTier:1, conceptPhase:0, diffMult:1.0, tier:'pred',   terrain:'pred',  color:'#a05a00',
            rFood:3, rWood:4, rStone:2, rGold:1, rIron:0, rHerb:0, rDiamond:0,
            desc:'맹수들의 영역. 나무·돌·식량·금화 (집합소: 약초 없음).', finalStage:15, minLv:3, unlockPhase:0},
-  bandit: {id:'bandit', name:'⚔️ 깊은 들판 I', tier:'bandit', terrain:'bandit',color:'#7b1d1d',
+  bandit: {id:'bandit', name:'⚔️ 깊은 들판', diffTier:1, conceptPhase:1, diffMult:1.0, tier:'bandit', terrain:'bandit',color:'#7b1d1d',
            rFood:0, rWood:0, rStone:0, rGold:2, rIron:0, rCopper:2, rHerb:1, rDiamond:0, rWarSupply:0, rManaCrystal:0,
            desc:'산적의 소굴. 마을 전투지 — 약초·구리·금화.', finalStage:15, minLv:5, unlockPhase:1},
-  ruins:  {id:'ruins',  name:'🌫 안개 강변 I', tier:'raider', terrain:'raider',color:'#7c6020',
+  ruins:  {id:'ruins',  name:'🌫 안개 강변', diffTier:1, conceptPhase:1, diffMult:1.0, tier:'raider', terrain:'raider',color:'#7c6020',
            rFood:0, rWood:0, rStone:0, rGold:3, rIron:0, rCopper:3, rHerb:2, rDiamond:0, rWarSupply:0, rManaCrystal:0,
            desc:'폐허의 약탈자. 마을 전투지 — 약초·구리·금화.', finalStage:15, minLv:8, unlockPhase:1},
-  mine:   {id:'mine',   name:'🌲 울창한 숲 I', tier:'bandit', terrain:'bandit',color:'#546e7a',
+  mine:   {id:'mine',   name:'🌲 울창한 숲', diffTier:1, conceptPhase:1, diffMult:1.0, tier:'bandit', terrain:'bandit',color:'#546e7a',
            rFood:0, rWood:0, rStone:0, rGold:2, rIron:0, rCopper:6, rHerb:1, rDiamond:0, rWarSupply:0, rManaCrystal:0,
            desc:'광산 괴물. 마을 전투지 — 약초·구리·금화.', finalStage:15, minLv:8, unlockPhase:1},
-  raider: {id:'raider', name:'🏚 폐허 들판 I', tier:'army',   terrain:'army',  color:'#c0392b',
+  raider: {id:'raider', name:'🏚 폐허 들판', diffTier:1, conceptPhase:2, diffMult:1.0, tier:'army',   terrain:'army',  color:'#c0392b',
            rFood:0, rWood:0, rStone:0, rGold:4, rIron:2, rHerb:0, rCopper:0, rDiamond:0, rWarSupply:1, rManaCrystal:0,
            desc:'약탈자 군단. 도시 전투지 — 강철·전쟁보급품·금화.', finalStage:15, minLv:12, unlockPhase:2},
-  castle: {id:'castle', name:'⛰ 산적 협곡 I',  tier:'army',   terrain:'raider',color:'#6c2899',
+  castle: {id:'castle', name:'⛰ 산적 협곡', diffTier:1, conceptPhase:2, diffMult:1.0, tier:'army',   terrain:'raider',color:'#6c2899',
            rFood:0, rWood:0, rStone:0, rGold:6, rIron:3, rHerb:0, rCopper:0, rDiamond:0, rWarSupply:2, rManaCrystal:0,
            desc:'적 세력의 요새. 도시 전투지 — 강철·전쟁보급품·금화.', finalStage:15, minLv:15, unlockPhase:2},
-  crystal:{id:'crystal',name:'🏰 고원 요새 I', tier:'army',   terrain:'pred',  color:'#00acc1',
+  crystal:{id:'crystal',name:'🏰 고원 요새', diffTier:1, conceptPhase:2, diffMult:1.0, tier:'army',   terrain:'pred',  color:'#00acc1',
            rFood:0, rWood:0, rStone:0, rGold:2, rIron:3, rHerb:0, rCopper:0, rDiamond:0, rWarSupply:4, rManaCrystal:0,
            desc:'마력 요새. 도시 전투지 — 강철·전쟁보급품·금화.', finalStage:15, minLv:18, unlockPhase:2},
-  warzone:{id:'warzone',name:'☠️ 황폐한 평야 I',tier:'army',  terrain:'army',  color:'#8b1a1a',
+  warzone:{id:'warzone',name:'☠️ 황폐한 평야', diffTier:1, conceptPhase:3, diffMult:1.0, tier:'army',  terrain:'army',  color:'#8b1a1a',
            rFood:0, rWood:0, rStone:0, rGold:6, rIron:0, rHerb:0, rCopper:0, rDiamond:8, rWarSupply:0, rManaCrystal:2,
            desc:'왕국 주변 전투지. 다이아몬드·마력결정·금화.', finalStage:15, minLv:22, unlockPhase:3},
-  citadel:{id:'citadel',name:'🩸 저주받은 강곡 I',tier:'army',terrain:'raider',color:'#b7950b',
+  citadel:{id:'citadel',name:'🩸 저주받은 강곡', diffTier:1, conceptPhase:3, diffMult:1.0, tier:'army',terrain:'raider',color:'#b7950b',
            rFood:0, rWood:0, rStone:0, rGold:6, rIron:0, rHerb:0, rCopper:0, rDiamond:10, rWarSupply:0, rManaCrystal:3,
            desc:'왕국 주변 전투지. 다이아몬드·마력결정·금화.', finalStage:15, minLv:25, unlockPhase:3},
-  void:   {id:'void',   name:'🌌 영원의 숲 I', tier:'army',   terrain:'army',  color:'#a855f7',
+  void:   {id:'void',   name:'🌌 영원의 숲', diffTier:1, conceptPhase:3, diffMult:1.0, tier:'army',   terrain:'army',  color:'#a855f7',
            rFood:0, rWood:0, rStone:0, rGold:7, rIron:0, rHerb:0, rCopper:0, rDiamond:12, rWarSupply:0, rManaCrystal:4,
            desc:'왕국 주변 전투지. 다이아몬드·마력결정·금화.', finalStage:15, minLv:28, unlockPhase:3},
 };
+Object.keys(ZONES).forEach(k=>{
+  const z=ZONES[k];
+  z.name=getZoneDisplayName(z);
+});
 const MODULE6_ZONE_CATALOG={
-  hunt:{name:'🌿 근처 들판 I',desc:'집합소 전투지. 식량·나무·돌·금 (약초 없음).'},
-  river:{name:'🌊 얕은 강가 I',desc:'집합소 전투지. 식량·나무·돌·금 (약초 없음).'},
-  wilds:{name:'🌲 얕은 숲 I',desc:'집합소 전투지. 식량·나무·돌·금 (약초 없음).'},
-  bandit:{name:'🌾 깊은 들판 I',desc:'마을 전투지. 약초·구리·금화.'},
-  ruins:{name:'🌫 안개 강변 I',desc:'마을 전투지. 약초·구리·금화.'},
-  mine:{name:'🌲 울창한 숲 I',desc:'마을 전투지. 약초·구리·금화.'},
-  raider:{name:'🏚 폐허 들판 I',desc:'도시 전투지. 강철·전쟁보급품·금화.'},
-  castle:{name:'⛰ 산적 협곡 I',desc:'도시 전투지. 강철·전쟁보급품·금화.'},
-  crystal:{name:'🏰 고원 요새 I',desc:'도시 전투지. 강철·전쟁보급품·금화.'},
-  warzone:{name:'☠️ 황폐한 평야 I',desc:'왕국 전투지. 다이아몬드·마력결정·금화.'},
-  citadel:{name:'🩸 저주받은 강곡 I',desc:'왕국 전투지. 다이아몬드·마력결정·금화.'},
-  void:{name:'🌌 영원의 숲 I',desc:'왕국 전투지. 다이아몬드·마력결정·금화.'},
+  hunt:{name:'🌿 근처 들판',desc:'집합소 전투지. 식량·나무·돌·금 (약초 없음).'},
+  river:{name:'🌊 얕은 강가',desc:'집합소 전투지. 식량·나무·돌·금 (약초 없음).'},
+  wilds:{name:'🌲 얕은 숲',desc:'집합소 전투지. 식량·나무·돌·금 (약초 없음).'},
+  bandit:{name:'⚔️ 깊은 들판',desc:'마을 전투지. 약초·구리·금화.'},
+  ruins:{name:'🌫 안개 강변',desc:'마을 전투지. 약초·구리·금화.'},
+  mine:{name:'🌲 울창한 숲',desc:'마을 전투지. 약초·구리·금화.'},
+  raider:{name:'🏚 폐허 들판',desc:'도시 전투지. 강철·전쟁보급품·금화.'},
+  castle:{name:'⛰ 산적 협곡',desc:'도시 전투지. 강철·전쟁보급품·금화.'},
+  crystal:{name:'🏰 고원 요새',desc:'도시 전투지. 강철·전쟁보급품·금화.'},
+  warzone:{name:'☠️ 황폐한 평야',desc:'왕국 전투지. 다이아몬드·마력결정·금화.'},
+  citadel:{name:'🩸 저주받은 강곡',desc:'왕국 전투지. 다이아몬드·마력결정·금화.'},
+  void:{name:'🌌 영원의 숲',desc:'왕국 전투지. 다이아몬드·마력결정·금화.'},
 };
 function syncZoneCatalog(){
   Object.entries(MODULE6_ZONE_CATALOG).forEach(([id,v])=>{
     if(!ZONES[id])return;
-    ZONES[id].name=v.name;
     if(v.desc)ZONES[id].desc=v.desc;
+    if(v.name){
+      ZONES[id].name=v.name.replace(/\s[IVX]+$/,'').trim();
+      ZONES[id].name=getZoneDisplayName(ZONES[id]);
+    }
   });
 }
 
@@ -2480,6 +2583,7 @@ var gold=res.gold,food=res.food; // 초기값만, 이후 syncFromRes()로 유지
 function syncFromRes(){gold=res.gold;food=res.food;}
 let currentZone=ZONES.hunt;
 let zoneStage=1; // 현재 전투지 내 스테이지 (1부터 finalStage까지)
+let _allySharedVisionKeys=null; // 아군 공유 시야 Set<r*100+c> (안개 구간 전용)
 let isBattle=false,isPaused=false,isPlacing=false;
 let autoStart=false;
 let dragUnit=null,isDragging=false,dragSX=0,dragSY=0,mouseX=0,mouseY=0;
@@ -2509,6 +2613,8 @@ let garrisonInterval=null;
 let _battleStartTime=0;
 let _raidTelegraphs=[]; // 왕국 레이드 장판 예고/폭발
 let _raidNextPatternAt=0;
+let _raidVisionDebuff=0;
+let _raidVisionDebuffEndFrame=0;
 let _cityMobaState={
   active:false,
   wave:0,
@@ -2736,6 +2842,13 @@ function buildSavePayload(){
     zoneRecords:cloneSafe(zoneRecords),
     deadUnits:cloneSafe(deadUnits),
     inventory:cloneSafe(inventory),
+    craftMaterials:cloneSafe(craftMaterials),
+    arcaneResearchedIds:Array.from(arcaneResearched||[]),
+    arcaneInProgress:arcaneInProgress&&arcaneInProgress.id?{
+      id:String(arcaneInProgress.id),
+      startTime:Number(arcaneInProgress.startTime)||0,
+      endTime:Number(arcaneInProgress.endTime)||0,
+    }:null,
     autoStart:!!autoStart,
     isAutoSortEnabled:!!isAutoSortEnabled,
     cityDuelUnlocked:!!_cityDuelUnlocked,
@@ -2804,6 +2917,30 @@ function hydrateGameState(data){
     potions:{...(data.inventory?.potions||{})},
     skillbooks:{...(data.inventory?.skillbooks||{})}
   };
+  const cm=data.craftMaterials&&typeof data.craftMaterials==='object'?data.craftMaterials:{};
+  craftMaterials={
+    hide:Math.max(0,Math.floor(Number(cm.hide)||0)),
+    bone:Math.max(0,Math.floor(Number(cm.bone)||0)),
+    herb:Math.max(0,Math.floor(Number(cm.herb)||0)),
+    venom:Math.max(0,Math.floor(Number(cm.venom)||0)),
+    crystal_shard:Math.max(0,Math.floor(Number(cm.crystal_shard)||0)),
+  };
+  const arIds=Array.isArray(data.arcaneResearchedIds)?data.arcaneResearchedIds:[];
+  arcaneResearched=new Set(arIds.filter(x=>typeof x==='string'&&ARCANE_RESEARCH[x]));
+  const ip=data.arcaneInProgress;
+  if(ip&&ip.id&&Number.isFinite(Number(ip.endTime))){
+    const endT=Number(ip.endTime);
+    if(Date.now()<endT){
+      arcaneInProgress={ id:String(ip.id), startTime:Number(ip.startTime)||Date.now(), endTime:endT };
+    }else{
+      const rid=String(ip.id);
+      if(ARCANE_RESEARCH[rid]) arcaneResearched.add(rid);
+      arcaneInProgress=null;
+    }
+  }else{
+    arcaneInProgress=null;
+  }
+  sanitizeArcaneResearchForCivPhase();
   autoStart=!!data.autoStart;
   // 저장값과 무관하게 자동 정렬은 항상 비활성화로 시작
   isAutoSortEnabled=false;
@@ -3301,10 +3438,14 @@ function seededRand(seed){
 // 존별 고정 지형 저장
 const _fixedMaps={};
 
+function isCrystalTwoLaneZone(){
+  return !!(currentZone && currentZone.id==='crystal');
+}
+
 function buildMap(){
   hexMap=[];
   const zid=currentZone.id;
-  const mapKey=isCityMobaZone()?`${zid}__citymoba`:`${zid}__base`;
+  const mapKey=isCityMobaZone()?`${zid}__citymoba`:`${zid}__base${zid==='crystal'?'__lane2':''}`;
   const fixedHuntTemplate=isFixedHuntTemplateZone(currentZone);
   // 이미 생성된 지형이면 재사용 (고정 지형)
   if(_fixedMaps[mapKey]){
@@ -3443,6 +3584,15 @@ function buildMap(){
       }
     }
   }
+  if(isCrystalTwoLaneZone()){
+    const gr=Math.floor(ROWS/2);
+    if(gr>=1&&gr<ROWS-1){
+      for(let c=0;c<COLS;c++){
+        const h=hexMap[gr]&&hexMap[gr][c];
+        if(h) h.type='mountain';
+      }
+    }
+  }
   // 고정 지형 저장
   _fixedMaps[mapKey]=hexMap.map(row=>row.map(cell=>({...cell})));
   _nearestCellCache.clear();
@@ -3578,6 +3728,7 @@ function terrainAtkBonus(unit,cell){
 }
 
 function getUnitMoveRole(unit){
+  if(unit&&unit.overrideTerrainRole) return unit.overrideTerrainRole;
   return (unit.class10Key&&CLASS10[unit.class10Key]?.base)||(unit.classKey||unit.role||unit.baseRole||'Melee');
 }
 /**
@@ -3638,8 +3789,11 @@ function getAutoPursuitRingGoalWorld(a,enemy){
   const seg=Math.min(reach, Math.max(0, d-8));
   return {x:enemy.x+ux*seg,y:enemy.y+uy*seg};
 }
-/** 자동 추격 빨간 목표: (tx,ty) 방향으로 최대 maxAheadPx(최소 장착 스킬 사거리 등)만큼 앞 — findHexPath가 길게 깔리게 함 */
-function getAutoPursuitLookaheadTowardPoint(a,tx,ty,maxAheadPx){
+/**
+ * 자동 추격 빨간 목표: (tx,ty) 방향으로 최대 maxAheadPx만큼 앞 — findHexPath가 길게 깔리게 함.
+ * minAheadPx>0 (적 추격 등): 현재 위치에서 최소한 이 거리만큼 앞을 찍어 강·산막 우회 Dijkstra가 여유를 갖게 함.
+ */
+function getAutoPursuitLookaheadTowardPoint(a,tx,ty,maxAheadPx,minAheadPx){
   if(!a||!Number.isFinite(tx)||!Number.isFinite(ty)) return null;
   const dx=tx-a.x, dy=ty-a.y;
   const d=Math.hypot(dx,dy);
@@ -3648,9 +3802,17 @@ function getAutoPursuitLookaheadTowardPoint(a,tx,ty,maxAheadPx){
   const step=Math.max(26, (typeof HW!=='undefined'?HW:34)*2.05);
   const fallback=5*step;
   const maxAhead=Number.isFinite(maxAheadPx)&&maxAheadPx>0?maxAheadPx:fallback;
-  const seg=Math.min(maxAhead, Math.max(0, d-4));
+  const minA=Number.isFinite(minAheadPx)&&minAheadPx>0?minAheadPx:0;
+  const ideal=Math.min(maxAhead, Math.max(0, d-4));
   const minStep=Math.max(14, (typeof HW!=='undefined'?HW:34)*0.45);
-  if(seg<minStep) return {x:tx,y:ty};
+  let seg=ideal;
+  if(minA>0){
+    seg=Math.min(maxAhead, Math.max(ideal, Math.min(minA, d-2)));
+  }else if(ideal<minStep){
+    return {x:tx,y:ty};
+  }
+  seg=Math.min(seg, d-2);
+  if(seg<1) return {x:tx,y:ty};
   return {x:a.x+ux*seg,y:a.y+uy*seg};
 }
 function getAutoPursuitPathGoalWorld(a,enemy){
@@ -3659,11 +3821,139 @@ function getAutoPursuitPathGoalWorld(a,enemy){
   const rangeMax=typeof getAllyMinEquippedSkillRangeWorld==='function'?getAllyMinEquippedSkillRangeWorld(a):120;
   return getAutoPursuitLookaheadTowardPoint(a, ring.x, ring.y, rangeMax);
 }
+/** 적→아군: 공격/사거리 원이 아군 몸·헥스의 적 반대편 테두리에 닿을 때의 최대 **중심거리** (center–center) */
+function getEnemyMinEngageCenterDist(e,ally){
+  if(!e||!ally) return 28;
+  const R=Math.max(20,Number(e.range)||60);
+  const bodyRa=typeof getUnitBodyRadiusForTerrain==='function'?getUnitBodyRadiusForTerrain(ally):13;
+  const hexFar=Math.max(bodyRa,(typeof HR!=='undefined'?HR:21)*0.92);
+  return Math.max(6, R-hexFar-2);
+}
+/** 적이 향해야 할 월드 좌표(아군 중심이 아닌 교전 링 위 한 점). 헥스 경로 목표로 사용 */
+function getEnemyEngageGoalWorld(e,ally){
+  if(!e||!ally) return null;
+  const reach=getEnemyMinEngageCenterDist(e,ally);
+  const dx=ally.x-e.x,dy=ally.y-e.y;
+  const d=Math.hypot(dx,dy);
+  if(d<2){
+    const ang=Math.atan2(e.y-ally.y,e.x-ally.x);
+    const hr=Math.max(10,(typeof HR!=='undefined'?HR:21)*0.95);
+    return {x:ally.x+Math.cos(ang)*hr,y:ally.y+Math.sin(ang)*hr};
+  }
+  const ux=dx/d,uy=dy/d;
+  return {x:ally.x-ux*reach,y:ally.y-uy*reach};
+}
+/**
+ * 아군이 서 있는 칸이 아니라 **인접(또는 근접) 통과 가능 헥스** 후보 — 경로 목표를 아군 중심에 두면 막히거나 UI가 아군으로만 향한 것처럼 보임.
+ * 적→아군 방향으로 정렬해 후보 순위를 매긴다.
+ */
+function listEnemyApproachGoalCandidates(e,ally){
+  if(!e||!ally||!ensureHexMapReady()) return [];
+  const aCell=nearestCell(ally.x,ally.y);
+  if(!aCell) return [];
+  const aIdx=mapHexCellToRowCol(aCell);
+  if(!aIdx) return [];
+  const vx=e.x-ally.x, vy=e.y-ally.y;
+  const vn=Math.hypot(vx,vy);
+  const ux=vn>1e-4?vx/vn:1, uy=vn>1e-4?vy/vn:0;
+  const key=(r,c)=>`${r}|${c}`;
+  const pushNbrs=(r,c,depthPen)=>{
+    const nList=getHexNeighborCells(r,c);
+    const out=[];
+    for(let i=0;i<nList.length;i++){
+      const cell=nList[i].cell;
+      if(!cell||!canTraverseTerrain(e,cell)) continue;
+      const ix=mapHexCellToRowCol(cell);
+      if(!ix) continue;
+      if(ix.r===aIdx.r&&ix.c===aIdx.c) continue;
+      const tcx=(cell.x-ally.x), tcy=(cell.y-ally.y);
+      const tnj=Math.hypot(tcx,tcy)||1;
+      const dot=(ux*tcx/tnj+uy*tcy/tnj);
+      const dE2=(cell.x-e.x)**2+(cell.y-e.y)**2;
+      const score=dot*3.2-depthPen-Math.sqrt(dE2)/(Math.max(1,HW)*6.8);
+      out.push({cell,score,k:key(ix.r,ix.c)});
+    }
+    return out;
+  };
+  let pool=pushNbrs(aIdx.r,aIdx.c,0);
+  if(!pool.length){
+    const seen=new Set([key(aIdx.r,aIdx.c)]);
+    const q=[[aIdx.r,aIdx.c,0]];
+    let head=0;
+    while(head<q.length&&head<120){
+      const [r,c,depth]=q[head++];
+      if(depth>=3) continue;
+      const nbr=getHexNeighbors(r,c);
+      for(let j=0;j<nbr.length;j++){
+        const nr=nbr[j][0], nc=nbr[j][1];
+        const kk=key(nr,nc);
+        if(seen.has(kk)) continue;
+        seen.add(kk);
+        q.push([nr,nc,depth+1]);
+        pool=pool.concat(pushNbrs(nr,nc,depth*0.28+0.15));
+      }
+    }
+  }
+  const byKey=new Map();
+  for(let i=0;i<pool.length;i++){
+    const p=pool[i];
+    const prev=byKey.get(p.k);
+    if(!prev||p.score>prev.score) byKey.set(p.k,p);
+  }
+  const arr=Array.from(byKey.values()).sort((A,B)=>B.score-A.score);
+  return arr.map(o=>o.cell);
+}
+/** 적 추격: 경로 목표는 **아군 옆 통과 가능 헥스**에 대한 Dijkstra 상 5칸 앞 — 아군 중심 칸 목표는 실패·시각 혼선 유발 */
+const ENEMY_NAV_PATH_HEX_STEPS=5;
+function getEnemyNavPathSubgoalWorld(e,ally){
+  if(!e||!ally) return null;
+  const candidates=listEnemyApproachGoalCandidates(e,ally);
+  const maxCand=Math.min(candidates.length,22);
+  for(let ci=0;ci<maxCand;ci++){
+    const goalCell=candidates[ci];
+    const res=findHexPathCells(e,goalCell);
+    if(res&&Array.isArray(res.cells)&&res.cells.length>=2){
+      const cells=res.cells;
+      const idx=Math.min(ENEMY_NAV_PATH_HEX_STEPS,cells.length-1);
+      const c=cells[idx];
+      if(c&&Number.isFinite(c.x)&&Number.isFinite(c.y)) return {x:c.x,y:c.y};
+    }
+    if(res&&Array.isArray(res.cells)&&res.cells.length===1){
+      const c=res.cells[0];
+      if(c&&Number.isFinite(c.x)&&Number.isFinite(c.y)) return {x:c.x,y:c.y};
+    }
+  }
+  const ringG=getEnemyEngageGoalWorld(e,ally);
+  if(!ringG) return null;
+  const wpFull=resolveMoveCommandPoint(e,ringG.x,ringG.y);
+  if(!wpFull) return null;
+  const goalCell=nearestCell(wpFull.x,wpFull.y);
+  if(!goalCell) return null;
+  const res=findHexPathCells(e,goalCell);
+  if(res&&Array.isArray(res.cells)&&res.cells.length>=2){
+    const cells=res.cells;
+    const idx=Math.min(ENEMY_NAV_PATH_HEX_STEPS,cells.length-1);
+    const c=cells[idx];
+    if(c&&Number.isFinite(c.x)&&Number.isFinite(c.y)) return {x:c.x,y:c.y};
+  }
+  const dx=ringG.x-e.x,dy=ringG.y-e.y,d=Math.hypot(dx,dy);
+  if(d<12) return {x:wpFull.x,y:wpFull.y};
+  const ux=dx/d,uy=dy/d;
+  const stepPx=Math.max(26,(typeof HW!=='undefined'?HW:36)*1.85);
+  const fall=Math.min(Math.max(0,d-8),ENEMY_NAV_PATH_HEX_STEPS*stepPx);
+  return {x:e.x+ux*fall,y:e.y+uy*fall};
+}
+function getEnemyEngagePathGoalWorld(e,ally){
+  return getEnemyNavPathSubgoalWorld(e,ally);
+}
 function canTraverseTerrain(unit,cell){
   if(!cell) return true;
   const role=getUnitMoveRole(unit);
-  // 강 지형 특별 규칙: 중장/근접 계열은 도하 불가
-  if(cell.type==='river'&&(role==='Tank'||role==='Warrior'||role==='Melee')) return false;
+  // 강: 수생(Aquatic)은 자유 통과, 중장/근접/피난민은 도하 불가
+  if(cell.type==='river'){
+    if(role==='Aquatic') return true;
+    if(role==='Tank'||role==='Warrior'||role==='Melee'||role==='Refugee') return false;
+  }
   return true;
 }
 /** 5.html과 동일: 다점은 막힘만. 타일 효과(이속)는 **중심**이 속한 칸(경계 통과 후) 기준. */
@@ -3728,10 +4018,11 @@ function terrainMoveCost(cell, role){
     const likesMtn=['Ranged','Sniper','Artillery'];
     cost=likesMtn.includes(role)?2.0:12.0;
   }
-  // 강: 도하 가능한 직업도 매우 느리게
+  // 강: 수생은 패널티 없음, 중장/근접/피난민 불가, 나머지는 느리게 통과
   if(cell.type==='river'){
-    if(role==='Tank'||role==='Warrior'||role==='Melee') return 9999;
-    cost=4.8;
+    if(role==='Aquatic') return 1.0;
+    if(role==='Tank'||role==='Warrior'||role==='Melee'||role==='Refugee') return 9999;
+    cost=4.8; // Ranged, Mage, Heal 등은 느리지만 통과 가능
   }
   // 언덕: 원거리 선호, 나머지 약간 기피
   if(cell.type==='hill'){
@@ -3750,7 +4041,10 @@ const HEX_NEIGHBOR_OFFSETS_EVEN=[[0,-1],[0,1],[-1,-1],[-1,0],[1,-1],[1,0]];
 const HEX_NEIGHBOR_OFFSETS_ODD=[[0,-1],[0,1],[-1,0],[-1,1],[1,0],[1,1]];
 function roleCanTraverseCellType(role,cell){
   if(!cell) return true;
-  if(cell.type==='river'&&(role==='Tank'||role==='Warrior'||role==='Melee')) return false;
+  if(cell.type==='river'){
+    if(role==='Aquatic') return true;
+    if(role==='Tank'||role==='Warrior'||role==='Melee'||role==='Refugee') return false;
+  }
   return true;
 }
 /** drawUnit과 동일 기준 — 지형 판정은 유닛 **테두리**(이동 방향 앞쪽)에서 샘플 */
@@ -3816,10 +4110,10 @@ function getEffectiveTerrainCellMoveMulti(unit,dirx,diry){
 }
 /** 강 우회 경로일 때: 한 스텝으로 중심이 강 칸 내부로 깊게 들어가지 않도록 선분상으로 잘라냄 */
 function clampCenterSkirtRiverInterior(unit,ax,ay,px,py){
-  if(!unit||!unit._pathSkirtRiver) return {x:px,y:py};
+  if(!unit||!(unit._pathSkirtRiver||unit._enemyPathSkirtRiver)) return {x:px,y:py};
   const role=getUnitMoveRole(unit);
-  // 도하 불가 직업만 적용(canTraverseTerrain과 동일). 도하 가능(피난민·원거리 등)에도 클램프하면 강가에서 직선 목표가 강을 가로지를 때 한 스텝도 못 가 영구 정지
-  if(role!=='Tank'&&role!=='Warrior'&&role!=='Melee') return {x:px,y:py};
+  // 도하 불가 직업만(canTraverseTerrain·Refugee 강차단과 동일). 수생·원거리 등 도하 가능 역할은 클램프 생략
+  if(role!=='Tank'&&role!=='Warrior'&&role!=='Melee'&&role!=='Refugee') return {x:px,y:py};
   const endC=nearestCell(px,py);
   if(!endC||endC.type!=='river') return {x:px,y:py};
   let lo=0, hi=1, best={x:ax,y:ay};
@@ -4220,6 +4514,12 @@ function findHexPathCells(unit,goalCell){
   const INF=1e30;
   const edgeW=(nCell)=>{
     if(!nCell) return INF;
+    if(fogEnabled()&&_allySharedVisionKeys){
+      const rc=mapHexCellToRowCol(nCell);
+      const isKnown=rc&&_allySharedVisionKeys.has(rc.r*100+rc.c);
+      const isGoal=rc&&rc.r===gr&&rc.c===gc;
+      if(!isKnown&&!isGoal) return 4.0;
+    }
     let w=terrainMoveCost(nCell,role);
     const ab=terrainAdvantageBias(role,nCell);
     if(Number.isFinite(ab)) w+=ab;
@@ -4746,18 +5046,12 @@ function spawnEnemies(){
     resetCityMobaState();
   }
   const tier=currentZone.tier;
-  const diff=currentZone.diffMult||1.0; // 다음 챕터 난이도 배율
-  
+  // 체력/공격 배율은 getEnemyFormation → getZoneFinalPowerMult에서 일괄 적용 (diffMult 이중 곱 방지)
   getEnemyFormation(stage,tier).forEach(f=>{
-    if(diff>1.0){
-      f=Object.assign({},f,{
-        hp:Math.floor((f.hp||200)*diff),
-        atk:Math.floor((f.atk||15)*diff),
-        def:Math.min((f.def||0)+((diff-1)*0.1),0.7),
-      });
-    }
     enemies.push(mkEnemy(f));
   });
+  const rb=createRaidBossForCurrentZone();
+  if(rb) enemies.push(rb);
 }
 function mkEnemy(f){
   const hp=f.hp||200;
@@ -4768,6 +5062,20 @@ function mkEnemy(f){
     x:f.x,y:f.y,hp,maxHp:hp,
     atk:f.atk||15,range:f.range||60,spd:f.spd||0.7,def:f.def||0,
     role:f.role||null,
+    animalBehavior:f.animalBehavior||null,
+    animalDefKey:f.animalDefKey||null,
+    aquatic:!!f.aquatic,
+    _packId:f._packId||null,
+    _isAlpha:!!f._isAlpha,
+    _packAngle:f._packAngle,
+    _territoryX:f.x,_territoryY:f.y,
+    fleeRange:f.fleeRange,
+    territoryRadius:f.territoryRadius,
+    ambushRange:f.ambushRange,
+    animalAmbushPrimed:!!f.animalAmbushPrimed,
+    _animalDashFrames:0,
+    _tempAtkMult:1,
+    _behaviorState:'idle',
     flees:f.flees||false,
     aggressive:f.aggressive||false,
     ambushReady:f.ambushReady||false,
@@ -4778,6 +5086,7 @@ function mkEnemy(f){
     atkSpd:f.flees?0.3:baseAtkSpd,     // 초식동물은 공격속도 낮음
     wanderAngle:Math.random()*Math.PI*2,// 배회 방향 (초식용)
     wanderTimer:0,
+    ...(f.aquatic?{overrideTerrainRole:'Aquatic'}:{}),
   };
 }
 
@@ -4799,6 +5108,181 @@ const MODULE6_ENEMY_PROFILES={
   citadel:{grade:4,power:2.15,countBase:7,countCap:10,ratio:{tank:0.35,warrior:0.2,ranged:0.15,mage:0.2,heal:0.1},etype:'king'},
   void:{grade:4,power:2.25,countBase:7,countCap:10,ratio:{tank:0.24,warrior:0.2,ranged:0.16,mage:0.28,heal:0.12},etype:'king'},
 };
+/** TASK 12: 왕국 레이드 보스 — 존별 페이즈(체력 구간) 패턴 */
+const RAID_BOSSES={
+  warzone:{
+    id:'warlord', name:'💀 전쟁의 군주', hpScale:2.35, atkScale:1.12, baseSpd:0.58,
+    phases:[
+      {threshold:1.0, pattern:'cavalry_charge', desc:'기병대 돌격: 주기적으로 부대원 소환', spawnEvery:960},
+      {threshold:0.7, pattern:'artillery', desc:'포격: 도넛·장판 패턴 강화', patternBias:{breath:0.22,donut:0.55,chain:0.23}, cdScale:0.84},
+      {threshold:0.4, pattern:'enrage', desc:'분노: 공격·이동 급증 + 충격파', atkMult:1.9, spdMult:1.5, shockEvery:360},
+    ],
+  },
+  citadel:{
+    id:'blood_lord', name:'🩸 흡혈 군주', hpScale:2.5, atkScale:1.08, baseSpd:0.6,
+    phases:[
+      {threshold:1.0, pattern:'shadow_clone', desc:'분신: 그림자 복제 2체 소환', cloneCount:2, cloneHpRatio:0.32},
+      {threshold:0.7, pattern:'darkness_spread', desc:'어둠 확산: 시야 감소', visionDebuff:0.38, duration:2100},
+      {threshold:0.4, pattern:'life_drain', desc:'생명 흡수: 근접 아군 지속 피해', drainRadius:155, drainDps:18, atkMult:1.55, spdMult:1.35},
+    ],
+  },
+  void:{
+    id:'ancient_god', name:'🌌 숲의 고대신', hpScale:2.65, atkScale:1.15, baseSpd:0.52,
+    phases:[
+      {threshold:1.0, pattern:'terrain_shift', desc:'지형 교란: 장판·브레스 비중 상승', patternBias:{breath:0.48,donut:0.32,chain:0.20}, cdScale:0.88},
+      {threshold:0.7, pattern:'summon_roots', desc:'뿌리 속박: 연쇄 번개 강화', patternBias:{breath:0.18,donut:0.28,chain:0.54}, chainBoost:1.12},
+      {threshold:0.4, pattern:'regen', desc:'재생: 초당 체력 회복', regenPerSec:0.0045, atkMult:1.75, spdMult:1.4, shockEvery:300},
+    ],
+  },
+};
+function getRaidBossesDef(zid){
+  return zid&&RAID_BOSSES[zid]?RAID_BOSSES[zid]:null;
+}
+function getBossCurrentPhaseIndex(boss){
+  const zid=boss&&boss.raidBossZoneId;
+  const def=getRaidBossesDef(zid||(currentZone&&currentZone.id));
+  if(!def||!Array.isArray(def.phases)||!boss) return 0;
+  const hpRatio=boss.hp/Math.max(1,boss.maxHp||1);
+  const phases=def.phases;
+  for(let i=phases.length-1;i>=0;i--){
+    if(hpRatio<=phases[i].threshold) return i;
+  }
+  return 0;
+}
+function spawnRaidBossMinion(boss, roleKey,isClone){
+  if(!boss||enemies.length>48) return;
+  const b=ENEMY_ROLE_BASE[roleKey]||ENEMY_ROLE_BASE.warrior;
+  const ang=Math.random()*Math.PI*2;
+  const dist=32+Math.random()*26;
+  const hx=Math.max(MAP_PAD,Math.min(CW-MAP_PAD,boss.x+Math.cos(ang)*dist));
+  const hy=Math.max(MAP_PAD,Math.min(CH-MAP_PAD,boss.y+Math.sin(ang)*dist));
+  const hpMul=isClone?(RAID_BOSSES[boss.raidBossZoneId]?.phases?.[0]?.cloneHpRatio||0.3):0.55;
+  const f={
+    name:isClone?'그림자 분신':`${boss.name||'보스'} 부하`,
+    mark:isClone?'◇':'⚔', color:isClone?'#94a3b8':(b.color||'#c0392b'),
+    role:b.role||'Warrior', x:hx, y:hy,
+    hp:Math.max(120,Math.floor(((b.hp||400)+(boss.maxHp||2000)*0.06)*hpMul)),
+    atk:Math.floor((b.atk||55)*(isClone?0.75:0.9)),
+    range:b.range||68, spd:(b.spd||1.1)*(isClone?0.95:1), def:b.def||0.06,
+    elite:false, etype:'bandit',
+  };
+  const e=mkEnemy(f);
+  if(isClone) e.raidClone=true;
+  e.raidMinion=true;
+  enemies.push(e);
+}
+function createRaidBossForCurrentZone(){
+  const zid=currentZone&&currentZone.id;
+  const def=getRaidBossesDef(zid);
+  if(!def||!isKingdomRaidZone()) return null;
+  const st=Math.max(1,Number(zoneStage||1));
+  const stageMul=1+Math.max(0,st-1)*0.052;
+  const baseHp=Math.floor((1950+st*125)*stageMul*(def.hpScale||1));
+  const atk=Math.floor((88+st*3.6)*(def.atkScale||1));
+  const e=mkEnemy({
+    name:def.name, mark:'👑', color:'#fecaca', role:'Tank',
+    x:CW-86, y:CH*0.48,
+    hp:baseHp, atk, range:72, spd:def.baseSpd||0.58, def:0.34,
+    elite:true, etype:'king',
+  });
+  e.raidBoss=true;
+  e.raidBossZoneId=zid;
+  e._raidPhaseIdx=0;
+  e._raidAtkMult=1;
+  e._raidSpdMult=1;
+  e._raidSpawnAcc=0;
+  e._raidShockAcc=0;
+  e._raidDrainAcc=0;
+  e._raidCloneSpawned=false;
+  e._phaseTransition=0;
+  if(zid==='citadel'){
+    const pd0=def.phases&&def.phases[0];
+    if(pd0&&pd0.pattern==='shadow_clone'){
+      e._raidCloneSpawned=true;
+      const n=Math.min(3, Number(pd0.cloneCount)||2);
+      for(let c=0;c<n;c++) spawnRaidBossMinion(e,'warrior', true);
+    }
+  }
+  return e;
+}
+function tickRaidBossPhaseSystem(){
+  if(!isKingdomRaidBattle()) return;
+  for(let i=0;i<enemies.length;i++){
+    const e=enemies[i];
+    if(!e||!e.raidBoss||e.dead||(e.hp||0)<=0) continue;
+    if((e._phaseTransition||0)>0) e._phaseTransition--;
+    const def=getRaidBossesDef(e.raidBossZoneId||currentZone.id);
+    if(!def||!def.phases) continue;
+    const targetPh=getBossCurrentPhaseIndex(e);
+    let curPh=Number(e._raidPhaseIdx||0);
+    while(targetPh>curPh){
+      curPh++;
+      const pd=def.phases[curPh];
+      if(pd){
+        alog(`⚠️ ${e.name} — 페이즈 ${curPh+1}! ${pd.desc||''}`);
+        e._phaseTransition=Math.max(e._phaseTransition||0, 120);
+        e.hp=Math.min(e.hp, Math.floor(e.maxHp*(pd.threshold||1)));
+        if(pd.pattern==='enrage'||(pd.atkMult||pd.spdMult)){
+          if(pd.atkMult) e._raidAtkMult=Math.max(e._raidAtkMult||1, pd.atkMult);
+          if(pd.spdMult) e._raidSpdMult=Math.max(e._raidSpdMult||1, pd.spdMult);
+        }
+        if(pd.pattern==='darkness_spread'&&pd.visionDebuff){
+          _raidVisionDebuff=Math.min(0.78, Number(pd.visionDebuff)||0);
+          _raidVisionDebuffEndFrame=(_frameCount||0)+Number(pd.duration||1800);
+        }
+        if(pd.pattern==='shadow_clone'&&!e._raidCloneSpawned){
+          e._raidCloneSpawned=true;
+          const n=Math.min(3, Number(pd.cloneCount)||2);
+          for(let c=0;c<n;c++) spawnRaidBossMinion(e,'warrior', true);
+        }
+      }
+      e._raidPhaseIdx=curPh;
+    }
+    const pd=def.phases[e._raidPhaseIdx||0];
+    if(!pd) continue;
+    if(pd.pattern==='cavalry_charge'&&pd.spawnEvery){
+      e._raidSpawnAcc=(e._raidSpawnAcc||0)+1;
+      if(e._raidSpawnAcc>=Number(pd.spawnEvery)){
+        e._raidSpawnAcc=0;
+        spawnRaidBossMinion(e,'warrior', false);
+      }
+    }
+    if(pd.regenPerSec&&(_frameCount||0)%60===0){
+      const add=Math.max(1, Math.floor(e.maxHp*Number(pd.regenPerSec)));
+      e.hp=Math.min(e.maxHp, e.hp+add);
+    }
+    if(pd.shockEvery){
+      e._raidShockAcc=(e._raidShockAcc||0)+1;
+      if(e._raidShockAcc>=Number(pd.shockEvery)){
+        e._raidShockAcc=0;
+        const liveAA=allies.filter(a=>a&&a.isDeployed&&!a.dead&&!a.permanentlyDead&&a.hp>0);
+        if(liveAA.length){
+          _raidTelegraphs.push({
+            kind:'default', x:e.x, y:e.y, radius:195, damage:Math.floor(95+zoneStage*5),
+            castLife:12, life:52, lifeAll:52,
+          });
+          addFloat(e.x,e.y-22,'💥 충격파!','#f97316');
+        }
+      }
+    }
+    if(pd.pattern==='life_drain'&&pd.drainRadius){
+      e._raidDrainAcc=(e._raidDrainAcc||0)+1;
+      if(e._raidDrainAcc>=45){
+        e._raidDrainAcc=0;
+        const r=Number(pd.drainRadius)||150;
+        const dps=Number(pd.drainDps)||15;
+        allies.forEach(a=>{
+          if(!a||!a.isDeployed||a.dead||a.hp<=0) return;
+          if(dist(a,e)>r) return;
+          const v=Math.max(1, Math.floor(dps*0.75));
+          a.hp-=v;
+          addFloat(a.x,a.y-10,`-${v}`,'#fb7185');
+          if(a.hp<=0){ markAllyDeadWithDebuff(a,'흡혈'); alog(`💀 ${a.name} 전사`); }
+        });
+      }
+    }
+  }
+}
 const ENEMY_ROLE_BASE={
   prey:   {name:'야생동물', mark:'🐾', color:'#5d8a3c', role:null,   hp:150, atk:10, range:55, spd:1.8, def:0.00, flees:true},
   bear:   {name:'곰',       mark:'🐻', color:'#7a4e2d', role:'Tank', hp:820, atk:38, range:58, spd:0.72,def:0.28},
@@ -4834,18 +5318,196 @@ function themedEnemyName(roleKey,zoneName,idx){
   const arr=table[roleKey]||['적군'];
   return arr[idx%arr.length];
 }
+function getPhase0BaseZoneId(zid){
+  if(!zid) return null;
+  if(zid==='hunt'||zid.startsWith('auto_hunt')) return 'hunt';
+  if(zid==='river'||zid.startsWith('auto_river')) return 'river';
+  if(zid==='wilds'||zid.startsWith('auto_wilds')) return 'wilds';
+  const m=/^chapter_([^_]+)_\d+$/.exec(zid);
+  if(m){
+    const b=m[1];
+    if(b==='hunt'||b==='river'||b==='wilds') return b;
+  }
+  return null;
+}
+function shuffleInPlace(a){
+  for(let i=a.length-1;i>0;i--){
+    const j=(Math.random()*(i+1))|0;
+    const t=a[i]; a[i]=a[j]; a[j]=t;
+  }
+  return a;
+}
+function firstMarkFromAnimalName(name){
+  const s=String(name||'?');
+  return [...s][0]||'?';
+}
+function animalDefaultRange(role){
+  const R={Tank:58,Melee:68,Warrior:70,Ranged:220,Mage:210,Heal:200};
+  if(!role) return 55;
+  return R[role]||65;
+}
+function pickHerbivoreKey(){
+  return HUNT_HERBIVORE_POOL[(Math.random()*HUNT_HERBIVORE_POOL.length)|0];
+}
+function pickPredatorKey(forDay){
+  const s=Math.min(15,Math.max(1,Number(forDay)||Number(zoneStage)||Number(stage)||1));
+  let pool=HUNT_PREDATOR_POOL;
+  if(s<=3){
+    pool=['wolf','wolf','wolf','wolf_alpha'];
+  }else if(s<=5){
+    pool=['wolf','wolf','wolf','wolf_alpha','bear','bear'];
+  }
+  return pool[(Math.random()*pool.length)|0];
+}
+/** 근처 들판: diffTier 표와 무관하게 1~5일차는 초식 비율 하한을 둬 초반 즉사 체감 완화 */
+function getHuntHerbivoreShareForDay(diffTier,day){
+  const dt=Math.min(5,Math.max(1,diffTier||1));
+  const base=(HUNT_COMPOSITION[dt]||HUNT_COMPOSITION[1]).herbivore;
+  if(day>=6) return base;
+  const floor=[0.86,0.80,0.72,0.64,0.52][day-1]||0.52;
+  return Math.max(base, floor);
+}
+/** 집합소 근처 들판/얕은 강가/얕은 숲 — 동물 적 풀·난이도 티어 비율 */
+function buildPhase0AnimalFormation(s,baseZ){
+  const H=CH,bx=CW-60;
+  const p=MODULE6_ENEMY_PROFILES[baseZ]||MODULE6_ENEMY_PROFILES.hunt;
+  const huntEscZone=(baseZ==='hunt')?Math.min(6,Number(_autoZoneSeq&&_autoZoneSeq.hunt)||0):0;
+  const stageScale=1+Math.max(0,s-1)*(baseZ==='hunt'&&huntEscZone>=1?0.072:0.055);
+  const tDef=ZONE_DIFF_MULTS[currentZone.diffTier||1]||ZONE_DIFF_MULTS[1];
+  let diff=getZoneFinalPowerMult(currentZone)*p.power*stageScale;
+  if(baseZ==='hunt'&&huntEscZone>=1){
+    diff*=1.12+huntEscZone*0.055;
+  }
+  if(s<=5&&(baseZ==='river'||baseZ==='wilds')){
+    diff*=0.83+(s-1)*0.0425;
+  }
+  let cnt=Math.min(p.countCap, p.countBase + Math.floor((s-1)/3)+(baseZ==='hunt'&&huntEscZone>=1?1+Math.min(1,Math.floor((s-1)/7)):0));
+  cnt=Math.max(1,Math.min(p.countCap,Math.floor(cnt*tDef.enemyCountMult)));
+  const out=[];
+  let idx=0;
+  const pushAnimalFromKey=function(key){
+    const a=ANIMAL_ENEMIES[key];
+    if(!a) return;
+    const role=a.role||null;
+    const yy=H*(0.14 + ((idx%Math.max(1,cnt))*0.72/Math.max(1,cnt-1)));
+    const xx=bx-(idx%3)*38;
+    const hp=Math.max(1,Math.round(a.baseHp*diff));
+    const atk=Math.max(1,Math.round(a.baseAtk*diff));
+    const spd=Math.max(0.45,a.baseSpd);
+    const def=Math.min(0.65,a.baseDef);
+    const range=animalDefaultRange(a.role);
+    const flees=a.behavior==='flee'||a.behavior==='retreat';
+    const isHerb=HUNT_HERBIVORE_POOL.includes(key);
+    out.push({
+      name:a.name,
+      mark:firstMarkFromAnimalName(a.name),
+      color:isHerb?'#5d8a3c':'#b45309',
+      role,
+      etype:isHerb?'prey':'predator',
+      x:xx,y:yy,
+      hp,atk,range,spd,def,
+      flees,
+      ambushReady:false,
+      animalAmbushPrimed:a.behavior==='ambush',
+      fleeRange:a.fleeRange,
+      territoryRadius:a.territoryRadius,
+      ambushRange:a.ambushRange,
+      isAlphaAnimal:!!a.isAlpha,
+      elite:(key==='wolf_alpha'||key==='tiger'||key==='hippo')&&Math.random()>0.5,
+      animalBehavior:a.behavior,
+      aquatic:!!a.aquatic,
+      animalDefKey:key,
+    });
+    idx++;
+  };
+  function assignAnimalPackMeta(rows){
+    const packId='pk_'+((Math.random()*0x7fffffff)|0);
+    let alphaAssigned=false;
+    for(let i=0;i<rows.length;i++){
+      const row=rows[i];
+      if(row.animalBehavior!=='pack_hunt') continue;
+      row._packId=packId;
+      const isa=!!row.isAlphaAnimal||((row.name||'').indexOf('알파')>=0);
+      if(isa&&!alphaAssigned){
+        row._isAlpha=true;
+        row._packAngle=0;
+        alphaAssigned=true;
+      }else{
+        row._isAlpha=false;
+        row._packAngle=(i%2===0)?Math.PI/4:-Math.PI/4;
+      }
+    }
+    if(!alphaAssigned){
+      const first=rows.find(r=>r.animalBehavior==='pack_hunt');
+      if(first){
+        first._isAlpha=true;
+        first._packAngle=0;
+      }
+    }
+  }
+  if(baseZ==='hunt'){
+    const dt=Math.min(5,Math.max(1,currentZone.diffTier||1));
+    const herbShare=getHuntHerbivoreShareForDay(dt,s);
+    const comp={herbivore:herbShare,predator:Math.max(0,1-herbShare)};
+    let nHerb=Math.round(cnt*comp.herbivore);
+    if(comp.herbivore<=0) nHerb=0;
+    if(comp.predator<=0) nHerb=cnt;
+    nHerb=Math.min(Math.max(0,nHerb),cnt);
+    const nPred=cnt-nHerb;
+    const order=[];
+    for(let i=0;i<nHerb;i++) order.push('h');
+    for(let i=0;i<nPred;i++) order.push('p');
+    shuffleInPlace(order);
+    for(let i=0;i<order.length;i++){
+      pushAnimalFromKey(order[i]==='h'?pickHerbivoreKey():pickPredatorKey(s));
+    }
+    assignAnimalPackMeta(out);
+    return out;
+  }
+  if(baseZ==='river'){
+    let rPool=RIVER_ENEMY_POOL;
+    if(s<=2){
+      rPool=['otter','heron','otter','heron'];
+    }else if(s<=5){
+      rPool=['otter','heron','otter','crocodile','heron'];
+    }
+    for(let i=0;i<cnt;i++){
+      pushAnimalFromKey(rPool[(Math.random()*rPool.length)|0]);
+    }
+    assignAnimalPackMeta(out);
+    return out;
+  }
+  if(baseZ==='wilds'){
+    let wPool=WILDS_ENEMY_POOL;
+    if(s<=3){
+      wPool=['wolf','wolf','boar_pack','wolf'];
+    }else if(s<=5){
+      wPool=['wolf','boar_pack','bear','wolf','wolf'];
+    }
+    for(let i=0;i<cnt;i++){
+      pushAnimalFromKey(wPool[(Math.random()*wPool.length)|0]);
+    }
+    assignAnimalPackMeta(out);
+    return out;
+  }
+  return [];
+}
 function getEnemyFormation(s,tier){
   const H=CH,bx=CW-60;
   const zoneId=currentZone.id;
+  const phase0Base=getPhase0BaseZoneId(zoneId);
+  if(phase0Base) return buildPhase0AnimalFormation(s,phase0Base);
   const p=MODULE6_ENEMY_PROFILES[zoneId]||MODULE6_ENEMY_PROFILES.hunt;
   /** 근처 들판 II~: 일차 진행에 따른 스탯 상승을 I보다 가파르게(초반 무방비 클리어 완화) */
   const huntEscZone=(zoneId==='hunt')?Math.min(6,Number(_autoZoneSeq&&_autoZoneSeq[zoneId])||0):0;
   const stageScale=1+Math.max(0,s-1)*(zoneId==='hunt'&&huntEscZone>=1?0.072:0.055);
-  let diff=(currentZone.diffMult||1.0)*p.power*stageScale;
+  const tDef=ZONE_DIFF_MULTS[currentZone.diffTier||1]||ZONE_DIFF_MULTS[1];
+  let diff=getZoneFinalPowerMult(currentZone)*p.power*stageScale;
   if(zoneId==='hunt'&&huntEscZone>=1){
     diff*=1.12+huntEscZone*0.055;
   }
   let cnt=Math.min(p.countCap, p.countBase + Math.floor((s-1)/3)+(huntEscZone>=1?1+Math.min(1,Math.floor((s-1)/7)):0));
+  cnt=Math.max(1,Math.min(p.countCap,Math.floor(cnt*tDef.enemyCountMult)));
   const out=[];
   let idx=0;
   /** huntEscZone: 근처 들판 I=0 — 정복 후 II~에서만 단계 상승(위에서 계산됨) */
@@ -4873,45 +5535,32 @@ function getEnemyFormation(s,tier){
     }
   };
 
-  // 들판(hunt): I(미정복) — 기존: 초식 위주 + 소수 포식. II~ — 포식·원거리·빠른 근접 비중 상승
-  if(tier==='hunt'&&huntEscZone===0){
-    const predRatio=Math.min(0.30, Math.max(0, (s-1)*0.022));
-    const predCount=Math.min(cnt-1, Math.floor(cnt*predRatio));
-    const preyCount=Math.max(1,cnt-predCount);
-    const healCount=predCount>=4?1:0;
-    const meleePred=Math.max(0,predCount-healCount);
-    const bearCount=Math.ceil(meleePred*0.65);
-    const raiderCount=Math.max(0,meleePred-bearCount);
-    pushRole('prey',preyCount,'prey');
-    pushRole('bear',bearCount,'predator');
-    pushRole('raider',raiderCount,'predator');
-    pushRole('heal',healCount,'predator');
-    return out;
-  }
-  if(tier==='hunt'&&huntEscZone>=1){
-    const predRatio=Math.min(0.66, 0.185+(s-1)*0.031+huntEscZone*0.062);
-    const rangedCount=Math.min(Math.max(0,cnt-2),Math.min(3,huntEscZone+Math.floor((s-1)/5)));
-    const mageCount=(huntEscZone>=2&&cnt>=5)?1:0;
-    const pool=Math.max(1,cnt-rangedCount-mageCount);
-    let predCount=Math.min(pool-1,Math.max((pool>=3)?1:0,Math.floor(pool*predRatio)));
-    const preyCount=Math.max(1,pool-predCount);
-    const healCount=predCount>=4?1:0;
-    const meleePred=Math.max(0,predCount-healCount);
-    let bearCount=Math.max(0,Math.round(meleePred*0.36));
-    let raiderCount=Math.max(0,Math.round(meleePred*0.34));
-    let warriorCount=Math.max(0,meleePred-bearCount-raiderCount);
-    pushRole('prey',preyCount,'prey');
-    pushRole('ranged',rangedCount,'predator');
-    if(mageCount>0) pushRole('mage',mageCount,'predator');
-    pushRole('bear',bearCount,'predator');
-    pushRole('raider',raiderCount,'predator');
-    pushRole('warrior',warriorCount,'predator');
-    pushRole('heal',healCount,'predator');
-    return out;
-  }
-
   const counts=allocRoleCount(cnt,p.ratio);
   const keys=['tank','warrior','ranged','mage','heal','prey'];
+  if(zoneId==='crystal'){
+    const pushRoleCrystal=function(k,n,etype){
+      for(let i=0;i<n;i++){
+        const b=ENEMY_ROLE_BASE[k]||ENEMY_ROLE_BASE.warrior;
+        const upper=(idx%2===0);
+        const jitter=(Math.floor(idx/2)%4)*18;
+        const yy=upper?(H*0.17+jitter):(H*0.66+jitter);
+        const xx=bx-(Math.floor(idx/3)%3)*38;
+        let sp0=b.spd*(1+Math.min(0.25,(p.grade-1)*0.05));
+        out.push({
+          name:themedEnemyName(k,currentZone.name,idx),
+          mark:b.mark,color:b.color,role:b.role,etype:etype||p.etype,
+          x:xx,y:yy,
+          hp:Math.floor((b.hp+(p.grade-1)*120)*diff),
+          atk:Math.floor((b.atk+(p.grade-1)*8)*diff),
+          range:b.range,spd:Math.max(0.45,sp0),def:Math.min(0.65,b.def+Math.max(0,(p.grade-1)*0.03)),
+          flees:!!b.flees,ambushReady:!!(b.ambushReady&&Math.random()>0.35),elite:p.grade>=3,
+        });
+        idx++;
+      }
+    };
+    keys.forEach(k=>pushRoleCrystal(k,counts[k]||0,p.etype));
+    return out;
+  }
   keys.forEach(k=>pushRole(k,counts[k]||0,p.etype));
   return out;
 }
@@ -5435,6 +6084,227 @@ function applyWaypointPath(u,wp,opts){
     const gCell=nearestCell(wp.x,wp.y);
     u._pursuitGoalKey=(gCell&&gCell.r!==undefined&&gCell.c!==undefined)?(`${gCell.r}|${gCell.c}`):(`${Math.round(wp.x)},${Math.round(wp.y)}`);
   }
+}
+function clearEnemyNav(e){
+  if(!e) return;
+  e._enemyWx=null;
+  e._enemyWy=null;
+  e._enemyPathCorners=null;
+  e._enemyPathSkirtRiver=false;
+  e._enemyChaseId=null;
+  e._enemyPrevTgtX=null;
+  e._enemyPrevTgtY=null;
+  e._enemyPrevGoalX=null;
+  e._enemyPrevGoalY=null;
+  e._enemyNavStuck=0;
+  e._enemyIntentX=null;
+  e._enemyIntentY=null;
+}
+function applyEnemyWaypointPath(e,wp){
+  if(!e||!wp) return;
+  e._enemyWx=wp.x;
+  e._enemyWy=wp.y;
+  e._enemyPathCorners=null;
+  const goal=nearestCell(wp.x,wp.y);
+  if(!goal){
+    e._enemyWx=null;
+    e._enemyWy=null;
+    e._enemyPathSkirtRiver=false;
+    return;
+  }
+  const res=findHexPathCells(e,goal);
+  const path=res&&res.cells;
+  e._enemyPathSkirtRiver=!!(res&&res.skirtRiver);
+  if(!path||path.length<2){
+    e._enemyWx=wp.x;
+    e._enemyWy=wp.y;
+    e._enemyPathCorners=null;
+    return;
+  }
+  if(path.length>2) e._enemyPathCorners=path.slice(1,-1).map(c=>({x:c.x,y:c.y}));
+  else e._enemyPathCorners=null;
+}
+function refreshEnemyNavToTarget(e,tx,ty){
+  const wp=resolveMoveCommandPoint(e,tx,ty);
+  if(!wp){
+    clearEnemyNav(e);
+    return false;
+  }
+  applyEnemyWaypointPath(e,wp);
+  return e._enemyWx!=null||e._enemyWy!=null;
+}
+function stepEnemyAlongNavigation(e,moveSpd){
+  if(e._enemyWx==null||e._enemyWy==null) return false;
+  const role=getUnitMoveRole(e);
+  let tgx=e._enemyWx,tgy=e._enemyWy;
+  if(Array.isArray(e._enemyPathCorners)&&e._enemyPathCorners.length){
+    tgx=e._enemyPathCorners[0].x;
+    tgy=e._enemyPathCorners[0].y;
+  }
+  const dx=tgx-e.x,dy=tgy-e.y,d=Math.hypot(dx,dy);
+  if(d<13){
+    if(Array.isArray(e._enemyPathCorners)&&e._enemyPathCorners.length){
+      e._enemyPathCorners.shift();
+      if(!e._enemyPathCorners.length) e._enemyPathCorners=null;
+    }else{
+      clearEnemyNav(e);
+    }
+    e._enemyNavStuck=0;
+    return true;
+  }
+  let nx=e.x+dx/d*moveSpd,ny=e.y+dy/d*moveSpd;
+  const cl0=clampCenterSkirtRiverInterior(e,e.x,e.y,nx,ny);
+  nx=cl0.x; ny=cl0.y;
+  const mx=nx-e.x,my=ny-e.y;
+  const domMulti=getEffectiveTerrainCellMoveMulti(e,mx,my);
+  const domAtNext=getEffectiveTerrainCellForMove(e,nx,ny);
+  if(domMulti.blocked||!domAtNext||!canTraverseTerrain(e,domAtNext)){
+    e._enemyNavStuck=(e._enemyNavStuck||0)+1;
+    if(e._enemyNavStuck>90){
+      clearEnemyNav(e);
+      e.facing=Math.atan2(dy,dx);
+      return true;
+    }
+    const best=bestAdjacentCell(e,e._enemyWx,e._enemyWy);
+    if(best){
+      const bdx=best.x-e.x,bdy=best.y-e.y,bn=Math.hypot(bdx,bdy);
+      if(bn>1) tryMoveWithTerrain(e,bdx/bn*moveSpd,bdy/bn*moveSpd,{role});
+    }else{
+      const snap=findNearestTraversableHexCell(e,e.x,e.y);
+      if(snap){
+        const sdx=snap.x-e.x,sdy=snap.y-e.y,sn=Math.hypot(sdx,sdy);
+        if(sn>1){
+          const step=Math.min(sn,Math.max(8,moveSpd*1.15));
+          tryMoveWithTerrain(e,sdx/sn*step,sdy/sn*step,{role});
+        }
+      }else clearEnemyNav(e);
+    }
+  }else{
+    e._enemyNavStuck=0;
+    tryMoveWithTerrain(e,mx,my,{role});
+  }
+  e.facing=Math.atan2(dy,dx);
+  return true;
+}
+/** 적 추격(월드 목표 gx,gy): 아군 중심이 아닌 교전 링 등 임의 점으로 경로 */
+function updateEnemyMovementTowardGoal(e,tgt,gx,gy,moveSpd){
+  if(!e||!tgt) return;
+  const tid=tgt.id!=null?tgt.id:`${(tgt.x|0)},${(tgt.y|0)}`;
+  const tMoved=e._enemyPrevTgtX==null||Math.hypot(tgt.x-(e._enemyPrevTgtX||0),tgt.y-(e._enemyPrevTgtY||0))>18;
+  const gMoved=e._enemyPrevGoalX==null||Math.hypot(gx-(e._enemyPrevGoalX||0),gy-(e._enemyPrevGoalY||0))>20;
+  if(e._enemyChaseId!==tid||tMoved||gMoved||((_frameCount+(e.id|0))%22===0)){
+    refreshEnemyNavToTarget(e,gx,gy);
+    e._enemyChaseId=tid;
+    e._enemyPrevTgtX=tgt.x;
+    e._enemyPrevTgtY=tgt.y;
+    e._enemyPrevGoalX=gx;
+    e._enemyPrevGoalY=gy;
+  }
+  if(e._enemyWx!=null&&e._enemyWy!=null) stepEnemyAlongNavigation(e,moveSpd);
+  else{
+    const dx=gx-e.x,dy=gy-e.y,dn=Math.hypot(dx,dy);
+    if(dn>1) tryMoveWithTerrain(e,dx/dn*moveSpd,dy/dn*moveSpd,{role:getUnitMoveRole(e)});
+  }
+}
+/** 적 추격: 목표 좌표 = 아군 중심 (레거시·비교용) */
+function updateEnemyMovementToward(e,tgt,moveSpd){
+  if(!e||!tgt) return;
+  updateEnemyMovementTowardGoal(e,tgt,tgt.x,tgt.y,moveSpd);
+}
+/**
+ * 아군 자동 추격과 대칭: 사거리가 아군 몸 원의 맞은편 테두리에 닿을 만큼만 접근.
+ * 그 거리 안이면 이동하지 않음(붙어서 밀어넣기·쿨 중 재접근·가짜 후퇴 완화).
+ */
+function updateEnemyChaseAlly(e,tgt,moveSpd){
+  if(!e||!tgt) return;
+  const opt=getEnemyMinEngageCenterDist(e,tgt);
+  const d=dist(e,tgt);
+  if(d<=opt+12) return;
+  const pg=getEnemyEngagePathGoalWorld(e,tgt);
+  if(pg&&Number.isFinite(pg.x)&&Number.isFinite(pg.y)) updateEnemyMovementTowardGoal(e,tgt,pg.x,pg.y,moveSpd);
+  else{
+    const ring=getEnemyEngageGoalWorld(e,tgt);
+    if(ring&&Number.isFinite(ring.x)&&Number.isFinite(ring.y)) updateEnemyMovementTowardGoal(e,tgt,ring.x,ring.y,moveSpd);
+  }
+}
+/** drawUnit과 동일 기준 — 분리 거리에 반영 */
+function getUnitBodyRadius(u){
+  if(!u) return 13;
+  const base=13;
+  if(u.type==='ally'&&typeof getUnitPartyGroupId==='function'&&getUnitPartyGroupId(u.id)>0) return base*3;
+  return base;
+}
+function applyBattleUnitSeparation(){
+  const baseSep=Math.max(11,HW*0.75);
+  const units=[];
+  for(let i=0;i<allies.length;i++){
+    const u=allies[i];
+    if(!u||u.dead||u.hp<=0||u.permanentlyDead) continue;
+    if(!u.isDeployed||u.garrisoned||u.inStandby) continue;
+    units.push(u);
+  }
+  for(let i=0;i<enemies.length;i++){
+    const u=enemies[i];
+    if(!u||u.dead||(u.hp||0)<=0) continue;
+    units.push(u);
+  }
+  for(let i=0;i<units.length;i++){
+    for(let j=i+1;j<units.length;j++){
+      const A=units[i],B=units[j];
+      const dx=B.x-A.x,dy=B.y-A.y;
+      const d2=dx*dx+dy*dy;
+      if(d2<1e-5) continue;
+      const d=Math.sqrt(d2);
+      let minR=baseSep;
+      if((A.type==='ally'&&B.type==='enemy')||(A.type==='enemy'&&B.type==='ally')){
+        minR=Math.max(minR,getUnitBodyRadius(A)+getUnitBodyRadius(B)+6);
+      }
+      const min2=minR*minR;
+      if(d2>=min2) continue;
+      const ux=dx/d,uy=dy/d;
+      if((A.type==='ally'&&B.type==='enemy')||(A.type==='enemy'&&B.type==='ally')){
+        const en=A.type==='enemy'?A:B;
+        const al=A.type==='ally'?A:B;
+        const opt=getEnemyMinEngageCenterDist(en,al);
+        let pushMul=dist(en,al)<=opt+45?0.5:1;
+        if(d<minR-0.5) pushMul=Math.max(pushMul,0.82);
+        const push=(minR-d)*0.5*pushMul;
+        en.x+=ux*push;
+        en.y+=uy*push;
+        clampToMap(en);
+        continue;
+      }
+      const push=(minR-d)*0.45;
+      A.x-=ux*push;
+      A.y-=uy*push;
+      B.x+=ux*push;
+      B.y+=uy*push;
+      clampToMap(A);
+      clampToMap(B);
+    }
+  }
+}
+function handlePlacementDrop(u, x, y){
+  if(!u) return;
+  const dropCell=nearestCell(x,y);
+  let finalDropCell=dropCell;
+  if(!isDeployZoneCell(dropCell)||isDeployCellOccupied(dropCell,u.id)){
+    const bestEmpty=findNearestEmptyDeployCell(x,y,u.id);
+    if(bestEmpty) finalDropCell=bestEmpty;
+    else{
+      addFloat(u.x,u.y-16,'배치 공간 없음','#e74c3c');
+      return;
+    }
+  }
+  u.x=finalDropCell.x;
+  u.y=finalDropCell.y;
+  savedPositions[u.id]={x:u.x,y:u.y};
+  initialPositions[u.id]={x:u.x,y:u.y};
+  updatePG();
+  if(autoStart&&getSortedUd().length===0){
+    setTimeout(()=>{ if(!isBattle&&autoStart) toggleBattle(); },800);
+  }
+  markDirty();
 }
 // 드래그 이동을 처리하는 별도 함수
 function executeMoveOrder(u, x, y) {
@@ -6067,6 +6937,8 @@ function toggleBattle(){
   preparePartyUltimate(currentParty);
   _raidTelegraphs=[];
   _raidNextPatternAt=(_frameCount||0)+100;
+  _raidVisionDebuff=0;
+  _raidVisionDebuffEndFrame=0;
 
   setBadge(`${stage}일차`, 'b-ba');
   alog(`⚔️ 전투 시작! (파티원 ${currentParty.length}명, 식량 -${cost}🍖)`);
@@ -6144,14 +7016,171 @@ function enableAutoStartOnly() {
   }
 }
 
+function findPackAlpha(packId){
+  if(!packId) return null;
+  return enemies.find(x=>x&&x._packId===packId&&x._isAlpha&&!x.dead&&(x.hp||0)>0)||null;
+}
+/** 동물 적 이동 목표 (TASK 6) — null이면 정지/배회는 호출측에서 처리 */
+function getAnimalMoveTarget(e,allies){
+  const b=e.animalBehavior;
+  if(!b) return null;
+  const nearest=closest(e,allies,Infinity);
+  const nearDist=nearest?dist(e,nearest):Infinity;
+  const fr=Number(e.fleeRange);
+  const fleeRange=Number.isFinite(fr)?fr:200;
+  const recentHit=!!e._recentlyHitFrame&&(_frameCount-(e._recentlyHitFrame||0))<50;
+  switch(b){
+    case 'flee':
+    case 'retreat':{
+      const lowHp=e.hp<e.maxHp*0.3;
+      if(nearDist<fleeRange||lowHp||recentHit){
+        e._behaviorState='flee';
+        if(nearest){
+          return{
+            x:e.x+(e.x-nearest.x)*3,
+            y:e.y+(e.y-nearest.y)*3,
+            speedMult:lowHp?1.45:1.05,
+          };
+        }
+      }
+      e._behaviorState='idle';
+      return null;
+    }
+    case 'charge_if_cornered':{
+      const cornered=e.x<MAP_PAD+72||e.x>CW-MAP_PAD-72||e.y<MAP_PAD+72||e.y>CH-MAP_PAD-72;
+      const enraged=e.hp<e.maxHp*0.22;
+      if(cornered||enraged){
+        e._behaviorState='pursue';
+        return nearest?{x:nearest.x,y:nearest.y,speedMult:1.35,atkMult:enraged?1.35:1.15}:null;
+      }
+      if(nearDist<fleeRange){
+        e._behaviorState='flee';
+        return nearest?{x:e.x+(e.x-nearest.x)*2.5,y:e.y+(e.y-nearest.y)*2.5,speedMult:1.05}:null;
+      }
+      return null;
+    }
+    case 'pack_hunt':{
+      const alpha=findPackAlpha(e._packId);
+      if(!alpha||alpha.dead){
+        e._behaviorState='flee';
+        return nearest?{x:e.x+(e.x-nearest.x)*2.5,y:e.y+(e.y-nearest.y)*2.5,speedMult:1.2}:null;
+      }
+      if(e._isAlpha){
+        e._behaviorState='pursue';
+        return nearest?{x:nearest.x,y:nearest.y,speedMult:1.05}:null;
+      }
+      const ang=e._packAngle||0;
+      const flankDist=80;
+      if(nearest){
+        return{
+          x:nearest.x+Math.cos(ang)*flankDist,
+          y:nearest.y+Math.sin(ang)*flankDist,
+          speedMult:1.0,
+        };
+      }
+      return null;
+    }
+    case 'ambush':{
+      const ar=Number(e.ambushRange)||200;
+      if((e._animalDashFrames||0)>0){
+        e._behaviorState='dash';
+        return nearest?{x:nearest.x,y:nearest.y,speedMult:2.0}:null;
+      }
+      if(e.animalAmbushPrimed){
+        if(nearDist<ar){
+          e.animalAmbushPrimed=false;
+          e._animalDashFrames=48;
+          e._behaviorState='dash';
+          return nearest?{x:nearest.x,y:nearest.y,speedMult:2.0}:null;
+        }
+        e._behaviorState='idle';
+        return null;
+      }
+      e._behaviorState='pursue';
+      return nearest?{x:nearest.x,y:nearest.y,speedMult:1.0}:null;
+    }
+    case 'territory':{
+      const rad=Number(e.territoryRadius)||180;
+      const hx=e._territoryX??e.x;
+      const hy=e._territoryY??e.y;
+      const homeDist=Math.hypot(e.x-hx,e.y-hy);
+      if(nearDist<rad){
+        const enr=e.hp<e.maxHp*0.5;
+        e._behaviorState='pursue';
+        return nearest?{x:nearest.x,y:nearest.y,speedMult:1.0,atkMult:enr?1.2:1.0}:null;
+      }
+      if(homeDist>rad*1.45){
+        e._behaviorState='return';
+        return {x:hx,y:hy,speedMult:1.15};
+      }
+      e._behaviorState='idle';
+      return null;
+    }
+    default:
+      return nearest?{x:nearest.x,y:nearest.y,speedMult:1.0}:null;
+  }
+}
+
 // ══════════════════════════════════════════════════════
 // 전투 틱
 // ══════════════════════════════════════════════════════
+function runBattleDefeatSequence(alogMsg){
+  isBattle=false;
+  isPlacing=false;
+  allies.forEach(a=>{
+    if(a.isDeployed){
+      if(!a.dead&&!a.permanentlyDead) applySorrowDebuff(`${a.name} 전멸`);
+      a.hp=0;
+      a.dead=true;
+      a.isDeployed=false;
+      a.deathTime=null;
+      pushDeadUnitRecord(a);
+    }
+  });
+  enemies.forEach(e=>{ e.target=null; e.isAttacking=false; });
+  setTimeout(()=>{
+    alog(alogMsg);
+    showDefeatModal();
+    renderGarrisonBar();
+  },500);
+  markDirty();
+}
+function checkCrystalDefeat(){
+  if(!isCrystalTwoLaneZone()||!isBattle) return false;
+  const mid=CH*0.5;
+  const gap=50;
+  const breachX=Math.min(Math.max(MAP_PAD+72,getDeployZoneRightX()+HW*1.15),CW*0.28);
+  for(let i=0;i<enemies.length;i++){
+    const e=enemies[i];
+    if(!e||e.dead||(e.hp||0)<=0) continue;
+    if(e.x>breachX) continue;
+    if(e.y<mid-gap) return true;
+    if(e.y>mid+gap) return true;
+  }
+  return false;
+}
+/** Guard/Fortress 인접 방어 바닥 — 아군 tick 이후 적용해 처리 순서로 바닥이 덮어씌워지지 않게 함 */
+function applyGuardAuraDefenseFloor(aa){
+  if(!Array.isArray(aa)||!aa.length) return;
+  const live=aa.filter(a=>a&&a.hp>0&&!a.dead);
+  live.forEach(a=>{
+    const hasG=a.activeSkills&&a.activeSkills.includes('Guard');
+    const hasF=a.activeSkills&&a.activeSkills.includes('Fortress');
+    if(!hasG&&!hasF) return;
+    const guardScale=Math.max(0,Math.min(0.75,Number(a.bonusDef||0)));
+    const allyDefFloor=Math.min(0.34,(hasF?0.14:0.10)+guardScale*0.62);
+    live.filter(x=>x!==a&&dist(a,x)<80).forEach(x=>{
+      x.def=Math.min(0.75,Math.max(Number(x.def)||0,allyDefFloor));
+    });
+  });
+}
 function battleTick(){
   sanitizePartyGroups();
+  if(arcaneInProgress) checkArcaneResearch();
   // 빈사 5초 경과 시 영구 사망 처리
   const now=Date.now();
   tickRaidTelegraphs();
+  tickRaidBossPhaseSystem();
   tickRaidTankDebuffDecay(now);
   tickCityMobaFlow();
   let needGarrisonRender=false;
@@ -6178,6 +7207,9 @@ function battleTick(){
     if(_partyUltimate.phase==='charge'){
       if(_partyUltimate.timer>0){
         _partyUltimate.timer--;
+        if(hasArcaneResearch('heroes_wrath')&&(_frameCount%25===0)&&_partyUltimate.timer>0){
+          _partyUltimate.timer--;
+        }
         if(_partyUltimate.timer<=0){
           _partyUltimate.phase='ready';
           alog('✨ 궁극기 충전 완료! 지도에서 아군 유닛을 한 번 탭하면 발동합니다.');
@@ -6195,6 +7227,8 @@ function battleTick(){
     }
   }
   tickPartyGroupUltimates(aa,ae);
+
+  if(_frameCount%12===0) updateSharedVision(aa);
 
   aa.forEach((a,idx) => {
     const runThis=!crowdedAI||((idx%aiShardCount)===aiStripe);
@@ -6214,9 +7248,9 @@ function battleTick(){
     const hasFortress=a.activeSkills.includes('Fortress');
     const guardScale=Math.max(0,Math.min(0.75,Number(a.bonusDef||0)));
     if(hasFortress){
-      defBonus=Math.min(0.65,0.48+guardScale*0.55);
+      defBonus=Math.min(0.70,0.54+guardScale*0.52);
     }else if(hasGuard){
-      defBonus=Math.min(0.45,0.22+guardScale*0.65);
+      defBonus=Math.min(0.52,0.30+guardScale*0.62);
     }
     const roleBase=(a.class10Key&&CLASS10[a.class10Key]?.base)||(a.classKey||a.baseRole||'Refugee');
     const isMeleeLike=!(roleBase==='Ranged'||roleBase==='Mage');
@@ -6237,11 +7271,6 @@ function battleTick(){
       if(a.atkCd>0)a.atkCd--;
       clampToMap(a);
       return;
-    }
-    // 2. Guard: 인근 아군 방어 버프 (시전자 방어 스탯 비례)
-    if ((hasGuard || hasFortress) && Math.random() > 0.97) {
-      const allyDefFloor=Math.min(0.28,(hasFortress?0.12:0.08)+guardScale*0.60);
-      aa.filter(x => x !== a && dist(a, x) < 80).forEach(x => x.def = Math.max(x.def, allyDefFloor));
     }
 
     // 3. 공속 쿨다운 시스템
@@ -6294,7 +7323,7 @@ function battleTick(){
             if(tgt){
               const range=(skData.range||210)+(a.bonusRange||0);
               if(dist(a,tgt)<range&&hasLOS(a.x,a.y,tgt.x,tgt.y)){
-                const val=Math.floor((22+a.bonusAtk)*(1+(a.bonusMagic||0)*0.025)*skillMult(a,sk));
+                const val=Math.floor((34+a.bonusAtk)*(1+(a.bonusMagic||0)*0.035)*skillMult(a,sk));
                 const shield=sk==='Barrier'?Math.floor(val*0.5):0;
                 const actualHeal=Math.min(tgt.maxHp-tgt.hp,val);
                 tgt.hp=Math.min(tgt.maxHp,tgt.hp+val);
@@ -6355,6 +7384,7 @@ function battleTick(){
     // 아군도 경계 클램프
     clampToMap(a);
   });
+  applyGuardAuraDefenseFloor(aa);
 
   // 적 행동
   ae.forEach((e,idx)=>{
@@ -6363,7 +7393,7 @@ function battleTick(){
       e.ultimateSlowUntil=0;
       e.ultimateSlowMul=1;
     }
-    const moveSpd=(e.spd||0.8)*(e.ultimateSlowMul||1)*MOVE_FEEL_MUL*getFrameMoveMul();
+    const moveSpd=(e.spd||0.8)*(e.ultimateSlowMul||1)*(e._raidSpdMult||1)*MOVE_FEEL_MUL*getFrameMoveMul();
     // 공속 쿨다운
     if(e.atkCd===undefined)e.atkCd=0;
     if(e.atkCd>0)e.atkCd--;
@@ -6389,9 +7419,78 @@ function battleTick(){
         const d2=dist(e,nearAlly);
         if(d2<80){
           const dx=e.x-nearAlly.x,dy=e.y-nearAlly.y,dn=Math.hypot(dx,dy);
-          if(dn>0) tryMoveWithTerrain(e,dx/dn*moveSpd*0.5,dy/dn*moveSpd*0.5,{role:e.role||'Melee'});
+          if(dn>0) tryMoveWithTerrain(e,dx/dn*moveSpd*0.5,dy/dn*moveSpd*0.5,{role:getUnitMoveRole(e)});
         }
       }
+      return;
+    }
+
+    // ── 동물 behavior (TASK 6): 도주·무리·기습·영역 ──
+    if(e.animalBehavior){
+      e._tempAtkMult=1;
+      e._enemyIntentX=null;
+      e._enemyIntentY=null;
+      const mt=getAnimalMoveTarget(e,detectedAA);
+      let didMove=false;
+      if(mt){
+        e._enemyWx=null;
+        e._enemyWy=null;
+        e._enemyPathCorners=null;
+        e._enemyPathSkirtRiver=false;
+        e._enemyIntentX=mt.x;
+        e._enemyIntentY=mt.y;
+        const dx=mt.x-e.x,dy=mt.y-e.y,dn=Math.hypot(dx,dy);
+        if(dn>1){
+          const sms=mt.speedMult||1;
+          tryMoveWithTerrain(e,(dx/dn)*moveSpd*sms,(dy/dn)*moveSpd*sms,{role:getUnitMoveRole(e)});
+          e.facing=Math.atan2(dy,dx);
+          didMove=true;
+        }
+        e._tempAtkMult=mt.atkMult||1;
+      }
+      if(!mt&&(e.animalBehavior==='flee'||e.animalBehavior==='retreat')){
+        e.wanderTimer=(e.wanderTimer||0)-1;
+        if((e.wanderTimer||0)<=0){
+          e.wanderAngle=(e.wanderAngle||0)+(Math.random()-0.5)*1.2;
+          e.wanderTimer=30+Math.floor(Math.random()*40);
+        }
+        tryMoveWithTerrain(e,Math.cos(e.wanderAngle||0)*moveSpd*0.6,Math.sin(e.wanderAngle||0)*moveSpd*0.6,{role:getUnitMoveRole(e)});
+        if(e.animalBehavior==='ambush'&&(e._animalDashFrames||0)>0) e._animalDashFrames--;
+        clampToMap(e);
+        return;
+      }
+      const tgt=closest(e,detectedAA,Infinity);
+      if(!tgt){
+        clearEnemyNav(e);
+        if(e.animalBehavior==='ambush'&&(e._animalDashFrames||0)>0) e._animalDashFrames--;
+        clampToMap(e);
+        return;
+      }
+      const d=dist(e,tgt);
+      const atkReach=getEnemyMinEngageCenterDist(e,tgt)+6;
+      if(d<=atkReach){
+        if(canAtk){
+          e.atkCd=atkCooldown;
+          const los=e.role==='Ranged'||e.role==='Mage'?hasLOS(e.x,e.y,tgt.x,tgt.y):true;
+          if(los){
+            let raw=Math.floor(e.atk*(e._tempAtkMult||1)*getEnemyDamageVsAllyScale()*getWildlifeEarlyDayDamageMul(e));
+            const tSec=getUnitSecondaryBonus(tgt);
+            const reduced=Math.floor(raw*(1-Math.min(0.75,tgt.def||0))*(1-Math.min(0.5,tSec.dmgRed||0)));
+            tgt.hp-=reduced;
+            addFloat(tgt.x,tgt.y-12,`-${reduced}`,'#ff6b6b');
+            if(reduced>0) addBattleContribution(tgt,'taken',reduced);
+            if(tgt.hp<=0){
+              markAllyDeadWithDebuff(tgt,'전사');
+              alog(`💀 ${tgt.name} 전사`);
+              needGarrisonRender=true;
+            }
+          }
+        }
+      }else if(!didMove&&!(e.animalBehavior==='ambush'&&e.animalAmbushPrimed)){
+        updateEnemyChaseAlly(e,tgt,moveSpd);
+      }
+      if(e.animalBehavior==='ambush'&&(e._animalDashFrames||0)>0) e._animalDashFrames--;
+      clampToMap(e);
       return;
     }
 
@@ -6413,11 +7512,11 @@ function battleTick(){
           const score=(inBounds?10:0)+Math.cos(ang-baseAngle)*5;
           if(score>bestScore){bestScore=score;bestAngle=ang;}
         }
-        tryMoveWithTerrain(e,Math.cos(bestAngle)*moveSpd,Math.sin(bestAngle)*moveSpd,{role:e.role||'Melee'});
+        tryMoveWithTerrain(e,Math.cos(bestAngle)*moveSpd,Math.sin(bestAngle)*moveSpd,{role:getUnitMoveRole(e)});
         // 맵 우측 끝까지 도망하면 사망 처리
         if(e.x>=CW-MAP_PAD&&d<60){e.hp=0;e.dead=true;elog(`🏃 ${e.name} 도망침!`);return;}
         // 간혹 반격
-        if(d<55&&canAtk){e.atkCd=atkCooldown;const r=Math.floor(e.atk*(1-Math.min(nearest.def,0.75)));nearest.hp-=r;addFloat(nearest.x,nearest.y-12,`-${r}`,'#ff6b6b');if(nearest.hp<=0)markAllyDeadWithDebuff(nearest,'전사');}
+        if(d<55&&canAtk){e.atkCd=atkCooldown;const r=Math.floor(e.atk*(1-Math.min(nearest.def,0.75))*getEnemyDamageVsAllyScale()*getWildlifeEarlyDayDamageMul(e));nearest.hp-=r;addFloat(nearest.x,nearest.y-12,`-${r}`,'#ff6b6b');if(nearest.hp<=0)markAllyDeadWithDebuff(nearest,'전사');}
       }else{
         // 아군 미인지 → 랜덤 배회
         e.wanderTimer=(e.wanderTimer||0)-1;
@@ -6425,13 +7524,13 @@ function battleTick(){
           e.wanderAngle=(e.wanderAngle||0)+(Math.random()-0.5)*1.2;
           e.wanderTimer=30+Math.floor(Math.random()*40);
         }
-        tryMoveWithTerrain(e,Math.cos(e.wanderAngle)*moveSpd*0.6,Math.sin(e.wanderAngle)*moveSpd*0.6,{role:e.role||'Melee'});
+        tryMoveWithTerrain(e,Math.cos(e.wanderAngle)*moveSpd*0.6,Math.sin(e.wanderAngle)*moveSpd*0.6,{role:getUnitMoveRole(e)});
       }
       return;
     }
 
     // ── 악당 기습병: 매복 대기 → 접근하면 갑자기 돌격 ──
-    if(e.ambushReady&&!e.ambushDone){
+    if(!e.animalBehavior&&e.ambushReady&&!e.ambushDone){
       const nearest=closest(e,detectedAA,Infinity);
       if(!nearest||dist(e,nearest)>180){
         e.x=Math.max(MAP_PAD,Math.min(CW-MAP_PAD,e.x));
@@ -6497,14 +7596,15 @@ function battleTick(){
       }
     }
     if(!tgt){
+      clearEnemyNav(e);
       if(isCityMobaBattle()&&e.cityLaneMinion){
         const ly=(Array.isArray(_cityMobaState.laneYs)?_cityMobaState.laneYs[e.cityLane||0]:null);
         if(Number.isFinite(ly)&&Math.abs(e.y-ly)>8){
           const dirY=(ly-e.y);
           const mag=Math.max(1,Math.abs(dirY));
-          tryMoveWithTerrain(e,-moveSpd*0.68,dirY/mag*moveSpd*0.32,{role:e.role||'Melee'});
+          tryMoveWithTerrain(e,-moveSpd*0.68,dirY/mag*moveSpd*0.32,{role:getUnitMoveRole(e)});
         }else{
-          tryMoveWithTerrain(e,-moveSpd*0.95,0,{role:e.role||'Melee'});
+          tryMoveWithTerrain(e,-moveSpd*0.95,0,{role:getUnitMoveRole(e)});
         }
         if(e.x<=MAP_PAD+2){
           e.dead=true;
@@ -6523,12 +7623,13 @@ function battleTick(){
     e.facing=Math.atan2((tgt.y||e.y)-e.y,(tgt.x||e.x)-e.x);
 
     const d=dist(e,tgt);
-    if(d<e.range){
+    const atkReach=getEnemyMinEngageCenterDist(e,tgt)+6;
+    if(d<=atkReach){
       if(canAtk){
         e.atkCd=atkCooldown;
         const los=e.role==='Ranged'?hasLOS(e.x,e.y,tgt.x,tgt.y):true;
         if(los){
-          let raw=e.atk;
+          let raw=Math.floor(e.atk*(e._raidAtkMult||1)*getEnemyDamageVsAllyScale());
           if(e.cityMinionType==='siege'&&tgt&&tgt.cityTurret){
             raw=Math.floor(raw*1.75);
           }
@@ -6556,24 +7657,23 @@ function battleTick(){
             needGarrisonRender=true;
           }
         }else{addFloat(e.x,e.y,'시야차단','#888');}
-      }else{
-        // 사거리 안·공격 쿨: 기존엔 이동 분기가 없어 곰 등 근접이 제자리에 선 채 맞기만 함. 원거리 적은 쿨 중 전진하지 않음.
-        const meleeLike=!(e.role==='Ranged'||e.role==='Mage');
-        if(meleeLike){
-          const dn=Math.max(d,6);
-          tryMoveWithTerrain(e,(tgt.x-e.x)/dn*moveSpd*0.55,(tgt.y-e.y)/dn*moveSpd*0.55,{role:e.role||'Melee'});
-        }
       }
     }else{
-      tryMoveWithTerrain(e,(tgt.x-e.x)/d*moveSpd,(tgt.y-e.y)/d*moveSpd,{role:e.role||'Melee'});
+      updateEnemyChaseAlly(e,tgt,moveSpd);
     }
     // 경계 클램프 (모든 적)
     clampToMap(e);
   });
+  applyBattleUnitSeparation();
 
   if(needGarrisonRender) markGarrisonDirty();
+  if(isBattle&&checkCrystalDefeat()){
+    runBattleDefeatSequence('🏰 한 라인이 돌파당했습니다. 결정적 방어선이 무너졌습니다.');
+    return;
+  }
   /* --- [수정] 15일차 거점 전환 및 프리징 방지 로직 --- */
-  if(ae.every(e => e.hp <= 0 || e.dead)){
+  /* ae가 []이면 every가 항상 true → 전투 종료 후(isBattle false)에도 승리 분기가 매 프레임 도는 버그 방지 */
+  if(isBattle && ae.every(e => e.hp <= 0 || e.dead)){
     // 1. 보상 수치 먼저 계산 (15일차 체크에서도 사용하기 위함)
     const base = 10 + zoneStage * 4;
     const rewardMul=0.72; // 재건 밸런스: 전투 획득 재화 축소
@@ -6672,35 +7772,7 @@ function battleTick(){
     const liveAllies = allies.filter(a => a.isDeployed && !a.dead && a.hp > 0);
 
     if (isBattle && liveAllies.length === 0) {
-      isBattle = false; // 즉시 전투 중지
-      isPlacing = false;
-
-      // 2. [핵심 수정] 모든 배치된 대원을 전멸 상태로 정리
-      allies.forEach(a => {
-        if (a.isDeployed) {
-          if(!a.dead&&!a.permanentlyDead) applySorrowDebuff(`${a.name} 전멸`);
-          a.hp = 0;
-          a.dead = true;
-          a.isDeployed = false; // 전장에서 제거
-          
-          // [수정] deathTime을 null로 설정하여 무덤 창의 7초 카운트다운을 멈춥니다.
-          a.deathTime = null; 
-          
-          // 전멸 시에도 사망 기록은 남깁니다.
-          pushDeadUnitRecord(a); 
-        }
-      });
-
-      // 3. 적들의 타겟 초기화 및 패배 모달 출력
-      enemies.forEach(e => { e.target = null; e.isAttacking = false; });
-
-      setTimeout(() => {
-        alog("💀 부대가 전멸했습니다. 지휘관님, 정비가 필요합니다.");
-        showDefeatModal();   // 패배/재기 모달 호출
-        renderGarrisonBar(); // 무덤 현황 갱신 (이제 카운트다운 없이 '전사'로 표시됨)
-      }, 500);
-      
-      markDirty();
+      runBattleDefeatSequence('💀 부대가 전멸했습니다. 지휘관님, 정비가 필요합니다.');
       return;
     }
   }
@@ -7077,8 +8149,30 @@ function skillMult(u,sk){
   return 1.0+span*perLv;
 }
 
+/** TASK 8: 동물/야생 적 처치 시 가죽·뼈·독소 등 재료 드랍 (animalDefKey 필요) */
+function dropCraftMaterialOnEnemyKill(enemy){
+  if(!enemy||enemy.type!=='enemy') return;
+  const key=enemy.animalDefKey;
+  if(!key||typeof civPhase!=='number'||civPhase<1) return;
+  if(Math.random()>=0.20) return;
+  const drops=[];
+  if(['rabbit','deer','boar','wolf','wolf_alpha','bear','tiger','boar_pack'].includes(key)) drops.push('hide');
+  if(['bear','hippo','boar','boar_pack'].includes(key)) drops.push('bone');
+  if(['tiger','crocodile'].includes(key)) drops.push('venom');
+  if(drops.length===0) return;
+  drops.forEach(mat=>{
+    craftMaterials[mat]=(craftMaterials[mat]||0)+1;
+    const lab=CRAFT_MATERIALS[mat];
+    alog(`📦 ${lab?lab.name:mat} 획득!`);
+  });
+}
+
 function applyDmg(a,tgt,cell,sk,mult=1){
   if(!tgt)return;
+  if(tgt.type==='enemy'&&tgt.raidBoss&&(tgt._phaseTransition||0)>0){
+    if((_frameCount||0)%15===0) addFloat(tgt.x,tgt.y-16,'무적','#e2e8f0');
+    return;
+  }
   if(a&&Number.isFinite(a.x)&&Number.isFinite(a.y)&&Number.isFinite(tgt.x)&&Number.isFinite(tgt.y)){
     a.facing=Math.atan2((tgt.y||0)-(a.y||0),(tgt.x||0)-(a.x||0));
   }
@@ -7127,6 +8221,9 @@ function applyDmg(a,tgt,cell,sk,mult=1){
   const sorrowDebuff=getSorrowDebuffState();
   const cityObjProfile=(isCityMobaBattle()&&Number(a.cityObjBuffUntil||0)>Date.now())?getCityObjectiveBuffProfile(a.cityObjBuffType):null;
   const cityObjMul=cityObjProfile?cityObjProfile.dmgMul:1;
+  if(tgt&&tgt.type==='enemy'&&a&&a.type==='ally'){
+    dmg=Math.floor(dmg*getArcaneOutgoingDamageMul());
+  }
   dmg=Math.floor(dmg*mult*skillMult(a,sk)*(secBonus.heroDmgMul||1)*cityObjMul*sorrowDebuff.dmgMul);
   const critChance=Math.max(0,Math.min(0.85,secBonus.crit||0));
   if(Math.random()<critChance){
@@ -7140,8 +8237,16 @@ function applyDmg(a,tgt,cell,sk,mult=1){
   if(isRearPenetrationHit){
     effDef=0;
   }
-  const reduced=Math.floor(dmg*(1-effDef));
+  let dmgRedMul=1;
+  if(tgt&&tgt.type==='ally'){
+    const tSec=getUnitSecondaryBonus(tgt);
+    dmgRedMul=Math.max(0,1-Math.min(0.5,tSec.dmgRed||0));
+  }
+  const reduced=Math.floor(dmg*(1-effDef)*dmgRedMul);
   tgt.hp-=reduced;
+  if(tgt.type==='enemy'&&reduced>0){
+    tgt._recentlyHitFrame=_frameCount;
+  }
   if(reduced>0) addBattleContribution(a,'damage',reduced);
   if(isRearPenetrationHit){
     addFloat(tgt.x,tgt.y-12,`↣ -${reduced}`,'#ff4d9d',{
@@ -7158,6 +8263,14 @@ function applyDmg(a,tgt,cell,sk,mult=1){
   }
   if(tgt.hp<=0){
     tgt.dead=true;
+    if(tgt.type==='enemy') dropCraftMaterialOnEnemyKill(tgt);
+    if(tgt.type==='enemy'&&tgt.raidBoss){
+      const dB=2+Math.floor(Number(zoneStage||1)/4);
+      const mB=2+Math.floor(Number(zoneStage||1)/6);
+      res.diamond=(res.diamond||0)+dB;
+      res.manaCrystal=(res.manaCrystal||0)+mB;
+      alog(`👑 레이드 보스 격파! 💎+${dB} 🔮+${mB}`);
+    }
     addBattleContribution(a,'kills',1);
     if(tgt.type==='enemy'&&Number(tgt.cityGold||0)>0){
       res.gold=(res.gold||0)+Number(tgt.cityGold||0);
@@ -8020,7 +9133,10 @@ window.openArcaneFacility=function(ev){
   if(ev)ev.stopPropagation();
   if(civPhase<3){alog('❌ 왕국 단계에서 마도원을 사용할 수 있습니다.');return;}
   showGarrisonSummaryModal();
-  alog('✨ 마도원: 궁극기 상태와 물약 버프를 확인해 전투 템포를 맞추세요.');
+  setTimeout(function(){
+    if(typeof focusArcaneResearchPanel==='function') focusArcaneResearchPanel();
+  },100);
+  alog('🔮 아래 거점 영역의 「마도원 연구」패널에서 연구를 진행하세요. (결정 파편·금 · 전투 패시브)');
 };
 
 function spawnMerchant(){
@@ -8304,36 +9420,27 @@ function autoStartNextZone(clearedZid) {
     autoHireRefugeesByGarrisonCapDelta(capDelta,clearedZid);
   }
 
-  // 2. 이름 결정 (I → II → III → IV ... 로마 숫자 연속 표기)
-  const toRoman=function(n){
-    const map=[['M',1000],['CM',900],['D',500],['CD',400],['C',100],['XC',90],['L',50],['XL',40],['X',10],['IX',9],['V',5],['IV',4],['I',1]];
-    let v=Math.max(1,Math.floor(Number(n)||1)),out='';
-    for(let i=0;i<map.length;i++){
-      const [sym,val]=map[i];
-      while(v>=val){out+=sym;v-=val;}
-    }
-    return out||'I';
-  };
-  // I 다음 자동 확장부터는 II, III ... 로 진행
-  const suffix = toRoman(seq+1);
-  // 기존 이름에서 이미 붙어있을지 모르는 로마 숫자 제거 후 새 숫자 부착
-  const baseName = cleared.name.replace(/\s[IVX]+$/g, "");
-  const newName = `${baseName} ${suffix}`;
+  // 2. 난이도 티어: II → III → IV → V, V 이후에는 이름 V 유지·diffMult만 소폭(5%) 상승
+  const prevTier=Math.min(5,Number(cleared.diffTier)||1);
+  const newTier=Math.min(5,prevTier+1);
+  const baseName=cleared.name.replace(/\s[IVX]+$/g,'').trim();
+  const label=(ZONE_DIFF_MULTS[newTier]||ZONE_DIFF_MULTS[1]).label;
+  const newName=`${baseName} ${label}`;
+  let newDiffMult=1.0;
+  if(newTier>=5){
+    newDiffMult=+((Number(cleared.diffMult)||1.0)*1.05).toFixed(2);
+  }
 
-  // 3. 스케일링 계수 설정 (III 단계가 다음 컨셉 수준이 되도록 조정)
-  // 집합소 들판(hunt) 반복 구역은 초반 무방비 클리어가 쉬워 추가 상향
-  const diffStep = clearedZid==='hunt' ? 0.38 : 0.3;
   const rewardStep = 0.2; // 단계당 보상 20% 증가
   const expStep = 0.35;   // 단계당 경험치 35% 증가 (성장 가속)
 
-  const newMult = +((cleared.diffMult || 1.0) * (1 + seq * diffStep)).toFixed(2);
-
-  // 4. 같은 전투지 ID를 재사용해 이름/난이도만 단계 상승 (메뉴 중복 생성 방지)
+  // 3. 같은 전투지 ID를 재사용해 이름/난이도만 단계 상승 (메뉴 중복 생성 방지)
   const up=Math.max(0,Math.min(3,Number(cleared.unlockPhase)||0));
   const mul=1+seq*rewardStep;
   const rw={
     name:newName,
-    diffMult:newMult,
+    diffTier:newTier,
+    diffMult:newDiffMult,
     expMult:+(1 + seq * expStep).toFixed(2),
     desc:`${baseName}의 더 깊은 곳, ${suffix} 단계 도전!`,
     finalStage:15,
@@ -8475,10 +9582,14 @@ function showNextChapterModal(clearedZid){
 
   nextChapters=mults.map(({mult,label,labelColor},i)=>{
     const ch=pool[i%pool.length];
+    const chTier=Math.min(5,Number(clearedZone.diffTier)||1);
+    const chPhase=clearedZone.conceptPhase!=null?clearedZone.conceptPhase:(Number(clearedZone.unlockPhase)||0);
     return {
       id:`chapter_${clearedZid}_${i}`,
       name:ch.name, label, labelColor,
       tier:ch.tier, terrain:ch.terrain||ch.tier,
+      diffTier:chTier,
+      conceptPhase:chPhase,
       diffMult:mult,
       finalStage:Math.floor(clearedZone.finalStage*mult),
       rFood:clearedZone.rFood||0,
@@ -8547,6 +9658,8 @@ window.selectNextChapter=function(idx){
     rDiamond:ch.rDiamond||0, rWarSupply:ch.rWarSupply||0, rManaCrystal:ch.rManaCrystal||0,
     rClass:'bandit',
     finalStage:ch.finalStage,
+    diffTier:Math.min(5,Number(ch.diffTier)||1),
+    conceptPhase:ch.conceptPhase!=null?ch.conceptPhase:(Number(ch.unlockPhase)||0),
     diffMult:ch.diffMult,
     unlockPhase:Math.max(0,Math.min(3,Number(ch.unlockPhase)||0)),
     minLv:Math.max(0,Number(ch.minLv)||0),
@@ -8632,6 +9745,174 @@ const GARRISON_LV3_AURA_FALLBACK_BY_FAMILY={
 const CRAFT_COSTS={
   potionBasic:{herb:25,gold:80},
   potionAdvanced:{herb:40,iron:35,diamond:4}
+};
+/** TASK 8 가이드: 제작 재료 라벨 (동물 처치 드랍·거점 요약 표시) */
+const CRAFT_MATERIALS={
+  hide:{id:'hide',name:'🪶 가죽',desc:'동물 가죽. 물약 재료.'},
+  bone:{id:'bone',name:'🦴 뼈',desc:'동물 뼈. 물약 재료.'},
+  herb:{id:'herb',name:'🌿 약초',desc:'치유 효과 약초.'},
+  venom:{id:'venom',name:'☠️ 독소',desc:'포식자 독. 독 물약 재료.'},
+  crystal_shard:{id:'crystal_shard',name:'💎 결정 파편',desc:'마법 결정.'},
+};
+let craftMaterials={hide:0,bone:0,herb:0,venom:0,crystal_shard:0};
+/**
+ * TASK 13 — 왕국 마도원 연구
+ * - 전투 반영: hasArcaneResearch(id) → getArcaneOutgoingDamageMul / getUnitSecondaryBonus / battleTick(궁극기 충전 가속) 등 **패시브 수치만** 사용.
+ * - specRef: 장판·연쇄기 등 **연출/밸런스 원안**(확장 시 참고). 현재 전투 루프는 읽지 않음.
+ */
+const ARCANE_RESEARCH={
+  fire_storm:{
+    id:'fire_storm', name:'🔥 화염 폭풍', tier:1,
+    desc:'전장 화염 마법 연구 — 아군 마법 피해 소폭 증가.',
+    cost:{ crystal_shard:5, gold:200 },
+    researchTime:300,
+    requires:[],
+    specRef:{ type:'field_skill', damage:25, radius:300, duration:1200 },
+  },
+  ice_barrier:{
+    id:'ice_barrier', name:'❄️ 빙결 장벽', tier:1,
+    desc:'빙결 결계 — 아군 피해 감소 소폭.',
+    cost:{ crystal_shard:4, gold:150 },
+    researchTime:240,
+    requires:[],
+    specRef:{ type:'barrier', slowMult:0.5, duration:900, width:80 },
+  },
+  chain_lightning:{
+    id:'chain_lightning', name:'⚡ 번개 사슬', tier:2,
+    desc:'연쇄 번개 — 물리·마법 피해 소폭 증가.',
+    cost:{ crystal_shard:8, gold:350 },
+    researchTime:480,
+    requires:['fire_storm'],
+    specRef:{ type:'chain_damage', chainCount:3, chainDecay:0.7 },
+  },
+  holy_ground:{
+    id:'holy_ground', name:'✨ 성화 구역', tier:2,
+    desc:'성스러운 구역 — 아군 재생 소폭.',
+    cost:{ crystal_shard:7, gold:300 },
+    researchTime:420,
+    requires:['ice_barrier'],
+    specRef:{ type:'buff_zone', regenPerSec:15, atkMult:1.15, duration:1800, radius:120 },
+  },
+  heroes_wrath:{
+    id:'heroes_wrath', name:'💥 영웅의 분노', tier:3,
+    desc:'연대기 전술 — 파티 궁극기 충전이 조금 빨라집니다.',
+    cost:{ crystal_shard:15, gold:800 },
+    researchTime:900,
+    requires:['chain_lightning','holy_ground'],
+    specRef:{ type:'invincible_all', atkMult:3.0, duration:600, cooldown:18000 },
+  },
+};
+let arcaneResearched=new Set();
+let arcaneInProgress=null;
+function hasArcaneResearch(id){
+  return !!(id&&arcaneResearched&&arcaneResearched.has(id));
+}
+function getArcaneOutgoingDamageMul(){
+  let m=1;
+  if(hasArcaneResearch('fire_storm')) m*=1.035;
+  if(hasArcaneResearch('chain_lightning')) m*=1.028;
+  if(hasArcaneResearch('heroes_wrath')) m*=1.04;
+  return m;
+}
+function checkArcaneResearch(){
+  if(!arcaneInProgress||!arcaneInProgress.id) return;
+  if(Date.now()<(arcaneInProgress.endTime||0)) return;
+  const id=arcaneInProgress.id;
+  const r=ARCANE_RESEARCH[id];
+  arcaneResearched.add(id);
+  arcaneInProgress=null;
+  alog(`✨ ${r?r.name:id} 연구 완료! 전투 패시브가 영구 적용됩니다.`);
+  renderGarrisonBar();
+  markDirty();
+}
+/** 왕국(civPhase>=3)이 아닐 때 진행 중 연구가 있으면 재료·금 환급 후 취소 */
+function sanitizeArcaneResearchForCivPhase(){
+  if(civPhase>=3) return;
+  if(!arcaneInProgress||!arcaneInProgress.id) return;
+  const r=ARCANE_RESEARCH[arcaneInProgress.id];
+  if(r){
+    craftMaterials.crystal_shard=(craftMaterials.crystal_shard||0)+Math.max(0,Number(r.cost.crystal_shard)||0);
+    res.gold=(res.gold||0)+Math.max(0,Number(r.cost.gold)||0);
+    syncFromRes();
+    alog('📋 왕국 단계가 아니어 마도원 연구를 중단했습니다. 결정 파편·금을 되돌렸습니다.');
+  }
+  arcaneInProgress=null;
+  if(typeof renderGarrisonBar==='function') renderGarrisonBar();
+  markDirty();
+}
+/** 상단 마도원 버튼 → 거점 요약 후 연구 패널로 스크롤 */
+window.focusArcaneResearchPanel=function(){
+  const el=document.getElementById('arcane-research-panel');
+  if(el&&el.scrollIntoView){
+    el.scrollIntoView({behavior:'smooth',block:'nearest',inline:'nearest'});
+    try{
+      el.style.boxShadow='0 0 0 2px #a855f7,0 0 18px #5b21b688';
+      setTimeout(()=>{ try{ el.style.boxShadow=''; }catch(_e){} },1400);
+    }catch(_e){}
+    return true;
+  }
+  const c=document.getElementById('garrison-zones-container');
+  if(c){ c.scrollTo({left:0,behavior:'smooth'}); return true; }
+  return false;
+};
+function buildArcaneResearchPanelHtml(){
+  if(civPhase<3) return '';
+  checkArcaneResearch();
+  const cs=craftMaterials.crystal_shard||0;
+  const gg=res.gold||0;
+  const tiers=[1,2,3];
+  const tierLabels=['기초 마법','중급 마법','극의'];
+  const body=tiers.map(tier=>{
+    const researches=Object.values(ARCANE_RESEARCH).filter(r=>r.tier===tier);
+    const row=researches.map(r=>{
+      const done=arcaneResearched.has(r.id);
+      const inP=arcaneInProgress&&arcaneInProgress.id===r.id;
+      const reqsMet=!r.requires||r.requires.length===0||r.requires.every(x=>arcaneResearched.has(x));
+      const busy=arcaneInProgress&&arcaneInProgress.id;
+      const canStart=reqsMet&&!done&&!inP&&!busy;
+      const needCrystal=r.cost.crystal_shard||0;
+      const needGold=r.cost.gold||0;
+      const canAfford=cs>=needCrystal&&gg>=needGold;
+      const btn=canStart&&canAfford?`<button type="button" class="cb" style="padding:2px 6px;font-size:9px;background:#1a1530;border-color:#a855f7;color:#c4b5fd" onclick="event.stopPropagation();startArcaneResearch('${r.id}')">연구</button>`:(canStart&&!canAfford?`<span style="font-size:8px;color:#6b7280">재료 부족</span>`:'');
+      const prog=inP?`<span style="font-size:9px;color:#f1c40f;margin-left:4px">⏳ ${Math.max(0,Math.ceil(((arcaneInProgress.endTime||0)-Date.now())/1000))}초</span>`:'';
+      return `<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:4px;opacity:${reqsMet?1:0.42}">
+        <span style="font-size:10px;color:${done?'#2ecc71':inP?'#f1c40f':'#e2e8f0'}">${done?'✅':inP?'⏳':'🔬'} ${r.name}</span>
+        <span style="font-size:8px;color:#9ca3af">💎${needCrystal} 🪙${needGold}</span>
+        <span style="font-size:8px;color:#64748b;max-width:100%">${r.desc||''}</span>
+        ${prog}
+        ${btn}
+      </div>`;
+    }).join('');
+    return `<div style="margin-bottom:6px">
+      <div style="font-size:9px;color:#9ca3af;margin-bottom:2px">${tierLabels[tier-1]}</div>
+      ${row}
+    </div>`;
+  }).join('');
+  return `<div id="arcane-research-panel" class="gz" style="border-color:#5b21b6;grid-column:1/-1;max-width:100%">
+    <div class="gz-title" style="color:#c4b5fd">🔮 마도원 연구</div>
+    <div style="font-size:8px;color:#64748b;margin-bottom:4px">결정 파편·금 소모 · 완료 시 <b style="color:#94a3b8">전투 패시브</b> 적용 (specRef는 연출·확장용 원안)</div>
+    ${body}
+  </div>`;
+}
+window.startArcaneResearch=function(researchId){
+  if(civPhase<3){ alog('❌ 왕국 단계에서만 연구할 수 있습니다.'); return; }
+  const r=ARCANE_RESEARCH[researchId];
+  if(!r||arcaneResearched.has(researchId)||arcaneInProgress) return;
+  const reqs=r.requires||[];
+  if(!reqs.every(req=>arcaneResearched.has(req))){ alog('❌ 선행 연구가 필요합니다.'); return; }
+  const needCrystal=r.cost.crystal_shard||0;
+  const needGold=r.cost.gold||0;
+  if((craftMaterials.crystal_shard||0)<needCrystal||(res.gold||0)<needGold){
+    alog('❌ 결정 파편 또는 금이 부족합니다.');
+    return;
+  }
+  craftMaterials.crystal_shard=(craftMaterials.crystal_shard||0)-needCrystal;
+  res.gold=(res.gold||0)-needGold;
+  gold=res.gold;
+  arcaneInProgress={ id:researchId, startTime:Date.now(), endTime:Date.now()+Math.max(1,r.researchTime)*1000 };
+  alog(`🔬 ${r.name} 연구 시작! (약 ${r.researchTime}초)`);
+  renderGarrisonBar();
+  markDirty();
 };
 const KINGDOM_UPKEEP={food:120,gold:80,wood:40,stone:30,iron:20,diamond:1};
 // ── 모듈7: 아이템/물약/파티 궁극기 ──
@@ -9131,6 +10412,9 @@ function getUnitSecondaryBonus(u){
     if(k==='heroDmgMul'||k==='heroSpdMul') sum[k]=(sum[k]||1)*v;
     else sum[k]=(sum[k]||0)+v;
   });
+  if(hasArcaneResearch('ice_barrier')) sum.dmgRed+=0.022;
+  if(hasArcaneResearch('holy_ground')) sum.regen+=0.35;
+  if(hasArcaneResearch('fire_storm')) sum.magicAmp+=0.018;
   return sum;
 }
 function bonusTextLine(b){
@@ -9292,6 +10576,43 @@ window.applyPotionParty=function(key){
   alog(`✨ 파티 버프 적용: ${p.name}`);
   markDirty();
 };
+/** TASK 8: 전투 중 선택 아군 1명에게 비약 적용 (지도에서 유닛 선택 후 사용) */
+window.usePotionOnSelected=function(key){
+  if(!isBattle||isPaused){alog('⚠️ 전투 중(일시정지 아님)에만 사용할 수 있습니다.');return;}
+  if(civPhase<1){alog('❌ 마을 단계부터 사용 가능합니다.');return;}
+  if((inventory.potions[key]||0)<=0){alog('❌ 보유 물약이 없습니다.');return;}
+  const p=POTIONS[key]; if(!p)return;
+  const target=_selectedUnitId?allies.find(a=>a.id===_selectedUnitId):null;
+  const u=target&&target.isDeployed&&!target.dead&&!target.permanentlyDead
+    ?target
+    :allies.find(a=>a.isDeployed&&!a.dead&&!a.permanentlyDead);
+  if(!u){alog('❌ 대상 아군을 지도에서 선택하세요.');return;}
+  ensureUnitGear(u);
+  u.potionBuffs[key]={name:p.name,effect:p.effect};
+  inventory.potions[key]=Math.max(0,(inventory.potions[key]||0)-1);
+  alog(`🧪 ${u.name}에게 ${p.name} 적용`);
+  markDirty();
+};
+function renderBattlePotionStrip(){
+  const row=document.getElementById('battle-potion-row');
+  if(!row) return;
+  if(!isBattle||isPaused||civPhase<1){
+    row.style.display='none';
+    row.innerHTML='';
+    return;
+  }
+  const keys=Object.keys(POTIONS||{}).filter(k=>(inventory.potions[k]||0)>0);
+  if(keys.length===0){
+    row.style.display='none';
+    row.innerHTML='';
+    return;
+  }
+  row.style.display='flex';
+  row.innerHTML='<span style="font-size:9px;color:#94a3b8;margin-right:6px;flex-shrink:0">비약</span>'+keys.map(k=>{
+    const p=POTIONS[k];
+    return `<button type="button" class="cb" style="padding:2px 7px;font-size:9px;background:#13251a;border-color:#2ecc71;color:#86efac" onclick="event.stopPropagation();usePotionOnSelected('${k}')">${p.name}×${inventory.potions[k]}</button>`;
+  }).join('');
+}
 window.craftItemSet=function(){
   if(civPhase<2){alog('❌ 아이템 제작은 도시 단계(Phase 3)부터 가능합니다.');return;}
   const cost={iron:60,wood:50,gold:180,diamond:2};
@@ -9409,6 +10730,8 @@ function buildModule7SummarySection(){
         </div>
       </div>${thumb}</div>`;
   }).join('');
+  const craftBits=Object.entries(craftMaterials||{}).filter(([,v])=>(v||0)>0).map(([k,v])=>`${(CRAFT_MATERIALS[k]&&CRAFT_MATERIALS[k].name)||k}×${v}`);
+  const craftRow=craftBits.length?`<div style="font-size:10px;color:#86efac;margin-bottom:8px">📦 야생 재료: ${craftBits.join(' · ')}</div>`:'';
   const potionLines=Object.entries(POTIONS).map(([k,p])=>{
     const c=p.cost;
     const can=(res.herb||0)>=(c.herb||0)&&(res.gold||0)>=(c.gold||0)&&(res.wood||0)>=(c.wood||0)&&(res.iron||0)>=(c.iron||0)&&(res.diamond||0)>=(c.diamond||0);
@@ -9423,6 +10746,7 @@ function buildModule7SummarySection(){
     <div style="font-size:10px;color:#9ca3af;margin-bottom:8px">쿨감·치명타·공속·피해감소는 아이템/물약으로만 상승합니다.</div>
     <div style="font-size:10px;color:#d1d5db;margin-bottom:6px">궁극기: <span style="color:#f1c40f">${ultName}</span>${_partyUltimate.key?` · ${ultSub}`:''}</div>
     <div style="font-size:9px;color:#64748b;margin-bottom:8px;line-height:1.45">팁: 궁극기 준비 시 지도 아군 탭이 가장 직관적입니다. 대안으로는 전투 중에만 보이는 작은 <b>⚡발동</b> 플로팅 버튼(우하단)이나, 파티 패널 상단의 전용 버튼을 둘 수 있습니다.</div>
+    ${craftRow}
     <div style="font-size:10px;color:#9ca3af;margin-bottom:6px">인벤토리: 무기 ${inventory.items.weapon.length} / 방어구 ${inventory.items.armor.length} / 신발 ${inventory.items.boots.length}</div>
     <div style="display:flex;gap:6px;margin-bottom:8px">
       <button class="cb" style="padding:4px 8px;background:${civPhase>=2?'#2d2600':'#1e2d3d'};color:${civPhase>=2?'#f1c40f':'#9ca3af'}" onclick="craftItemSet()">세트 제작</button>
@@ -10378,11 +11702,39 @@ function getDetectedAllies(enemy, alliesList){
   if(enemy) enemy._detectedCache={frame:_frameCount,list:out};
   return out;
 }
+/** 안개 ON 구간: 아군 시야 타일 합산(경로 탐색·표시와 동기) */
+function updateSharedVision(aa){
+  if(!fogEnabled()){
+    _allySharedVisionKeys=null;
+    return;
+  }
+  const vKeys=new Set();
+  for(let i=0;i<aa.length;i++){
+    const a=aa[i];
+    if(!a||!a.isDeployed||a.dead||a.permanentlyDead||a.garrisoned||a.inStandby) continue;
+    const vr=getFogVisionRadius(a);
+    const vr2=vr*vr;
+    for(let r=0;r<ROWS;r++){
+      for(let c=0;c<COLS;c++){
+        const cell=hexMap[r][c];
+        if(!cell) continue;
+        const dx=cell.x-a.x;
+        const dy=cell.y-a.y;
+        if(dx*dx+dy*dy<=vr2) vKeys.add(r*100+c);
+      }
+    }
+  }
+  _allySharedVisionKeys=vKeys;
+}
 function fogEnabled(){
-  const z=currentZone||{};
-  const zonePhase=Math.max(0,Number(z.unlockPhase)||0);
-  // 안개는 마을 전투지(phase 1)부터 적용, 집합소 전투지(phase 0)는 제외
-  return isBattle&&zonePhase>=1;
+  if(!isBattle) return false;
+  const zid=(currentZone||{}).id||'';
+  // 집합소: 근처 들판(hunt)·얕은 강가(river)만 전체 공개 — 이어지는 챕터·자동 ID 포함
+  if(zid==='hunt'||zid==='river') return false;
+  if(zid.startsWith('chapter_hunt_')||zid.startsWith('chapter_river_')) return false;
+  if(zid.startsWith('auto_hunt')||zid.startsWith('auto_river')) return false;
+  // 얕은 숲(wilds)부터 마을·도시·왕국 전투지: 안개 + 시야 공유
+  return true;
 } // 전투 중에만 안개 (배치 단계에서는 지형·유닛이 잘 보이도록)
 /** 밤·횃불 느낌의 시야 가장자리 글로우: 울창한 숲·산적 협곡·저주받은 강곡 등만 (나머지 전투지는 시야 안쪽이 원색 지형) */
 const FOG_TORCH_VISION_ZONE_IDS=new Set(['mine','castle','citadel']);
@@ -10453,6 +11805,9 @@ function getFogVisionRadius(unit){
   const sr=getUnitEffectiveSkillRange(unit);
   let v=Math.max(180,sr+FOG_VISION_OVER_SKILL_PX);
   if(fogEnabled()&&isStealthForestUnit(unit)) v*=0.6;
+  if((_frameCount||0)<(_raidVisionDebuffEndFrame||0)){
+    v*=Math.max(0.28,1-(_raidVisionDebuff||0));
+  }
   return v*getMapRangeDisplayScale();
 }
 function isEnemyVisibleInFog(enemy){
@@ -10668,11 +12023,14 @@ function tickCityMobaFlow(){
     }
   }
 }
-function isKingdomRaidBattle(){
-  if(!isBattle||!currentZone) return false;
+function isKingdomRaidZone(){
+  if(!currentZone) return false;
   const phaseOk=Number(civPhase||0)>=3;
   const kingdomZone=(Number(currentZone.unlockPhase||0)>=3)||(currentZone.tier==='army');
   return !!(phaseOk&&kingdomZone);
+}
+function isKingdomRaidBattle(){
+  return !!(isBattle&&isKingdomRaidZone());
 }
 function normalizeRad(ang){
   if(!Number.isFinite(ang)) return 0;
@@ -10878,7 +12236,8 @@ function tickRaidTelegraphs(){
   if((_frameCount||0)>=(_raidNextPatternAt||0)){
     const liveEnemies=enemies.filter(e=>e&&!e.dead&&e.hp>0);
     if(liveEnemies.length&&liveAllies.length){
-      const caster=liveEnemies.reduce((best,e)=>{
+      const raidBossCaster=liveEnemies.find(e=>e.raidBoss&&e.hp>0);
+      const caster=raidBossCaster||liveEnemies.reduce((best,e)=>{
         if(!best) return e;
         return (e.maxHp||e.hp||0)>(best.maxHp||best.hp||0)?e:best;
       },null);
@@ -10886,8 +12245,20 @@ function tickRaidTelegraphs(){
       const target=liveAllies[Math.floor(Math.random()*liveAllies.length)];
       const bossGrade=getRaidBossGrade(caster);
       const gradeCfg=getRaidGradeTuning(bossGrade);
-      const patternType=getRaidBossPatternType(caster,bossGrade);
-      const baseDamage=Math.floor(((caster.atk||60)*0.95+zoneStage*2.2)*(gradeCfg.damageMul||1));
+      let patternType=getRaidBossPatternType(caster,bossGrade);
+      let pdPhase=null;
+      if(caster.raidBoss&&caster.raidBossZoneId){
+        const rdef=getRaidBossesDef(caster.raidBossZoneId);
+        const ph=Number(caster._raidPhaseIdx||0);
+        pdPhase=rdef&&rdef.phases&&rdef.phases[ph];
+        if(pdPhase&&pdPhase.patternBias) patternType=pickWeightedKey(pdPhase.patternBias);
+      }
+      const baseDamage=Math.floor(((caster.atk||60)*0.95+zoneStage*2.2)*(gradeCfg.damageMul||1)*(caster.raidBoss?1.1:1));
+      const nextRaidCd=()=>{
+        let f=raidPatternCooldownFrames(gradeCfg);
+        if(pdPhase&&pdPhase.cdScale) f=Math.max(48, Math.floor(f*Number(pdPhase.cdScale)));
+        return f;
+      };
       const castLife=Math.max(10,Number(gradeCfg.castLife||18));
       const warnWindow=Math.max(18,Number(gradeCfg.warnBase||44)+Math.floor(Math.random()*10));
       const lifeAll=castLife+warnWindow;
@@ -10903,7 +12274,7 @@ function tickRaidTelegraphs(){
           life:lifeAll,
           lifeAll
         });
-        _raidNextPatternAt=(_frameCount||0)+raidPatternCooldownFrames(gradeCfg);
+        _raidNextPatternAt=(_frameCount||0)+nextRaidCd();
         addFloat(caster.x,caster.y-16,`${gradeCfg.key} 브레스`,'#fb923c');
       }else if(patternType==='donut'){
         const driftX=(Math.random()-0.5)*36;
@@ -10921,7 +12292,7 @@ function tickRaidTelegraphs(){
           life:lifeAll,
           lifeAll
         });
-        _raidNextPatternAt=(_frameCount||0)+raidPatternCooldownFrames(gradeCfg);
+        _raidNextPatternAt=(_frameCount||0)+nextRaidCd();
         addFloat(caster.x,caster.y-16,`${gradeCfg.key} 도넛`,'#f59e0b');
       }else{
         const nodes=[];
@@ -10947,12 +12318,12 @@ function tickRaidTelegraphs(){
           y:nodes[0]?.y||target.y,
           nodes,
           nodeR:bossGrade==='finalBoss'?24:(bossGrade==='boss'?22:20),
-          damage:Math.floor(baseDamage*(gradeCfg.patternDamage?.chain||1.18)),
+          damage:Math.floor(baseDamage*(gradeCfg.patternDamage?.chain||1.18)*(pdPhase&&pdPhase.chainBoost?Number(pdPhase.chainBoost):1)),
           castLife,
           life:lifeAll,
           lifeAll
         });
-        _raidNextPatternAt=(_frameCount||0)+raidPatternCooldownFrames(gradeCfg);
+        _raidNextPatternAt=(_frameCount||0)+nextRaidCd();
         addFloat(caster.x,caster.y-16,`${gradeCfg.key} 연쇄`,'#facc15');
       }
     }else{
@@ -11211,9 +12582,8 @@ function draw(crowdedBattle){
       ctx.restore();
     }
     if(a.wx!==null&&a.wy!==null){
-      const autoTgt=!!a._pursuitPathActive;
-      const lineCol=autoTgt?'#e74c3c99':'#f1c40f99';
-      const ringCol=autoTgt?'#e74c3c':'#f1c40f';
+      const lineCol='rgba(34,197,94,0.72)';
+      const ringCol='#22c55e';
       const px=[a.x,a.y];
       if(Array.isArray(a._pathCorners)&&a._pathCorners.length){
         for(let i=0;i<a._pathCorners.length;i++){
@@ -11243,19 +12613,66 @@ function draw(crowdedBattle){
       ctx.beginPath();
       ctx.moveTo(a.x,a.y);
       ctx.lineTo(tx,ty);
-      ctx.strokeStyle='#e74c3c99';
+      ctx.strokeStyle='rgba(34,197,94,0.72)';
       ctx.lineWidth=1.5;
       ctx.setLineDash([4,3]);
       ctx.stroke();
       ctx.beginPath();
       ctx.arc(tx,ty,5,0,Math.PI*2);
-      ctx.strokeStyle='#e74c3c';
+      ctx.strokeStyle='#22c55e';
       ctx.lineWidth=2;
       ctx.setLineDash([]);
       ctx.stroke();
       ctx.restore();
     }
   });
+  if(isBattle){
+    enemies.forEach(e=>{
+      if(!e||e.dead||(e.hp||0)<=0) return;
+      if(!isEnemyVisibleInFog(e)) return;
+      if(e._enemyWx!=null&&e._enemyWy!=null){
+        const px=[e.x,e.y];
+        if(Array.isArray(e._enemyPathCorners)&&e._enemyPathCorners.length){
+          for(let i=0;i<e._enemyPathCorners.length;i++){
+            px.push(e._enemyPathCorners[i].x,e._enemyPathCorners[i].y);
+          }
+        }
+        px.push(e._enemyWx,e._enemyWy);
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(px[0],px[1]);
+        for(let i=2;i<px.length;i+=2) ctx.lineTo(px[i],px[i+1]);
+        ctx.strokeStyle='rgba(248,113,113,0.78)';
+        ctx.lineWidth=1.5;
+        ctx.setLineDash([4,3]);
+        ctx.stroke();
+        const ex=px[px.length-2],ey=px[px.length-1];
+        ctx.beginPath();
+        ctx.arc(ex,ey,5,0,Math.PI*2);
+        ctx.strokeStyle='#ef4444';
+        ctx.lineWidth=2;
+        ctx.setLineDash([]);
+        ctx.stroke();
+        ctx.restore();
+      }else if(Number.isFinite(e._enemyIntentX)&&Number.isFinite(e._enemyIntentY)){
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(e.x,e.y);
+        ctx.lineTo(e._enemyIntentX,e._enemyIntentY);
+        ctx.strokeStyle='rgba(248,113,113,0.58)';
+        ctx.lineWidth=1.5;
+        ctx.setLineDash([4,3]);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(e._enemyIntentX,e._enemyIntentY,5,0,Math.PI*2);
+        ctx.strokeStyle='#f87171';
+        ctx.lineWidth=2;
+        ctx.setLineDash([]);
+        ctx.stroke();
+        ctx.restore();
+      }
+    });
+  }
   if(dragUnit&&isDragging){ctx.save();ctx.beginPath();ctx.moveTo(dragUnit.x,dragUnit.y);ctx.lineTo(mouseX,mouseY);ctx.strokeStyle='#f1c40faa';ctx.lineWidth=1.5;ctx.setLineDash([5,3]);ctx.stroke();ctx.beginPath();ctx.arc(mouseX,mouseY,6,0,Math.PI*2);ctx.strokeStyle='#f1c40f';ctx.lineWidth=2;ctx.setLineDash([]);ctx.stroke();ctx.restore();}
   function drawEntityOnMap(u){
     if(u.type==='ally'){
@@ -12185,7 +13602,8 @@ function renderGarrisonBar(){
     </div>
   </div>`;
 
-  container.innerHTML=standbyHtml+zoneFrames+cemeteryHtml;
+  const arcaneHtml=(civPhase>=3)?buildArcaneResearchPanelHtml():'';
+  container.innerHTML=arcaneHtml+standbyHtml+zoneFrames+cemeteryHtml;
   updateGarrisonHeaderHud();
   if(document.getElementById('standby-list-modal')) refreshStandbyListModal();
   if(document.getElementById('hub-sg-modal')&&typeof refreshHubStandbyGarrisonModal==='function') refreshHubStandbyGarrisonModal();
@@ -12293,7 +13711,6 @@ window.selectUnitOnMap=function(uid){
   markDirty();
 };
 
-window.showAllyNameMenu=function(){};
 window.closeAllyNamePopup=function(){
   document.querySelectorAll('.ally-name-popup').forEach(n=>n.remove());
 };
@@ -13474,6 +14891,9 @@ function loop(gen,rafTs) {
   }
   if(getPartyGroupCountByPhase()>0&&_frameCount%12===0){
     renderPartyGroupUltHud();
+  }
+  if(isBattle&&_frameCount%12===0){
+    renderBattlePotionStrip();
   }
 
   // 6. 자원 데이터 동기화
