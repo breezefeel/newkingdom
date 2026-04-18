@@ -561,6 +561,10 @@ canvas {
   /* [변경] 실제로 보일 때만 클릭을 막습니다. */
   pointer-events: auto !important; 
 }
+/* 전직·보직 선택 모달: 대기 유닛 목록(12040)·통합 멤버(12050)·스탯 팝업(12180)보다 앞에 */
+#modal.overlay {
+  z-index: 13000;
+}
 /* [추가] 모달 내부 버튼들의 클릭 우선순위 높이기 */
 .modal-box button, .class-btn, .cb {
   pointer-events: auto !important; /* 클릭 신호 강제 수용 */
@@ -1371,9 +1375,37 @@ function getStandbyCount(){
 function canAddToStandby(){
   return getStandbyCount()<getStandbyCapacity();
 }
-/** 한 번에 식량으로 영입 가능한 피난민 수: (대기 정원 − 현재 대기)과 식량으로 살 수 있는 수 중 작은 값 */
+/** 통솔 파티(배치 대상) 인원 — 거점·대기 제외 생존 유닛 */
+function getActivePartyMemberCount(){
+  return allies.filter(a=>a&&!a.dead&&!a.permanentlyDead&&!a.garrisoned&&!a.inStandby).length;
+}
+function getPartyRoom(){
+  return Math.max(0,PARTY_LIMIT-getActivePartyMemberCount());
+}
+function getStandbyRoom(){
+  return Math.max(0,getStandbyCapacity()-getStandbyCount());
+}
+/** 정복된 거점들의 주둔 빈 슬롯 합 */
+function getTotalGarrisonRoom(){
+  if(typeof zoneRecords==='undefined'||!zoneRecords)return 0;
+  let sum=0;
+  Object.keys(zoneRecords).forEach(zid=>{
+    const rec=zoneRecords[zid];
+    if(!rec||!rec.cleared)return;
+    ensureGarrisonRecMeta(rec,zid);
+    const cap=getEffectiveGarrisonSlotCap(zid);
+    const cur=(rec.garrison&&rec.garrison.length)||0;
+    sum+=Math.max(0,cap-cur);
+  });
+  return sum;
+}
+/** 피난민이 들어갈 수 있는 총 빈자리: 통솔 + 대기 + 거점 */
+function getTotalRefugeeCapacityRoom(){
+  return getPartyRoom()+getStandbyRoom()+getTotalGarrisonRoom();
+}
+/** 한 번에 식량으로 영입 가능한 피난민 수: (파티·대기·거점 빈자리 합)과 식량으로 살 수 있는 수 중 작은 값 */
 function getMaxRefugeeHireBatch(){
-  const room=Math.max(0,getStandbyCapacity()-getStandbyCount());
+  const room=Math.max(0,getTotalRefugeeCapacityRoom());
   const f=(typeof res!=='undefined'&&res!=null&&Number.isFinite(res.food))?res.food:(typeof food!=='undefined'?food:0);
   const afford=Math.floor(Math.max(0,f)/30);
   return Math.max(0,Math.min(room,afford));
@@ -1945,8 +1977,6 @@ function syncFromRes(){gold=res.gold;food=res.food;}
 let currentZone=ZONES.hunt;
 let zoneStage=1; // 현재 전투지 내 스테이지 (1부터 finalStage까지)
 let isBattle=false,isPaused=false,isPlacing=false;
-/** 안개 전투: 아군 시야 합집합으로 공유되는 ‘알려진 지형’ 칸 (r|c) */
-let _allyTerrainKnownKeys=null;
 let autoStart=false;
 let dragUnit=null,isDragging=false,dragSX=0,dragSY=0,mouseX=0,mouseY=0;
 let _mapPanMode=false,_mapPanMoved=false,_mapPanLastClientX=0,_mapPanLastClientY=0,_mapPanStartClientX=0,_mapPanStartClientY=0;
@@ -2136,7 +2166,61 @@ function markAllyDeadWithDebuff(u,reason='전사'){
   applySorrowDebuff(`${u.name} ${reason}`);
   return true;
 }
+/**
+ * 생존 유닛은 통솔(파티 후보)·대기·거점 주둔 중 하나에만 속하도록 플래그를 정리하고,
+ * zoneRecords[].garrison 스냅샷을 allies[].garrisoned와 일치시킵니다. (F5/저장 불일치 방지)
+ */
+function sanitizeKingdomUnitPlacement(){
+  if(!Array.isArray(allies))return;
+  allies.forEach(u=>{
+    if(!u||u.permanentlyDead)return;
+    if(u.dead)return;
+    const gz=u.garrisoned;
+    if(gz!=null&&gz!==''){
+      const rec=zoneRecords&&zoneRecords[String(gz)];
+      if(!rec||!rec.cleared){
+        u.garrisoned=null;
+        u.inStandby=true;
+        u.isDeployed=false;
+        u.x=-300;
+        u.y=-300;
+        return;
+      }
+      u.inStandby=false;
+      u.isDeployed=false;
+      u.x=-300;
+      u.y=-300;
+      return;
+    }
+    if(u.inStandby){
+      u.garrisoned=null;
+      u.isDeployed=false;
+      u.x=-300;
+      u.y=-300;
+      return;
+    }
+    u.garrisoned=null;
+  });
+  if(typeof zoneRecords==='undefined'||!zoneRecords)return;
+  Object.entries(zoneRecords).forEach(([zid,rec])=>{
+    if(!rec)return;
+    ensureGarrisonRecMeta(rec,zid);
+    const cap=getEffectiveGarrisonSlotCap(zid);
+    if(!rec.cleared){
+      rec.garrison=(rec.garrison||[]).filter(g=>{
+        const u=allies.find(a=>a&&Number(a.id)===Number(g.id));
+        return u&&!u.dead&&!u.permanentlyDead&&String(u.garrisoned||'')===String(zid);
+      });
+      return;
+    }
+    const onBase=allies.filter(u=>u&&!u.dead&&!u.permanentlyDead&&String(u.garrisoned||'')===String(zid))
+      .sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0));
+    rec.garrison=onBase.slice(0,cap).map(u=>({id:u.id,name:u.name,lv:u.lv,classKey:u.classKey,baseRole:u.baseRole}));
+  });
+  enforceStandbyCapacity();
+}
 function buildSavePayload(){
+  sanitizeKingdomUnitPlacement();
   return {
     ver:7,
     ts:Date.now(),
@@ -2240,9 +2324,9 @@ function hydrateGameState(data){
     _partyGroupNames={1:'G1 파티',2:'G2 파티'};
   }
   sanitizePartyGroups();
+  sanitizeKingdomUnitPlacement();
   uid=Math.max(1,...allies.map(a=>Number(a.id)||0))+1;
   isBattle=false; isPaused=false; isPlacing=true;
-  resetAllyTerrainKnowledge();
   resetPartyUltimateState();
   return true;
 }
@@ -2438,7 +2522,6 @@ window.quickStartFromPhase=function(phaseKey){
   allies=roster.map((r,i)=>createPresetCombatUnit(r.name,r.classKey,p>=2?r.class10Key:null,baseLv+i*2));
   uid=Math.max(1,...allies.map(a=>Number(a.id)||0))+1;
   isBattle=false; isPaused=false; isPlacing=true;
-  resetAllyTerrainKnowledge();
   applyPhaseSettings(false);
   buildMap();
   spawnEnemies();
@@ -2726,6 +2809,9 @@ function buildMap(){
     const validCols=validRows&&cached.every(row=>Array.isArray(row)&&row.length===COLS);
     if(validRows&&validCols){
       hexMap=cached.map((row,r)=>row.map((cell,c)=>({...cell,r,c})));
+      // nearestCell 캐시는 이전 hexMap 셀 참조를 들고 있을 수 있음 — 복원 후 반드시 무효화 (findHexPathCells 참조 일치 실패·직선 경로만 그려짐 방지)
+      _nearestCellCache.clear();
+      _nearestCellCacheRev++;
       return;
     }
     // 맵 스케일(ROWS/COLS)이 바뀌면 이전 캐시는 폐기하고 재생성
@@ -2990,6 +3076,63 @@ function terrainAtkBonus(unit,cell){
 function getUnitMoveRole(unit){
   return (unit.class10Key&&CLASS10[unit.class10Key]?.base)||(unit.classKey||unit.role||unit.baseRole||'Melee');
 }
+/**
+ * 자동 이동 시 “이 거리 안이면 더 접근 안 함” — BASE_ROLES 사거리와 장착 스킬(돌팔매 등) 사거리 중 큰 값.
+ * 맵에 표시되는 사거리 원(스킬 range)과 크게 어긋나지 않게 함.
+ */
+function getAllyAutoCombatStandoffRange(a){
+  const rb=(a.class10Key&&CLASS10[a.class10Key]?.base)||(a.classKey||a.baseRole||'Refugee');
+  const rd=BASE_ROLES[rb]||BASE_ROLES.Refugee;
+  let r=Number(rd&&rd.range);
+  if(!Number.isFinite(r)) r=65;
+  r+=Number(a.bonusRange)||0;
+  if(Array.isArray(a.activeSkills)){
+    for(let i=0;i<a.activeSkills.length;i++){
+      const def=ALL_SKILLS_DRAW_LOOKUP[a.activeSkills[i]];
+      if(def&&Number.isFinite(Number(def.range))){
+        r=Math.max(r,Number(def.range)+(Number(a.bonusRange)||0));
+      }
+    }
+  }
+  return Math.max(28,r);
+}
+/**
+ * 자동 추격(빨간 링): 적 중심에서 아군 방향으로, **공격/스킬 사거리** 원이 적 원의 아군 반대편 테두리에 닿을 때까지의 거리(R−Re)만큼 떨어진 점.
+ * R은 getAllyAutoCombatStandoffRange(맵 스킬 원과 동일 계열), Re는 적 몸 반경.
+ */
+function getAutoPursuitRingGoalWorld(a,enemy){
+  if(!a||!enemy) return null;
+  const R=typeof getAllyAutoCombatStandoffRange==='function'?getAllyAutoCombatStandoffRange(a):120;
+  const Re=typeof getUnitBodyRadiusForTerrain==='function'?getUnitBodyRadiusForTerrain(enemy):13;
+  const reach=Math.max(8, R-Re-4);
+  const dx=a.x-enemy.x, dy=a.y-enemy.y;
+  const d=Math.hypot(dx,dy);
+  if(d<4) return {x:enemy.x,y:enemy.y};
+  const ux=dx/d, uy=dy/d;
+  const seg=Math.min(reach, Math.max(0, d-8));
+  return {x:enemy.x+ux*seg,y:enemy.y+uy*seg};
+}
+/** 자동 추격 빨간 목표: (tx,ty) 방향으로 최대 maxAheadPx(공격·스킬 사거리 등)만큼 앞 — findHexPath가 길게 깔리게 함 */
+function getAutoPursuitLookaheadTowardPoint(a,tx,ty,maxAheadPx){
+  if(!a||!Number.isFinite(tx)||!Number.isFinite(ty)) return null;
+  const dx=tx-a.x, dy=ty-a.y;
+  const d=Math.hypot(dx,dy);
+  if(d<2) return {x:tx,y:ty};
+  const ux=dx/d, uy=dy/d;
+  const step=Math.max(26, (typeof HW!=='undefined'?HW:34)*2.05);
+  const fallback=5*step;
+  const maxAhead=Number.isFinite(maxAheadPx)&&maxAheadPx>0?maxAheadPx:fallback;
+  const seg=Math.min(maxAhead, Math.max(0, d-4));
+  const minStep=Math.max(14, (typeof HW!=='undefined'?HW:34)*0.45);
+  if(seg<minStep) return {x:tx,y:ty};
+  return {x:a.x+ux*seg,y:a.y+uy*seg};
+}
+function getAutoPursuitPathGoalWorld(a,enemy){
+  const ring=getAutoPursuitRingGoalWorld(a,enemy);
+  if(!ring) return null;
+  const combatMax=typeof getAllyAutoCombatStandoffRange==='function'?getAllyAutoCombatStandoffRange(a):120;
+  return getAutoPursuitLookaheadTowardPoint(a, ring.x, ring.y, combatMax);
+}
 function canTraverseTerrain(unit,cell){
   if(!cell) return true;
   const role=getUnitMoveRole(unit);
@@ -3148,6 +3291,9 @@ function getEffectiveTerrainCellMoveMulti(unit,dirx,diry){
 /** 강 우회 경로일 때: 한 스텝으로 중심이 강 칸 내부로 깊게 들어가지 않도록 선분상으로 잘라냄 */
 function clampCenterSkirtRiverInterior(unit,ax,ay,px,py){
   if(!unit||!unit._pathSkirtRiver) return {x:px,y:py};
+  const role=getUnitMoveRole(unit);
+  // 도하 불가 직업만 적용(canTraverseTerrain과 동일). 도하 가능(피난민·원거리 등)에도 클램프하면 강가에서 직선 목표가 강을 가로지를 때 한 스텝도 못 가 영구 정지
+  if(role!=='Tank'&&role!=='Warrior'&&role!=='Melee') return {x:px,y:py};
   const endC=nearestCell(px,py);
   if(!endC||endC.type!=='river') return {x:px,y:py};
   let lo=0, hi=1, best={x:ax,y:ay};
@@ -3358,77 +3504,10 @@ function getPathTerrainCellAt(x,y,role){
   const dom=getDominantHexCellAt(x,y);
   return pickTerrainCellForRole(x,y,role,near,dom,'path');
 }
-/** 안개 밖(미탐색) 칸을 억지로 지날 때만 쓰는 페널티 — 실제 숲·강보다 높게 두어 ‘아는 길’ 우선 */
-const UNKNOWN_TERRAIN_PATH_MOVE_COST=5.4;
-function terrainKeyRC(r,c){ return `${r}|${c}`; }
-function resetAllyTerrainKnowledge(){
-  _allyTerrainKnownKeys=null;
-}
-function ensureAllyTerrainKnowledgeSet(){
-  if(!_allyTerrainKnownKeys) _allyTerrainKnownKeys=new Set();
-  return _allyTerrainKnownKeys;
-}
-function markTerrainKnownForPlayer(r,c){
-  if(!Number.isFinite(r)||!Number.isFinite(c)) return;
-  if(r<0||r>=ROWS||c<0||c>=COLS) return;
-  ensureAllyTerrainKnowledgeSet().add(terrainKeyRC(r,c));
-}
-function resolveCellRC(cell){
-  if(!cell) return null;
-  let r=cell.r,c=cell.c;
-  if(Number.isFinite(r)&&Number.isFinite(c)) return {r,c};
-  for(let rr=0;rr<ROWS;rr++){
-    for(let cc=0;cc<COLS;cc++){
-      if(hexMap[rr][cc]===cell){
-        cell.r=rr; cell.c=cc;
-        return {r:rr,c:cc};
-      }
-    }
-  }
-  return null;
-}
-/** 추후 FOG_VISION_USE_HEX_LOS 등으로 산 가림 시: 여기서 시야에 넣을 칸을 필터하면 됨 */
-function updateAllyTerrainKnowledgeFromVision(){
-  if(!isBattle||!fogEnabled()||typeof ROWS==='undefined') return;
-  const set=ensureAllyTerrainKnowledgeSet();
-  for(let i=0;i<allies.length;i++){
-    const a=allies[i];
-    if(!a||!a.isDeployed||a.dead||a.permanentlyDead||a.garrisoned||a.inStandby) continue;
-    const vr=getFogVisionRadius(a);
-    const ax=a.x, ay=a.y;
-    for(let r=0;r<ROWS;r++){
-      for(let c=0;c<COLS;c++){
-        const cell=hexMap[r][c];
-        if(!cell) continue;
-        if(Math.hypot(cell.x-ax,cell.y-ay)<=vr) set.add(terrainKeyRC(r,c));
-      }
-    }
-  }
-}
-function isTerrainKnownForPathCell(nCell,sr,sc,gr,gc){
-  if(!fogEnabled()||!nCell) return true;
-  const rc=resolveCellRC(nCell);
-  if(!rc) return true;
-  if(rc.r===sr&&rc.c===sc) return true;
-  if(rc.r===gr&&rc.c===gc) return true;
-  return !!(_allyTerrainKnownKeys&&_allyTerrainKnownKeys.has(terrainKeyRC(rc.r,rc.c)));
-}
-function isTerrainKnownForMovementSample(cell,unit){
-  if(!fogEnabled()||!cell) return true;
-  const rc=resolveCellRC(cell);
-  if(rc&&_allyTerrainKnownKeys&&_allyTerrainKnownKeys.has(terrainKeyRC(rc.r,rc.c))) return true;
-  if(unit){
-    const stand=nearestCell(unit.x,unit.y);
-    if(stand&&stand===cell) return true;
-  }
-  return false;
-}
 function terrainMoveCostForPathAt(x,y,role,unit){
   const roleUse=role||getUnitMoveRole(unit);
   const c=getPathTerrainCellAt(x,y,roleUse);
-  if(!c) return 10;
-  if(fogEnabled()&&unit&&!isTerrainKnownForMovementSample(c,unit)) return UNKNOWN_TERRAIN_PATH_MOVE_COST;
-  return terrainMoveCost(c,roleUse);
+  return c?terrainMoveCost(c,roleUse):10;
 }
 /** 발자국: 유닛 통과 규칙 반영한 칸 기준 이동 비용 */
 function terrainMoveCostBlendedAt(x,y,unit,role){
@@ -3459,7 +3538,7 @@ function localPathPenalty(unit,fromX,fromY,targetX,targetY){
     if(!c2||!canTraverseTerrain(unit,c2)) continue;
     traversable++;
     const pathCell=getPathTerrainCellAt(lx,ly,role)||c2;
-    const mc=(fogEnabled()&&!isTerrainKnownForMovementSample(pathCell,unit))?UNKNOWN_TERRAIN_PATH_MOVE_COST:terrainMoveCost(pathCell,role);
+    const mc=terrainMoveCost(pathCell,role);
     const td=Math.hypot(targetX-lx,targetY-ly)/Math.max(1,HW);
     const score=mc+terrainAdvantageBias(role,pathCell)+td*0.28;
     if(score<best) best=score;
@@ -3571,45 +3650,60 @@ function getHexNeighborCells(r,c){
 function getHexNeighbors(r,c){
   return getHexNeighborCells(r,c).map(o=>[o.nr,o.nc]);
 }
+/** 현재 hexMap에서 셀의 격자 인덱스 (nearestCell 캐시로 옛 객체 참조가 와도 좌표로 매칭) */
+function mapHexCellToRowCol(cell){
+  if(!cell||!Array.isArray(hexMap)) return null;
+  if(Number.isFinite(cell.r)&&Number.isFinite(cell.c)){
+    const r=cell.r|0,c=cell.c|0;
+    if(r>=0&&r<ROWS&&c>=0&&c<COLS&&hexMap[r][c]){
+      const h=hexMap[r][c];
+      if(h===cell||(Math.abs((h.x||0)-(cell.x||0))<0.75&&Math.abs((h.y||0)-(cell.y||0))<0.75)) return {r,c};
+    }
+  }
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const h=hexMap[r][c];
+    if(h===cell) return {r,c};
+  }
+  const cx=cell.x,cy=cell.y;
+  if(!Number.isFinite(cx)||!Number.isFinite(cy)) return null;
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const h=hexMap[r][c];
+    if(h&&Math.abs(h.x-cx)<0.75&&Math.abs(h.y-cy)<0.75) return {r,c};
+  }
+  return null;
+}
 /**
  * 헥스 연결: 통과 가능 칸만. 이웃 칸 **진입 시** terrainMoveCost(직업별) 가중치 합 최소(Dijkstra)
- * → 칸 수가 아니라 상대적 **이동 시간**에 가깝게 고름.
- * 강은 비용이 유한(도하 가능 직업)이라 ‘짧은 강 몇 칸’이 ‘긴 육로’보다 쌀 수 있음 →
- * 1차는 강 칸 **진입을 제외**(목표 칸이 강이면 예외)한 최소시간 경로, 2차는 강 포함.
+ * 강은 1차는 강 칸 진입 제외(목표가 강이면 예외), 2차는 강 포함.
  */
 function findHexPathCells(unit,goalCell){
   if(!unit||!goalCell) return null;
   const startCell=nearestCell(unit.x,unit.y);
   if(!startCell) return null;
-  let sr=-1,sc=-1,gr=-1,gc=-1;
-  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
-    if(hexMap[r][c]===startCell){ sr=r; sc=c; }
-    if(hexMap[r][c]===goalCell){ gr=r; gc=c; }
+  const sIdx=mapHexCellToRowCol(startCell);
+  const gIdx=mapHexCellToRowCol(goalCell);
+  if(!sIdx||!gIdx) return null;
+  const sr=sIdx.r, sc=sIdx.c, gr=gIdx.r, gc=gIdx.c;
+  if(sr===gr&&sc===gc){
+    const at=hexMap[sr][sc];
+    return {cells:[at||startCell],skirtRiver:false};
   }
-  if(sr<0||sc<0||gr<0||gc<0) return null;
-  if(sr===gr&&sc===gc) return {cells:[startCell],skirtRiver:false};
   const role=getUnitMoveRole(unit);
   const key=(r,c)=>`${r}|${c}`;
   const goalK=key(gr,gc);
   const INF=1e30;
   const edgeW=(nCell)=>{
     if(!nCell) return INF;
-    let w;
-    if(fogEnabled()&&!isTerrainKnownForPathCell(nCell,sr,sc,gr,gc)){
-      w=UNKNOWN_TERRAIN_PATH_MOVE_COST;
-    }else{
-      w=terrainMoveCost(nCell,role);
-      const ab=terrainAdvantageBias(role,nCell);
-      if(Number.isFinite(ab)) w+=ab;
-    }
+    let w=terrainMoveCost(nCell,role);
+    const ab=terrainAdvantageBias(role,nCell);
+    if(Number.isFinite(ab)) w+=ab;
     return Math.max(0.05,w);
   };
-  const dijkstra=(skipRiverEnter,knownOnly)=>{
+  const dijkstra=(skipRiverEnter)=>{
     const dist=new Map();
     const parent=new Map();
     dist.set(key(sr,sc),0);
     const done=new Set();
-    const fogKnow=fogEnabled()&&!!knownOnly;
     while(done.size<ROWS*COLS){
       let bestK=null,bestD=INF;
       for(const [k,d] of dist){
@@ -3638,7 +3732,6 @@ function findHexPathCells(unit,goalCell){
         const nKey=key(nr,nc);
         const nCell=hexMap[nr][nc];
         if(!nCell||!canTraverseTerrain(unit,nCell)) continue;
-        if(fogKnow&&!isTerrainKnownForPathCell(nCell,sr,sc,gr,gc)) continue;
         if(skipRiverEnter&&nCell.type==='river'&&!(nr===gr&&nc===gc)) continue;
         const nd=bestD+edgeW(nCell);
         const prev=dist.get(nKey);
@@ -3650,15 +3743,9 @@ function findHexPathCells(unit,goalCell){
     }
     return null;
   };
-  if(fogEnabled()){
-    const landKnown=dijkstra(true,true);
-    if(landKnown) return {cells:landKnown,skirtRiver:true};
-    const anyKnown=dijkstra(false,true);
-    if(anyKnown) return {cells:anyKnown,skirtRiver:false};
-  }
-  const land=dijkstra(true,false);
+  const land=dijkstra(true);
   if(land) return {cells:land,skirtRiver:true};
-  const any=dijkstra(false,false);
+  const any=dijkstra(false);
   if(!any) return null;
   return {cells:any,skirtRiver:false};
 }
@@ -4059,7 +4146,13 @@ function resetDeployment() {
     if (!a.dead && a.isDeployed) {
       // 1. [핵심] 다음 날 정비 시 홀드(Hold)를 해제하여 자유 이동 상태로 변경
       a.onHold = false; 
-      
+      // 대기실 후퇴·전투 중 통솔 교체 예약 후퇴: 저장 좌표 복구 금지(플래그 누락 시에도 updateRetreatingAllies가 saved를 매 프레임 갱신)
+      const pendSwap = typeof _pendingBattleSwapByPartyId !== 'undefined' && _pendingBattleSwapByPartyId && _pendingBattleSwapByPartyId[Number(a.id)];
+      if (a.retreatingToStandby || pendSwap) {
+        a.wx = null; a.wy = null;
+        clearAllyHexPath(a);
+        return;
+      }
       // 2. 위치 복구 로직 (기존 유지)
       const pos = savedPositions[a.id] || initialPositions[a.id];
       if (pos) {
@@ -4365,7 +4458,6 @@ function healAlliesAfterBattle(){
 // [수정] enterPlacement 함수
 function enterPlacement() {
   isPlacing = true; isBattle = false; isPaused = false;
-  resetAllyTerrainKnowledge();
   setBadge(currentZone.tier === 'hunt' || currentZone.tier === 'pred' ? '출발 준비' : '전투 준비', 'b-pl');
   
   document.getElementById('btn-go').style.display = 'inline-block';
@@ -4662,7 +4754,7 @@ function onUp(e){
           setTimeout(() => { if(!isBattle && autoStart) toggleBattle(); }, 800);
         }
       } else {
-        // 2. 전투 단계: 전술적 이동 (노란 선 생성)
+        // 2. 전투 단계: 전술적 이동 (수동=노란 경로, 자동 추격=_pursuitPathActive 시 빨간 경로)
         const wp=resolveMoveCommandPoint(dragUnit,x,y);
         if(!wp){
           addFloat(dragUnit.x,dragUnit.y-16,'이동 불가','#e74c3c');
@@ -4671,7 +4763,7 @@ function onUp(e){
           return;
         }
         applyWaypointPath(dragUnit,wp);
-        markPlayerIssuedWaypoint(dragUnit);
+        dragUnit.onHold = false; // 이동 명령 시 홀드 해제
         if(wp.adjusted) addFloat(dragUnit.wx,dragUnit.wy,'지형 보정','#60a5fa');
         addFloat(dragUnit.wx, dragUnit.wy, '🎯 이동', '#f1c40f');
       }
@@ -4732,68 +4824,28 @@ function clearAllyHexPath(u){
   u._hexPathIdx=0;
   u._pathCorners=null;
   u._pathSkirtRiver=false;
+  u._pursuitPathActive=false;
+  u._pursuitGoalKey=null;
+  u._pursuitTrackRef=null;
 }
 /** 5.html: 클릭 이동 — BFS 꼭짓점만 중간 경유, 직선 지름길로 강 관통 방지 */
-function applyWaypointPath(u,wp){
+function applyWaypointPath(u,wp,opts){
   if(!u||!wp) return;
+  const pursuit=opts&&opts.pursuit;
+  u._autoNavTarget=null;
   u.wx=wp.x; u.wy=wp.y;
   clearAllyHexPath(u);
   const goal=nearestCell(wp.x,wp.y);
-  if(fogEnabled()){
-    ensureAllyTerrainKnowledgeSet();
-    if(goal){
-      const grc=resolveCellRC(goal);
-      if(grc) markTerrainKnownForPlayer(grc.r,grc.c);
-    }
-    const sc0=nearestCell(u.x,u.y);
-    if(sc0){
-      const src=resolveCellRC(sc0);
-      if(src) markTerrainKnownForPlayer(src.r,src.c);
-    }
-  }
   const res=findHexPathCells(u,goal);
   const path=res&&res.cells;
   u._pathSkirtRiver=!!(res&&res.skirtRiver);
   if(path&&path.length>2) u._pathCorners=path.slice(1,-1).map(c=>({x:c.x,y:c.y}));
   else u._pathCorners=null;
-}
-function markPlayerIssuedWaypoint(u){
-  if(!u) return;
-  u._pursuitPathActive=false;
-  u._pursuitTgtKey=null;
-}
-/**
- * 추격·추종 등 AI 이동: 수동 이동과 동일하게 findHexPathCells 경로 사용.
- * 플레이어가 찍은 wx/wy가 있으면(추격용이 아닐 때) 덮어쓰지 않음.
- */
-function tryApplyPursuitWaypointPath(u, tx, ty, pursuitKey){
-  if(!u||!isBattle) return false;
-  if(u.wx!=null&&u.wy!=null&&!u._pursuitPathActive) return false;
-  const now=_frameCount|0;
-  const key=String(pursuitKey!=null?pursuitKey:'');
-  const noPath=u.wx==null||u.wy==null;
-  const ax=u._pursuitAnchorX, ay=u._pursuitAnchorY;
-  const anchorMove=ax==null||ay==null||Math.hypot(tx-ax,ty-ay)>68;
-  const tgtSwitch=u._pursuitTgtKey!=null&&u._pursuitTgtKey!==key;
-  const stale=!noPath&&(now-(u._pursuitPathTick||0))>28;
-  if(!noPath&&!anchorMove&&!stale&&!tgtSwitch) return false;
-  const wp=resolveMoveCommandPoint(u,tx,ty);
-  if(!wp) return false;
-  applyWaypointPath(u,wp);
-  u._pursuitPathActive=true;
-  u._pursuitTgtKey=key;
-  u._pursuitAnchorX=tx;
-  u._pursuitAnchorY=ty;
-  u._pursuitPathTick=now;
-  return true;
-}
-function clearPursuitWaypointIfAny(u){
-  if(!u||!u._pursuitPathActive) return;
-  clearAllyHexPath(u);
-  u.wx=u.wy=null;
-  u._pursuitPathActive=false;
-  u._pursuitTgtKey=null;
-  u._pursuitAnchorX=u._pursuitAnchorY=null;
+  if(pursuit){
+    u._pursuitPathActive=true;
+    const gCell=nearestCell(wp.x,wp.y);
+    u._pursuitGoalKey=(gCell&&gCell.r!==undefined&&gCell.c!==undefined)?(`${gCell.r}|${gCell.c}`):(`${Math.round(wp.x)},${Math.round(wp.y)}`);
+  }
 }
 // 드래그 이동을 처리하는 별도 함수
 function executeMoveOrder(u, x, y) {
@@ -4801,14 +4853,14 @@ function executeMoveOrder(u, x, y) {
     // 배치 단계: 기존 배치 로직 호출
     handlePlacementDrop(u, x, y); 
   } else {
-    // 전투 단계: 웨이포인트 (홀드는 더블클릭으로만 토글 — 이동 후에도 유지)
+    // 전투 단계: 웨이포인트 설정 및 홀드 해제
     const wp=resolveMoveCommandPoint(u,x,y);
     if(!wp){
       addFloat(u.x,u.y-16,'이동 불가','#e74c3c');
       return;
     }
     applyWaypointPath(u,wp);
-    markPlayerIssuedWaypoint(u);
+    u.onHold = false; // 이동 명령 시 홀드는 자동으로 풀립니다.
     if(wp.adjusted) addFloat(u.wx,u.wy,'지형 보정','#60a5fa');
     addFloat(u.wx, u.wy, '🎯', '#f1c40f');
   }
@@ -5178,9 +5230,8 @@ function _updateRefModal(){
   else if(_refCount<1)_refCount=1;
   const cost=_refCount*30;
   const f=Math.floor((typeof res!=='undefined'&&res!=null&&Number.isFinite(res.food))?res.food:(typeof food!=='undefined'?food:0));
-  const cap=getStandbyCapacity();
-  const cur=getStandbyCount();
-  document.getElementById('ref-sub').innerText=`보유 🍖${f} · 대기 ${cur}/${cap}명 → 한 번에 최대 ${mx}명`;
+  const pr=getPartyRoom(),sr=getStandbyRoom(),gr=getTotalGarrisonRoom();
+  document.getElementById('ref-sub').innerText=`보유 🍖${f} · 빈자리 통솔 ${pr} · 대기 ${sr} · 거점 ${gr} → 한 번에 최대 ${mx}명`;
   document.getElementById('ref-count').innerText=String(_refCount);
   document.getElementById('ref-cost').innerText=`🍖 ${cost} 소모`;
   document.getElementById('ref-count').style.color=(mx>=1&&f>=cost)?'#f1c40f':'#e74c3c';
@@ -5203,7 +5254,7 @@ window.setRefugeeHireMax=setRefugeeHireMax;
 window.changeRefCount = function(delta) {
   const mx=getMaxRefugeeHireBatch();
   if(mx<1){
-    if(delta>0)addFloat(mouseX,mouseY,'대기 인원 한도','#e74c3c');
+    if(delta>0)addFloat(mouseX,mouseY,'합류 한도','#e74c3c');
     _refCount=0;
     _updateRefModal();
     return;
@@ -5221,7 +5272,7 @@ window.changeRefCount = function(delta) {
 function closeRefugeeModal(){document.getElementById('refugee-modal').classList.remove('show');}
 function hireFood(){
   const mx=getMaxRefugeeHireBatch();
-  if(mx<1||_refCount<1){alog('❌ 대기 인원 한도로 더 이상 피난민을 영입할 수 없습니다.');closeRefugeeModal();return;}
+  if(mx<1||_refCount<1){alog('❌ 통솔·대기·거점 빈자리와 식량을 확인해 주세요. 더 이상 피난민을 영입할 수 없습니다.');closeRefugeeModal();return;}
   if(_refCount>mx){alog(`❌ 한 번에 최대 ${mx}명까지 영입할 수 있습니다.`);_updateRefModal();return;}
   const cost=_refCount*30;
   if((res.food!=null?res.food:food)<cost){alog(`❌ 식량 부족 (필요: ${cost}🍖)`);closeRefugeeModal();return;}
@@ -5331,17 +5382,20 @@ function spawnRefugee(opts={}) {
     
     if(!silent) alog(`👥 ${u.name}이(가) 통솔 파티에 합류했습니다. 배치를 완료하세요.`);
   } else {
-    if(!canAddToStandby()){
+    if(canAddToStandby()){
+      u.inStandby = true;
+      u.isDeployed = false;
+      u.x = -300; u.y = -300;
+      if(!silent) alog(`⏳ 파티가 가득 차 ${u.name}이(가) 대기실에서 대기합니다.`);
+    }else if(tryAssignExistingUnitToAnyGarrison(u)){
+      if(!silent) alog(`🏰 파티·대기가 가득 차 ${u.name}을(를) 거점 주둔에 배치했습니다.`);
+    }else{
       allies.pop();
-      if(!silent) alog(`❌ 대기 인원 한도(${getStandbyCapacity()}명)로 ${u.name} 합류를 취소했습니다.`);
+      if(!silent) alog(`❌ 통솔·대기·거점 빈자리가 없어 ${u.name} 합류를 취소했습니다.`);
       markDirty();
       renderGarrisonBar();
       return;
     }
-    u.inStandby = true;
-    u.isDeployed = false;
-    u.x = -300; u.y = -300;
-    if(!silent) alog(`⏳ 파티가 가득 차 ${u.name}이(가) 대기실에서 대기합니다.`);
   }
 
   markDirty(); // 파티창 갱신
@@ -5404,8 +5458,6 @@ function toggleBattle(){
   isPlacing = false;
   isBattle = true;
   isPaused = false;
-  ensureAllyTerrainKnowledgeSet();
-  if(typeof updateAllyTerrainKnowledgeFromVision==='function') updateAllyTerrainKnowledgeFromVision();
   resetBattleContributionStats(currentParty);
 
   // 1일차 전투 출발 시점부터 15일차 클리어까지의 경과 시간을 거점 수익에 사용합니다.
@@ -5959,7 +6011,6 @@ function battleTick(){
     if (zoneStage >= (currentZone.finalStage || 15)) {
         isBattle = false;
         isPlacing = false;
-        resetAllyTerrainKnowledge();
         healAlliesAfterBattle();
         
         // zoneRecords 초기화 확인
@@ -6026,7 +6077,6 @@ function battleTick(){
     if (isBattle && liveAllies.length === 0) {
       isBattle = false; // 즉시 전투 중지
       isPlacing = false;
-      resetAllyTerrainKnowledge();
 
       // 2. [핵심 수정] 모든 배치된 대원을 전멸 상태로 정리
       allies.forEach(a => {
@@ -6531,7 +6581,121 @@ function clampToMap(u){
   u.x=Math.max(MAP_PAD, Math.min(CW-MAP_PAD, u.x));
   u.y=Math.max(MAP_PAD, Math.min(CH-MAP_PAD, u.y));
 }
+/** AI 힐러 추격 목표(부활/탱 추종). stop이면 이동 불필요 */
+function resolveHealerPursuitGoal(a,aa){
+  const healRange=210+(a.bonusRange||0);
+  const now2=Date.now();
+  const dying=allies.filter(x=>x.dead&&!x.permanentlyDead&&x.deathTime&&(now2-x.deathTime)<7000&&x.isDeployed);
+  if(dying.length>0){
+    dying.sort((x,y)=>x.deathTime-y.deathTime);
+    const tgt=dying[0];
+    if(dist(a,tgt)<=healRange) return {stop:true};
+    return {x:tgt.x,y:tgt.y};
+  }
+  let followTank=null,followAny=null;
+  let followTankD2=Infinity,followAnyD2=Infinity;
+  let woundedInRange=null,woundedHp=Infinity;
+  for(let i=0;i<aa.length;i++){
+    const x=aa[i];
+    if(x===a||x.dead||!x.isDeployed) continue;
+    const dx=a.x-x.x,dy=a.y-x.y,d2=dx*dx+dy*dy;
+    const isBodyBlocker=(x.classKey||x.baseRole)==='Tank'||
+      (x.activeSkills&&x.activeSkills.some(s=>['Guard','Fortress','Taunt'].includes(s)));
+    if(isBodyBlocker&&d2<followTankD2){followTankD2=d2;followTank=x;}
+    if(d2<followAnyD2){followAnyD2=d2;followAny=x;}
+    if(x.hp<x.maxHp&&x.hp<woundedHp&&d2<(healRange*healRange)&&hasLOS(a.x,a.y,x.x,x.y)){
+      woundedHp=x.hp;
+      woundedInRange=x;
+    }
+  }
+  if(woundedInRange) return {stop:true};
+  const follow=followTank||followAny;
+  if(!follow) return {stop:true};
+  const d=dist(a,follow);
+  if(d<=healRange*0.55) return {stop:true};
+  return {x:follow.x,y:follow.y};
+}
+function _pursuitGoalKeyFromWp(wp){
+  if(!wp) return null;
+  const gCell=nearestCell(wp.x,wp.y);
+  if(gCell&&gCell.r!==undefined&&gCell.c!==undefined) return `${gCell.r}|${gCell.c}`;
+  return `${Math.round(wp.x)},${Math.round(wp.y)}`;
+}
+/** 자동 추격을 끊어도 될 만큼 실제로 공격 가능한지(원거리는 사거리+LOS). standR-18 로만 보면 아직 못 때리는데 경로가 지워지는 문제 방지 */
+function allyAutoPursuitCombatReady(a,e,roleBase){
+  if(!a||!e) return false;
+  const d=dist(a,e);
+  const sr=getAllyAutoCombatStandoffRange(a);
+  const isTank=a.classKey==='Tank'||a.activeSkills?.includes('Fortress')||a.activeSkills?.includes('Taunt');
+  const rb=roleBase||a.classKey||a.baseRole||'Refugee';
+  const rangedLike=rb==='Ranged'||rb==='Mage'||(rb==='Refugee'&&a.activeSkills&&a.activeSkills.includes('Arrow'));
+  if(rangedLike){
+    if(d>sr+12) return false;
+    return hasLOS(a.x,a.y,e.x,e.y);
+  }
+  const meleeCap=isTank?36:Math.max(44,Math.min(sr-2,82));
+  return d<=meleeCap;
+}
+/**
+ * 자동 추격 **이동**을 멈출지: 원거리는 **공격/스킬 사거리** 원이 적 몸의 아군 반대편 테두리에 닿을 때까지(시야보다 가까이 붙음).
+ * 근접·탱은 기존처럼 실제 타격 거리까지 접근.
+ */
+function allyAutoPursuitShouldStopAdvancing(a,e,roleBase){
+  if(!a||!e) return true;
+  const rb=roleBase||a.classKey||a.baseRole||'Refugee';
+  const rangedLike=rb==='Ranged'||rb==='Mage'||(rb==='Refugee'&&a.activeSkills&&a.activeSkills.includes('Arrow'));
+  if(rangedLike){
+    const R=typeof getAllyAutoCombatStandoffRange==='function'?getAllyAutoCombatStandoffRange(a):120;
+    const Re=typeof getUnitBodyRadiusForTerrain==='function'?getUnitBodyRadiusForTerrain(e):13;
+    return dist(a,e)+Re<=R+3;
+  }
+  return allyAutoPursuitCombatReady(a,e,roleBase);
+}
+/** 추격 경로 재계산: 목표 헥스만 보면 적 이동 시 동그라미가 안 따라감 → 추적 기준점 이동 시에도 갱신 */
+function shouldRefreshAutoPursuitPath(a,wp,trackXY){
+  if(!wp) return false;
+  const gk=_pursuitGoalKeyFromWp(wp);
+  if(gk!==a._pursuitGoalKey) return true;
+  if((_frameCount&7)===0) return true;
+  if(trackXY&&Number.isFinite(trackXY.x)&&Number.isFinite(trackXY.y)){
+    const s=a._pursuitTrackRef;
+    if(!s||Math.abs(s.x-trackXY.x)>4||Math.abs(s.y-trackXY.y)>4) return true;
+  }
+  return false;
+}
+/** 최종 wx 도착한 직후 같은 틱에 다음 목표 발급(한 틱 멈춤·미추적 방지) */
+function reissueAutoPursuitAfterWaypointCleared(a,ae,aa){
+  if(!a||!a._pursuitPathActive||a.retreatingToStandby) return;
+  const role=a.classKey||a.class10Key||a.baseRole||'Melee';
+  const hasHealerKit=a.activeSkills&&a.activeSkills.some(s=>['Mend','Barrier','Revive'].includes(s));
+  if(role==='Heal'||hasHealerKit){
+    const g=resolveHealerPursuitGoal(a,aa);
+    if(g.stop) return;
+    const visionMax=typeof getFogVisionRadius==='function'?getFogVisionRadius(a):220;
+    const goal=getAutoPursuitLookaheadTowardPoint(a,g.x,g.y,visionMax);
+    if(!goal) return;
+    const wp=resolveMoveCommandPoint(a,goal.x,goal.y);
+    if(wp){
+      applyWaypointPath(a,wp,{pursuit:true});
+      a._pursuitGoalKey=_pursuitGoalKeyFromWp(wp);
+      a._pursuitTrackRef={x:g.x,y:g.y};
+    }
+    return;
+  }
+  const enemyTgt=closest(a,ae,Infinity);
+  if(!enemyTgt) return;
+  const roleBase=(a.class10Key&&CLASS10[a.class10Key]?.base)||(a.classKey||a.baseRole||'Refugee');
+  if(allyAutoPursuitShouldStopAdvancing(a,enemyTgt,roleBase)) return;
+  const goal=getAutoPursuitPathGoalWorld(a,enemyTgt);
+  if(!goal) return;
+  const wp=resolveMoveCommandPoint(a,goal.x,goal.y);
+  if(!wp) return;
+  applyWaypointPath(a,wp,{pursuit:true});
+  a._pursuitGoalKey=_pursuitGoalKeyFromWp(wp);
+  a._pursuitTrackRef={x:enemyTgt.x,y:enemyTgt.y};
+}
 function moveAlly(a,ae,aa,baseTerrSpd){
+  a._autoNavTarget=null;
   const role=a.classKey||a.class10Key||a.baseRole||'Melee';
   const roleBase=(a.class10Key&&CLASS10[a.class10Key]?.base)||(a.classKey||a.baseRole||'Refugee');
 
@@ -6594,6 +6758,46 @@ function moveAlly(a,ae,aa,baseTerrSpd){
 
   // 웨이포인트 (5.html): _pathCorners 꼭짓점 순회 후 최종 wx,wy
   if(a.wx!==null&&a.wy!==null){
+      // 자동 추격(빨간 경로): 수동 이동과 동일하게 헥스 경로를 갱신 — 직선·지형 무시 표시 제거
+      if(a._pursuitPathActive){
+        const hasHealerKit=a.activeSkills&&a.activeSkills.some(s=>['Mend','Barrier','Revive'].includes(s));
+        const isHealer=role==='Heal'||hasHealerKit;
+        if(isHealer){
+          const g=resolveHealerPursuitGoal(a,aa);
+          if(g.stop){
+            a.wx=null;a.wy=null;clearAllyHexPath(a);
+          }else{
+            const visionMax=typeof getFogVisionRadius==='function'?getFogVisionRadius(a):220;
+            const goal=getAutoPursuitLookaheadTowardPoint(a,g.x,g.y,visionMax);
+            if(goal){
+              const wp=resolveMoveCommandPoint(a,goal.x,goal.y);
+              if(wp&&shouldRefreshAutoPursuitPath(a,wp,{x:g.x,y:g.y})){
+                applyWaypointPath(a,wp,{pursuit:true});
+                a._pursuitGoalKey=_pursuitGoalKeyFromWp(wp);
+                a._pursuitTrackRef={x:g.x,y:g.y};
+              }
+            }
+          }
+        }else{
+          const enemyTgt=closest(a,ae,Infinity);
+          if(!enemyTgt){
+            a.wx=null;a.wy=null;clearAllyHexPath(a);
+          }else if(allyAutoPursuitShouldStopAdvancing(a,enemyTgt,roleBase)){
+            a.wx=null;a.wy=null;clearAllyHexPath(a);
+          }else{
+            const goal=getAutoPursuitPathGoalWorld(a,enemyTgt);
+            if(goal){
+              const wp=resolveMoveCommandPoint(a,goal.x,goal.y);
+              if(wp&&shouldRefreshAutoPursuitPath(a,wp,{x:enemyTgt.x,y:enemyTgt.y})){
+                applyWaypointPath(a,wp,{pursuit:true});
+                a._pursuitGoalKey=_pursuitGoalKeyFromWp(wp);
+                a._pursuitTrackRef={x:enemyTgt.x,y:enemyTgt.y};
+              }
+            }
+          }
+        }
+      }
+      if(a.wx!==null&&a.wy!==null){
       let tgx=a.wx,tgy=a.wy;
       if(Array.isArray(a._pathCorners)&&a._pathCorners.length){
         tgx=a._pathCorners[0].x; tgy=a._pathCorners[0].y;
@@ -6605,6 +6809,7 @@ function moveAlly(a,ae,aa,baseTerrSpd){
           if(!a._pathCorners.length) a._pathCorners=null;
         }else{
           a.wx=null; a.wy=null;
+          reissueAutoPursuitAfterWaypointCleared(a,ae,aa);
         }
       } else {
         let nx=a.x+dx/d*spd;
@@ -6642,6 +6847,7 @@ function moveAlly(a,ae,aa,baseTerrSpd){
         }
       }
       return;
+      }
   }
 
   // Fortress: 방어 버프만 적용, 이동은 정상 (아래 moveAlly 로직으로 처리)
@@ -6651,70 +6857,43 @@ function moveAlly(a,ae,aa,baseTerrSpd){
 
   // 힐러: 기본적으로 탱커를 따라다니며, 위급 대상이 있을 때만 우선 변경
   if(isHealer){
-    const healRange=210+(a.bonusRange||0);
-    const now2=Date.now();
-    // 최우선: 빈사 대원
-    const dying=allies.filter(x=>x.dead&&!x.permanentlyDead&&x.deathTime&&(now2-x.deathTime)<7000&&x.isDeployed);
-    if(dying.length>0){
-      dying.sort((x,y)=>x.deathTime-y.deathTime);
-      const tgt=dying[0];
-      if(dist(a,tgt)<=healRange){
-        clearPursuitWaypointIfAny(a);
-        return;
-      }
-      tryApplyPursuitWaypointPath(a,tgt.x,tgt.y,'dy-'+(tgt.id||0));
-      return;
-    }
-    // 기본 추종: 가장 가까운 탱커 -> 없으면 가장 가까운 아군 (filter/sort 대신 단일 루프)
-    let followTank=null,followAny=null;
-    let followTankD2=Infinity,followAnyD2=Infinity;
-    let woundedInRange=null,woundedHp=Infinity;
-    for(let i=0;i<aa.length;i++){
-      const x=aa[i];
-      if(x===a||x.dead||!x.isDeployed) continue;
-      const dx=a.x-x.x,dy=a.y-x.y,d2=dx*dx+dy*dy;
-      const isBodyBlocker = (x.classKey||x.baseRole)==='Tank'||
-        (x.activeSkills && x.activeSkills.some(s=>['Guard','Fortress','Taunt'].includes(s)));
-      if(isBodyBlocker&&d2<followTankD2){followTankD2=d2;followTank=x;}
-      if(d2<followAnyD2){followAnyD2=d2;followAny=x;}
-      if(x.hp<x.maxHp&&x.hp<woundedHp&&d2<(healRange*healRange)&&hasLOS(a.x,a.y,x.x,x.y)){
-        woundedHp=x.hp;
-        woundedInRange=x;
+    const g=resolveHealerPursuitGoal(a,aa);
+    if(g.stop) return;
+    const visionMax=typeof getFogVisionRadius==='function'?getFogVisionRadius(a):220;
+    const goal=getAutoPursuitLookaheadTowardPoint(a,g.x,g.y,visionMax);
+    if(goal){
+      const wp=resolveMoveCommandPoint(a,goal.x,goal.y);
+      if(wp){
+        applyWaypointPath(a,wp,{pursuit:true});
+        a._pursuitGoalKey=_pursuitGoalKeyFromWp(wp);
+        a._pursuitTrackRef={x:g.x,y:g.y};
       }
     }
-    const follow=followTank||followAny;
-    if(!follow)return;
-    const inRange=woundedInRange;
-    if(inRange){
-      clearPursuitWaypointIfAny(a);
-      return;
-    }
-    const d=dist(a,follow);
-    if(d<=healRange*0.55){
-      clearPursuitWaypointIfAny(a);
-      return;
-    }
-    tryApplyPursuitWaypointPath(a,follow.x,follow.y,'fw-'+(follow.id||0));
     return;
   }
 
-  // 탱/딜: 가장 가까운 적을 향해 이동 (수동 이동과 동일한 헥스 최소시간 경로)
+  // 탱/딜: 가장 가까운 적을 향해 이동
   const enemyTgt=closest(a,ae,Infinity);
   if(enemyTgt){
-    const rd2=BASE_ROLES[role];
     const isTank=role==='Tank'||a.activeSkills?.includes('Fortress')||a.activeSkills?.includes('Taunt');
-    const attackRange=isTank?30:(rd2?.range||65)-15;
+    const attackRange=isTank?30:Math.max(40,getAllyAutoCombatStandoffRange(a)-18);
     const d=dist(a,enemyTgt);
-    const isRangedKiter=role==='Ranged'||role==='Mage'||(role==='Refugee'&&a.activeSkills?.includes('Arrow'));
-    // 고정 80픽셀 키트는 attackRange(피난민~85)보다 작아 80~85 구간에서 이동이 완전히 멈추는 버그가 있었음
+    const isRangedKiter=roleBase==='Ranged'||roleBase==='Mage'||(roleBase==='Refugee'&&a.activeSkills?.includes('Arrow'));
     const kiteThresh=isRangedKiter?Math.max(34, Math.min(attackRange-8, attackRange*0.48)):0;
-    if(d<=attackRange){
-      clearPursuitWaypointIfAny(a);
-      if(isRangedKiter&&d<kiteThresh){
-        const dx=a.x-enemyTgt.x,dy=a.y-enemyTgt.y,dn=Math.hypot(dx,dy);if(dn>1) tryMoveWithTerrain(a,dx/dn*spd*0.55,dy/dn*spd*0.55,{useTerrainSpeed:false});
+    const pursuitDone=allyAutoPursuitShouldStopAdvancing(a,enemyTgt,roleBase);
+    // 시야 링 목표가 남았을 때는 카이트보다 추격 우선(모서리·상단에서 "뒤로" 밀리며 clamp에 걸려 영구 정지하던 문제)
+    if(!pursuitDone){
+      const goal=getAutoPursuitPathGoalWorld(a,enemyTgt);
+      if(goal){
+        const wp=resolveMoveCommandPoint(a,goal.x,goal.y);
+        if(wp){
+          applyWaypointPath(a,wp,{pursuit:true});
+          a._pursuitGoalKey=_pursuitGoalKeyFromWp(wp);
+          a._pursuitTrackRef={x:enemyTgt.x,y:enemyTgt.y};
+        }
       }
-    }else{
-      tryApplyPursuitWaypointPath(a,enemyTgt.x,enemyTgt.y,'en-'+(enemyTgt.id||0));
+    }else if(isRangedKiter&&d<kiteThresh){
+      const dx=a.x-enemyTgt.x,dy=a.y-enemyTgt.y,dn=Math.hypot(dx,dy);if(dn>1) tryMoveWithTerrain(a,dx/dn*spd*0.55,dy/dn*spd*0.55,{useTerrainSpeed:false});
     }
   }
 }
@@ -8989,6 +9168,29 @@ function tryHireAndAssignRefugeeToGarrison(zid){
   if(typeof startGarrisonTick==='function')startGarrisonTick();
   return true;
 }
+/** 이미 생성된 유닛을 빈 슬롯이 있는 거점 주둔으로 배치 (식량 미차감 — 상위에서 지불 처리된 경우) */
+function tryAssignExistingUnitToAnyGarrison(u){
+  if(!u||typeof zoneRecords==='undefined'||!zoneRecords)return false;
+  const zids=Object.keys(zoneRecords);
+  for(let i=0;i<zids.length;i++){
+    const zid=zids[i];
+    const rec=zoneRecords[zid];
+    if(!rec||!rec.cleared)continue;
+    ensureGarrisonRecMeta(rec,zid);
+    const cap=getEffectiveGarrisonSlotCap(zid);
+    if((rec.garrison||[]).length>=cap)continue;
+    u.garrisoned=zid;
+    u.isDeployed=false;
+    u.inStandby=false;
+    u.x=-300;
+    u.y=-300;
+    rec.garrison.push({id:u.id,name:u.name,lv:u.lv,classKey:u.classKey,baseRole:u.baseRole});
+    rec.lastTick=Date.now();
+    if(typeof startGarrisonTick==='function')startGarrisonTick();
+    return true;
+  }
+  return false;
+}
 function ensureGarrisonRecMeta(rec,zid){
   if(!rec)return;
   if(!rec.garrison)rec.garrison=[];
@@ -10251,12 +10453,50 @@ function draw(crowdedBattle){
       ctx.setLineDash([5,4]);ctx.stroke();
       ctx.restore();
     }
-    if(a.wx!==null){
-      let gx=a.wx, gy=a.wy;
+    if(a.wx!==null&&a.wy!==null){
+      const autoTgt=!!a._pursuitPathActive;
+      const lineCol=autoTgt?'#e74c3c99':'#f1c40f99';
+      const ringCol=autoTgt?'#e74c3c':'#f1c40f';
+      const px=[a.x,a.y];
       if(Array.isArray(a._pathCorners)&&a._pathCorners.length){
-        gx=a._pathCorners[0].x; gy=a._pathCorners[0].y;
+        for(let i=0;i<a._pathCorners.length;i++){
+          px.push(a._pathCorners[i].x,a._pathCorners[i].y);
+        }
       }
-      ctx.save();ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(gx,gy);ctx.strokeStyle='#f1c40f99';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);ctx.stroke();ctx.beginPath();ctx.arc(gx,gy,5,0,Math.PI*2);ctx.strokeStyle='#f1c40f';ctx.lineWidth=2;ctx.setLineDash([]);ctx.stroke();ctx.restore();
+      px.push(a.wx,a.wy);
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(px[0],px[1]);
+      for(let i=2;i<px.length;i+=2) ctx.lineTo(px[i],px[i+1]);
+      ctx.strokeStyle=lineCol;
+      ctx.lineWidth=1.5;
+      ctx.setLineDash([4,3]);
+      ctx.stroke();
+      const ex=px[px.length-2],ey=px[px.length-1];
+      ctx.beginPath();
+      ctx.arc(ex,ey,5,0,Math.PI*2);
+      ctx.strokeStyle=ringCol;
+      ctx.lineWidth=2;
+      ctx.setLineDash([]);
+      ctx.stroke();
+      ctx.restore();
+    }else if(isBattle&&!isPaused&&a._autoNavTarget&&Number.isFinite(a._autoNavTarget.x)&&Number.isFinite(a._autoNavTarget.y)){
+      const tx=a._autoNavTarget.x,ty=a._autoNavTarget.y;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(a.x,a.y);
+      ctx.lineTo(tx,ty);
+      ctx.strokeStyle='#e74c3c99';
+      ctx.lineWidth=1.5;
+      ctx.setLineDash([4,3]);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(tx,ty,5,0,Math.PI*2);
+      ctx.strokeStyle='#e74c3c';
+      ctx.lineWidth=2;
+      ctx.setLineDash([]);
+      ctx.stroke();
+      ctx.restore();
     }
   });
   if(dragUnit&&isDragging){ctx.save();ctx.beginPath();ctx.moveTo(dragUnit.x,dragUnit.y);ctx.lineTo(mouseX,mouseY);ctx.strokeStyle='#f1c40faa';ctx.lineWidth=1.5;ctx.setLineDash([5,3]);ctx.stroke();ctx.beginPath();ctx.arc(mouseX,mouseY,6,0,Math.PI*2);ctx.strokeStyle='#f1c40f';ctx.lineWidth=2;ctx.setLineDash([]);ctx.stroke();ctx.restore();}
@@ -10986,9 +11226,15 @@ function getTierUiMeta(u){
 }
 function getIntegratedFamilyMembers(family){
   const rows=[];
+  const allyById=new Map(allies.map(a=>[a.id,a]));
   Object.entries(zoneRecords).forEach(([zid,rec])=>{
     if(!rec||!rec.cleared||getZoneFamily(zid,ZONES[zid])!==family) return;
-    (rec.garrison||[]).forEach(g=>rows.push({...g,_zid:zid}));
+    (rec.garrison||[]).forEach(g=>{
+      const u=allyById.get(g.id);
+      if(!u||u.dead||u.permanentlyDead)return;
+      if(String(u.garrisoned||'')!==String(zid))return;
+      rows.push({...g,_zid:zid});
+    });
   });
   return rows;
 }
@@ -11442,6 +11688,8 @@ function startRetreatToStandby(uid){
   u.wx=null;
   u.wy=null;
   clearAllyHexPath(u);
+  savedPositions[u.id]={x:u.x,y:u.y};
+  initialPositions[u.id]={x:u.x,y:u.y};
   addFloat(u.x,u.y-16,'↩ 후퇴','#60a5fa');
   markDirty();
   return true;
@@ -11455,6 +11703,8 @@ function updateRetreatingAllies(){
     const retreatSpd=Math.max(1.6,(u.spd||1)*1.2)*MOVE_FEEL_MUL*getFrameMoveMul();
     u.x-=retreatSpd;
     clampToMap(u);
+    savedPositions[u.id]={x:u.x,y:u.y};
+    initialPositions[u.id]={x:u.x,y:u.y};
     if(u.x<=MAP_PAD+1) finishedIds.push(u.id);
   }
   for(let i=0;i<finishedIds.length;i++) sendToStandbyCore(finishedIds[i]);
@@ -12269,9 +12519,6 @@ function loop(gen,rafTs) {
   // 2. 전투 엔진: 전투 중이고 정지 상태가 아닐 때 가동 (매 프레임 유지 — 프레임 스킵 시 atkCd/skillCd 밸런스가 깨짐)
   if (modEnabled(1)&&isBattle&&!isPaused) {
     battleTick();
-  }
-  if(isBattle&&fogEnabled()&&(_frameCount&1)===0&&typeof updateAllyTerrainKnowledgeFromVision==='function'){
-    updateAllyTerrainKnowledgeFromVision();
   }
   
   // 3. [성능 최적화] 부동 텍스트(데미지/EXP) 수명 관리
