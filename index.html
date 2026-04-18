@@ -1945,6 +1945,8 @@ function syncFromRes(){gold=res.gold;food=res.food;}
 let currentZone=ZONES.hunt;
 let zoneStage=1; // 현재 전투지 내 스테이지 (1부터 finalStage까지)
 let isBattle=false,isPaused=false,isPlacing=false;
+/** 안개 전투: 아군 시야 합집합으로 공유되는 ‘알려진 지형’ 칸 (r|c) */
+let _allyTerrainKnownKeys=null;
 let autoStart=false;
 let dragUnit=null,isDragging=false,dragSX=0,dragSY=0,mouseX=0,mouseY=0;
 let _mapPanMode=false,_mapPanMoved=false,_mapPanLastClientX=0,_mapPanLastClientY=0,_mapPanStartClientX=0,_mapPanStartClientY=0;
@@ -2240,6 +2242,7 @@ function hydrateGameState(data){
   sanitizePartyGroups();
   uid=Math.max(1,...allies.map(a=>Number(a.id)||0))+1;
   isBattle=false; isPaused=false; isPlacing=true;
+  resetAllyTerrainKnowledge();
   resetPartyUltimateState();
   return true;
 }
@@ -2435,6 +2438,7 @@ window.quickStartFromPhase=function(phaseKey){
   allies=roster.map((r,i)=>createPresetCombatUnit(r.name,r.classKey,p>=2?r.class10Key:null,baseLv+i*2));
   uid=Math.max(1,...allies.map(a=>Number(a.id)||0))+1;
   isBattle=false; isPaused=false; isPlacing=true;
+  resetAllyTerrainKnowledge();
   applyPhaseSettings(false);
   buildMap();
   spawnEnemies();
@@ -3354,10 +3358,77 @@ function getPathTerrainCellAt(x,y,role){
   const dom=getDominantHexCellAt(x,y);
   return pickTerrainCellForRole(x,y,role,near,dom,'path');
 }
+/** 안개 밖(미탐색) 칸을 억지로 지날 때만 쓰는 페널티 — 실제 숲·강보다 높게 두어 ‘아는 길’ 우선 */
+const UNKNOWN_TERRAIN_PATH_MOVE_COST=5.4;
+function terrainKeyRC(r,c){ return `${r}|${c}`; }
+function resetAllyTerrainKnowledge(){
+  _allyTerrainKnownKeys=null;
+}
+function ensureAllyTerrainKnowledgeSet(){
+  if(!_allyTerrainKnownKeys) _allyTerrainKnownKeys=new Set();
+  return _allyTerrainKnownKeys;
+}
+function markTerrainKnownForPlayer(r,c){
+  if(!Number.isFinite(r)||!Number.isFinite(c)) return;
+  if(r<0||r>=ROWS||c<0||c>=COLS) return;
+  ensureAllyTerrainKnowledgeSet().add(terrainKeyRC(r,c));
+}
+function resolveCellRC(cell){
+  if(!cell) return null;
+  let r=cell.r,c=cell.c;
+  if(Number.isFinite(r)&&Number.isFinite(c)) return {r,c};
+  for(let rr=0;rr<ROWS;rr++){
+    for(let cc=0;cc<COLS;cc++){
+      if(hexMap[rr][cc]===cell){
+        cell.r=rr; cell.c=cc;
+        return {r:rr,c:cc};
+      }
+    }
+  }
+  return null;
+}
+/** 추후 FOG_VISION_USE_HEX_LOS 등으로 산 가림 시: 여기서 시야에 넣을 칸을 필터하면 됨 */
+function updateAllyTerrainKnowledgeFromVision(){
+  if(!isBattle||!fogEnabled()||typeof ROWS==='undefined') return;
+  const set=ensureAllyTerrainKnowledgeSet();
+  for(let i=0;i<allies.length;i++){
+    const a=allies[i];
+    if(!a||!a.isDeployed||a.dead||a.permanentlyDead||a.garrisoned||a.inStandby) continue;
+    const vr=getFogVisionRadius(a);
+    const ax=a.x, ay=a.y;
+    for(let r=0;r<ROWS;r++){
+      for(let c=0;c<COLS;c++){
+        const cell=hexMap[r][c];
+        if(!cell) continue;
+        if(Math.hypot(cell.x-ax,cell.y-ay)<=vr) set.add(terrainKeyRC(r,c));
+      }
+    }
+  }
+}
+function isTerrainKnownForPathCell(nCell,sr,sc,gr,gc){
+  if(!fogEnabled()||!nCell) return true;
+  const rc=resolveCellRC(nCell);
+  if(!rc) return true;
+  if(rc.r===sr&&rc.c===sc) return true;
+  if(rc.r===gr&&rc.c===gc) return true;
+  return !!(_allyTerrainKnownKeys&&_allyTerrainKnownKeys.has(terrainKeyRC(rc.r,rc.c)));
+}
+function isTerrainKnownForMovementSample(cell,unit){
+  if(!fogEnabled()||!cell) return true;
+  const rc=resolveCellRC(cell);
+  if(rc&&_allyTerrainKnownKeys&&_allyTerrainKnownKeys.has(terrainKeyRC(rc.r,rc.c))) return true;
+  if(unit){
+    const stand=nearestCell(unit.x,unit.y);
+    if(stand&&stand===cell) return true;
+  }
+  return false;
+}
 function terrainMoveCostForPathAt(x,y,role,unit){
   const roleUse=role||getUnitMoveRole(unit);
   const c=getPathTerrainCellAt(x,y,roleUse);
-  return c?terrainMoveCost(c,roleUse):10;
+  if(!c) return 10;
+  if(fogEnabled()&&unit&&!isTerrainKnownForMovementSample(c,unit)) return UNKNOWN_TERRAIN_PATH_MOVE_COST;
+  return terrainMoveCost(c,roleUse);
 }
 /** 발자국: 유닛 통과 규칙 반영한 칸 기준 이동 비용 */
 function terrainMoveCostBlendedAt(x,y,unit,role){
@@ -3388,7 +3459,7 @@ function localPathPenalty(unit,fromX,fromY,targetX,targetY){
     if(!c2||!canTraverseTerrain(unit,c2)) continue;
     traversable++;
     const pathCell=getPathTerrainCellAt(lx,ly,role)||c2;
-    const mc=terrainMoveCost(pathCell,role);
+    const mc=(fogEnabled()&&!isTerrainKnownForMovementSample(pathCell,unit))?UNKNOWN_TERRAIN_PATH_MOVE_COST:terrainMoveCost(pathCell,role);
     const td=Math.hypot(targetX-lx,targetY-ly)/Math.max(1,HW);
     const score=mc+terrainAdvantageBias(role,pathCell)+td*0.28;
     if(score<best) best=score;
@@ -3523,16 +3594,22 @@ function findHexPathCells(unit,goalCell){
   const INF=1e30;
   const edgeW=(nCell)=>{
     if(!nCell) return INF;
-    let w=terrainMoveCost(nCell,role);
-    const ab=terrainAdvantageBias(role,nCell);
-    if(Number.isFinite(ab)) w+=ab;
+    let w;
+    if(fogEnabled()&&!isTerrainKnownForPathCell(nCell,sr,sc,gr,gc)){
+      w=UNKNOWN_TERRAIN_PATH_MOVE_COST;
+    }else{
+      w=terrainMoveCost(nCell,role);
+      const ab=terrainAdvantageBias(role,nCell);
+      if(Number.isFinite(ab)) w+=ab;
+    }
     return Math.max(0.05,w);
   };
-  const dijkstra=(skipRiverEnter)=>{
+  const dijkstra=(skipRiverEnter,knownOnly)=>{
     const dist=new Map();
     const parent=new Map();
     dist.set(key(sr,sc),0);
     const done=new Set();
+    const fogKnow=fogEnabled()&&!!knownOnly;
     while(done.size<ROWS*COLS){
       let bestK=null,bestD=INF;
       for(const [k,d] of dist){
@@ -3561,6 +3638,7 @@ function findHexPathCells(unit,goalCell){
         const nKey=key(nr,nc);
         const nCell=hexMap[nr][nc];
         if(!nCell||!canTraverseTerrain(unit,nCell)) continue;
+        if(fogKnow&&!isTerrainKnownForPathCell(nCell,sr,sc,gr,gc)) continue;
         if(skipRiverEnter&&nCell.type==='river'&&!(nr===gr&&nc===gc)) continue;
         const nd=bestD+edgeW(nCell);
         const prev=dist.get(nKey);
@@ -3572,9 +3650,15 @@ function findHexPathCells(unit,goalCell){
     }
     return null;
   };
-  const land=dijkstra(true);
+  if(fogEnabled()){
+    const landKnown=dijkstra(true,true);
+    if(landKnown) return {cells:landKnown,skirtRiver:true};
+    const anyKnown=dijkstra(false,true);
+    if(anyKnown) return {cells:anyKnown,skirtRiver:false};
+  }
+  const land=dijkstra(true,false);
   if(land) return {cells:land,skirtRiver:true};
-  const any=dijkstra(false);
+  const any=dijkstra(false,false);
   if(!any) return null;
   return {cells:any,skirtRiver:false};
 }
@@ -4281,6 +4365,7 @@ function healAlliesAfterBattle(){
 // [수정] enterPlacement 함수
 function enterPlacement() {
   isPlacing = true; isBattle = false; isPaused = false;
+  resetAllyTerrainKnowledge();
   setBadge(currentZone.tier === 'hunt' || currentZone.tier === 'pred' ? '출발 준비' : '전투 준비', 'b-pl');
   
   document.getElementById('btn-go').style.display = 'inline-block';
@@ -4586,7 +4671,7 @@ function onUp(e){
           return;
         }
         applyWaypointPath(dragUnit,wp);
-        dragUnit.onHold = false; // 이동 명령 시 홀드 해제
+        markPlayerIssuedWaypoint(dragUnit);
         if(wp.adjusted) addFloat(dragUnit.wx,dragUnit.wy,'지형 보정','#60a5fa');
         addFloat(dragUnit.wx, dragUnit.wy, '🎯 이동', '#f1c40f');
       }
@@ -4654,11 +4739,61 @@ function applyWaypointPath(u,wp){
   u.wx=wp.x; u.wy=wp.y;
   clearAllyHexPath(u);
   const goal=nearestCell(wp.x,wp.y);
+  if(fogEnabled()){
+    ensureAllyTerrainKnowledgeSet();
+    if(goal){
+      const grc=resolveCellRC(goal);
+      if(grc) markTerrainKnownForPlayer(grc.r,grc.c);
+    }
+    const sc0=nearestCell(u.x,u.y);
+    if(sc0){
+      const src=resolveCellRC(sc0);
+      if(src) markTerrainKnownForPlayer(src.r,src.c);
+    }
+  }
   const res=findHexPathCells(u,goal);
   const path=res&&res.cells;
   u._pathSkirtRiver=!!(res&&res.skirtRiver);
   if(path&&path.length>2) u._pathCorners=path.slice(1,-1).map(c=>({x:c.x,y:c.y}));
   else u._pathCorners=null;
+}
+function markPlayerIssuedWaypoint(u){
+  if(!u) return;
+  u._pursuitPathActive=false;
+  u._pursuitTgtKey=null;
+}
+/**
+ * 추격·추종 등 AI 이동: 수동 이동과 동일하게 findHexPathCells 경로 사용.
+ * 플레이어가 찍은 wx/wy가 있으면(추격용이 아닐 때) 덮어쓰지 않음.
+ */
+function tryApplyPursuitWaypointPath(u, tx, ty, pursuitKey){
+  if(!u||!isBattle) return false;
+  if(u.wx!=null&&u.wy!=null&&!u._pursuitPathActive) return false;
+  const now=_frameCount|0;
+  const key=String(pursuitKey!=null?pursuitKey:'');
+  const noPath=u.wx==null||u.wy==null;
+  const ax=u._pursuitAnchorX, ay=u._pursuitAnchorY;
+  const anchorMove=ax==null||ay==null||Math.hypot(tx-ax,ty-ay)>68;
+  const tgtSwitch=u._pursuitTgtKey!=null&&u._pursuitTgtKey!==key;
+  const stale=!noPath&&(now-(u._pursuitPathTick||0))>28;
+  if(!noPath&&!anchorMove&&!stale&&!tgtSwitch) return false;
+  const wp=resolveMoveCommandPoint(u,tx,ty);
+  if(!wp) return false;
+  applyWaypointPath(u,wp);
+  u._pursuitPathActive=true;
+  u._pursuitTgtKey=key;
+  u._pursuitAnchorX=tx;
+  u._pursuitAnchorY=ty;
+  u._pursuitPathTick=now;
+  return true;
+}
+function clearPursuitWaypointIfAny(u){
+  if(!u||!u._pursuitPathActive) return;
+  clearAllyHexPath(u);
+  u.wx=u.wy=null;
+  u._pursuitPathActive=false;
+  u._pursuitTgtKey=null;
+  u._pursuitAnchorX=u._pursuitAnchorY=null;
 }
 // 드래그 이동을 처리하는 별도 함수
 function executeMoveOrder(u, x, y) {
@@ -4666,14 +4801,14 @@ function executeMoveOrder(u, x, y) {
     // 배치 단계: 기존 배치 로직 호출
     handlePlacementDrop(u, x, y); 
   } else {
-    // 전투 단계: 웨이포인트 설정 및 홀드 해제
+    // 전투 단계: 웨이포인트 (홀드는 더블클릭으로만 토글 — 이동 후에도 유지)
     const wp=resolveMoveCommandPoint(u,x,y);
     if(!wp){
       addFloat(u.x,u.y-16,'이동 불가','#e74c3c');
       return;
     }
     applyWaypointPath(u,wp);
-    u.onHold = false; // 이동 명령 시 홀드는 자동으로 풀립니다.
+    markPlayerIssuedWaypoint(u);
     if(wp.adjusted) addFloat(u.wx,u.wy,'지형 보정','#60a5fa');
     addFloat(u.wx, u.wy, '🎯', '#f1c40f');
   }
@@ -5269,6 +5404,8 @@ function toggleBattle(){
   isPlacing = false;
   isBattle = true;
   isPaused = false;
+  ensureAllyTerrainKnowledgeSet();
+  if(typeof updateAllyTerrainKnowledgeFromVision==='function') updateAllyTerrainKnowledgeFromVision();
   resetBattleContributionStats(currentParty);
 
   // 1일차 전투 출발 시점부터 15일차 클리어까지의 경과 시간을 거점 수익에 사용합니다.
@@ -5822,6 +5959,7 @@ function battleTick(){
     if (zoneStage >= (currentZone.finalStage || 15)) {
         isBattle = false;
         isPlacing = false;
+        resetAllyTerrainKnowledge();
         healAlliesAfterBattle();
         
         // zoneRecords 초기화 확인
@@ -5888,6 +6026,7 @@ function battleTick(){
     if (isBattle && liveAllies.length === 0) {
       isBattle = false; // 즉시 전투 중지
       isPlacing = false;
+      resetAllyTerrainKnowledge();
 
       // 2. [핵심 수정] 모든 배치된 대원을 전멸 상태로 정리
       allies.forEach(a => {
@@ -6519,9 +6658,11 @@ function moveAlly(a,ae,aa,baseTerrSpd){
     if(dying.length>0){
       dying.sort((x,y)=>x.deathTime-y.deathTime);
       const tgt=dying[0];
-      if(dist(a,tgt)<=healRange) return;
-      const best=bestAdjacentCell(a,tgt.x,tgt.y);
-      if(best){const dx=best.x-a.x,dy=best.y-a.y,dn=Math.hypot(dx,dy);if(dn>1){a.x+=dx/dn*spd*1.2;a.y+=dy/dn*spd*1.2;clampToMap(a);}}
+      if(dist(a,tgt)<=healRange){
+        clearPursuitWaypointIfAny(a);
+        return;
+      }
+      tryApplyPursuitWaypointPath(a,tgt.x,tgt.y,'dy-'+(tgt.id||0));
       return;
     }
     // 기본 추종: 가장 가까운 탱커 -> 없으면 가장 가까운 아군 (filter/sort 대신 단일 루프)
@@ -6544,15 +6685,20 @@ function moveAlly(a,ae,aa,baseTerrSpd){
     const follow=followTank||followAny;
     if(!follow)return;
     const inRange=woundedInRange;
-    if(inRange)return;
+    if(inRange){
+      clearPursuitWaypointIfAny(a);
+      return;
+    }
     const d=dist(a,follow);
-    if(d<=healRange*0.55)return;
-    const best=bestAdjacentCell(a,follow.x,follow.y);
-    if(best){const dx=best.x-a.x,dy=best.y-a.y,dn=Math.hypot(dx,dy);if(dn>1) tryMoveWithTerrain(a,dx/dn*spd,dy/dn*spd,{useTerrainSpeed:false});}
+    if(d<=healRange*0.55){
+      clearPursuitWaypointIfAny(a);
+      return;
+    }
+    tryApplyPursuitWaypointPath(a,follow.x,follow.y,'fw-'+(follow.id||0));
     return;
   }
 
-  // 탱/딜: 가장 가까운 적을 향해 이동
+  // 탱/딜: 가장 가까운 적을 향해 이동 (수동 이동과 동일한 헥스 최소시간 경로)
   const enemyTgt=closest(a,ae,Infinity);
   if(enemyTgt){
     const rd2=BASE_ROLES[role];
@@ -6562,11 +6708,13 @@ function moveAlly(a,ae,aa,baseTerrSpd){
     const isRangedKiter=role==='Ranged'||role==='Mage'||(role==='Refugee'&&a.activeSkills?.includes('Arrow'));
     // 고정 80픽셀 키트는 attackRange(피난민~85)보다 작아 80~85 구간에서 이동이 완전히 멈추는 버그가 있었음
     const kiteThresh=isRangedKiter?Math.max(34, Math.min(attackRange-8, attackRange*0.48)):0;
-    if(d>attackRange){
-      const best=bestAdjacentCell(a,enemyTgt.x,enemyTgt.y);
-      if(best&&canTraverseTerrain(a,best.cell)){const dx=best.x-a.x,dy=best.y-a.y,dn=Math.hypot(dx,dy);if(dn>1) tryMoveWithTerrain(a,dx/dn*spd,dy/dn*spd,{useTerrainSpeed:false});}
-    }else if(isRangedKiter&&d<kiteThresh){
-      const dx=a.x-enemyTgt.x,dy=a.y-enemyTgt.y,dn=Math.hypot(dx,dy);if(dn>1) tryMoveWithTerrain(a,dx/dn*spd*0.55,dy/dn*spd*0.55,{useTerrainSpeed:false});
+    if(d<=attackRange){
+      clearPursuitWaypointIfAny(a);
+      if(isRangedKiter&&d<kiteThresh){
+        const dx=a.x-enemyTgt.x,dy=a.y-enemyTgt.y,dn=Math.hypot(dx,dy);if(dn>1) tryMoveWithTerrain(a,dx/dn*spd*0.55,dy/dn*spd*0.55,{useTerrainSpeed:false});
+      }
+    }else{
+      tryApplyPursuitWaypointPath(a,enemyTgt.x,enemyTgt.y,'en-'+(enemyTgt.id||0));
     }
   }
 }
@@ -12121,6 +12269,9 @@ function loop(gen,rafTs) {
   // 2. 전투 엔진: 전투 중이고 정지 상태가 아닐 때 가동 (매 프레임 유지 — 프레임 스킵 시 atkCd/skillCd 밸런스가 깨짐)
   if (modEnabled(1)&&isBattle&&!isPaused) {
     battleTick();
+  }
+  if(isBattle&&fogEnabled()&&(_frameCount&1)===0&&typeof updateAllyTerrainKnowledgeFromVision==='function'){
+    updateAllyTerrainKnowledgeFromVision();
   }
   
   // 3. [성능 최적화] 부동 텍스트(데미지/EXP) 수명 관리
