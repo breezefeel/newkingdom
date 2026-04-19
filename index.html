@@ -730,6 +730,8 @@ canvas {
   z-index: 9999; 
   align-items: center; 
   justify-content: center; 
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   
   /* [변경] 평소에는 클릭을 통과시킵니다. */
   pointer-events: none; 
@@ -756,7 +758,7 @@ canvas {
   cursor: pointer;
 }
 
-.modal-box { background:#0f1923; border:1px solid #f1c40f44; border-radius:10px; padding:20px; max-width:540px; width:90%; }
+.modal-box { background:#0f1923; border:1px solid #f1c40f44; border-radius:10px; padding:20px; max-width:540px; width:90%; max-height:88vh; overflow-y:auto; -webkit-overflow-scrolling:touch; margin: auto; }
 /* 게임 안내: 목차·접기 */
 #game-help-modal .game-help-modal-inner { max-width: 520px; width: 92%; }
 #game-help-body.game-help-body--toc {
@@ -2788,18 +2790,18 @@ function getWildlifeEarlyDayDamageMul(e){
 }
 // ── 동물 적 데이터 (TASK 5: 집합소 hunt/river/wilds 구성) ──
 const ANIMAL_ENEMIES={
-  rabbit:{id:'rabbit',name:'🐇 토끼',role:null,baseHp:80,baseAtk:8,baseSpd:2.8,baseDef:0.02,behavior:'flee',fleeRange:200},
-  deer:{id:'deer',name:'🦌 사슴',role:null,baseHp:150,baseAtk:12,baseSpd:2.4,baseDef:0.03,behavior:'flee',fleeRange:180},
-  boar:{id:'boar',name:'🐗 멧돼지',role:'Melee',baseHp:280,baseAtk:35,baseSpd:1.8,baseDef:0.10,behavior:'charge_if_cornered',fleeRange:120},
-  wolf:{id:'wolf',name:'🐺 늑대',role:'Melee',baseHp:220,baseAtk:45,baseSpd:2.2,baseDef:0.08,behavior:'pack_hunt'},
-  wolf_alpha:{id:'wolf_alpha',name:'🐺 알파 늑대',role:'Warrior',baseHp:380,baseAtk:72,baseSpd:2.0,baseDef:0.12,behavior:'pack_hunt',isAlpha:true},
-  bear:{id:'bear',name:'🐻 곰',role:'Tank',baseHp:600,baseAtk:80,baseSpd:1.3,baseDef:0.25,behavior:'territory',territoryRadius:180},
-  tiger:{id:'tiger',name:'🐯 호랑이',role:'Warrior',baseHp:450,baseAtk:110,baseSpd:2.0,baseDef:0.15,behavior:'ambush',ambushRange:250},
-  otter:{id:'otter',name:'🦦 수달',role:'Melee',baseHp:160,baseAtk:28,baseSpd:2.0,baseDef:0.05,behavior:'flee',aquatic:true},
-  heron:{id:'heron',name:'🦢 왜가리',role:'Ranged',baseHp:180,baseAtk:40,baseSpd:1.6,baseDef:0.04,behavior:'retreat'},
-  crocodile:{id:'crocodile',name:'🐊 악어',role:'Tank',baseHp:550,baseAtk:95,baseSpd:0.9,baseDef:0.28,behavior:'ambush',ambushRange:220,aquatic:true},
-  hippo:{id:'hippo',name:'🦛 하마',role:'Tank',baseHp:900,baseAtk:120,baseSpd:0.8,baseDef:0.32,behavior:'territory',territoryRadius:200,aquatic:true},
-  boar_pack:{id:'boar_pack',name:'🐗 멧돼지 무리',role:'Melee',baseHp:300,baseAtk:55,baseSpd:1.7,baseDef:0.12,behavior:'pack_hunt'},
+  rabbit:{id:'rabbit',name:'🐇 토끼',role:null,baseHp:80,baseAtk:8,baseSpd:2.8,baseDef:0.02,behavior:'flee', animalType:'herbivore', color:'#4ade80',fleeRange:200},
+  deer:{id:'deer',name:'🦌 사슴',role:null,baseHp:150,baseAtk:12,baseSpd:2.4,baseDef:0.03,behavior:'flee', animalType:'herbivore', color:'#4ade80',fleeRange:180},
+  boar:{id:'boar',name:'🐗 멧돼지',role:'Melee',baseHp:280,baseAtk:35,baseSpd:1.8,baseDef:0.10,behavior:'charge_if_cornered', animalType:'omnivore', color:'#fbbf24',fleeRange:120},
+  wolf:{id:'wolf',name:'🐺 늑대',role:'Melee',baseHp:220,baseAtk:45,baseSpd:2.2,baseDef:0.08,behavior:'pack_hunt', animalType:'predator', color:'#f87171'},
+  wolf_alpha:{id:'wolf_alpha',name:'🐺 알파 늑대',role:'Warrior',baseHp:380,baseAtk:72,baseSpd:2.0,baseDef:0.12,behavior:'pack_hunt', animalType:'predator', color:'#f87171',isAlpha:true},
+  bear:{id:'bear',name:'🐻 곰',role:'Tank',baseHp:600,baseAtk:80,baseSpd:1.3,baseDef:0.25,behavior:'territory', animalType:'predator', color:'#f87171',territoryRadius:180},
+  tiger:{id:'tiger',name:'🐯 호랑이',role:'Warrior',baseHp:450,baseAtk:110,baseSpd:2.0,baseDef:0.15,behavior:'ambush', animalType:'predator', color:'#f87171',ambushRange:250},
+  otter:{id:'otter',name:'🦦 수달',role:'Melee',baseHp:160,baseAtk:28,baseSpd:2.0,baseDef:0.05,behavior:'flee', animalType:'herbivore', color:'#4ade80',aquatic:true},
+  heron:{id:'heron',name:'🦢 왜가리',role:'Ranged',baseHp:180,baseAtk:40,baseSpd:1.6,baseDef:0.04,behavior:'retreat', animalType:'herbivore', color:'#86efac'},
+  crocodile:{id:'crocodile',name:'🐊 악어',role:'Tank',baseHp:550,baseAtk:95,baseSpd:0.9,baseDef:0.28,behavior:'ambush', animalType:'predator', color:'#f87171',ambushRange:220,aquatic:true},
+  hippo:{id:'hippo',name:'🦛 하마',role:'Tank',baseHp:900,baseAtk:120,baseSpd:0.8,baseDef:0.32,behavior:'territory', animalType:'predator', color:'#f87171',territoryRadius:200,aquatic:true},
+  boar_pack:{id:'boar_pack',name:'🐗 멧돼지 무리',role:'Melee',baseHp:300,baseAtk:55,baseSpd:1.7,baseDef:0.12,behavior:'pack_hunt', animalType:'predator', color:'#f87171'},
 };
 const HUNT_COMPOSITION={
   1:{herbivore:0.70,predator:0.30},
@@ -2917,7 +2919,7 @@ const SPEECH_API_KEY = getApiKey; // 하위 호환: getApiKey() 로 호출
 const SPEECH_API_ENABLED = false;
 let _speechBubbles = [];
 let _speechCooldowns = {};
-const SPEECH_COOLDOWN_FRAMES = 600;
+const SPEECH_COOLDOWN_FRAMES = 240;
 
 let isBattle=false,isPaused=false,isPlacing=false;
 let autoStart=false;
@@ -3561,7 +3563,26 @@ function init(){
     if(wasMapPan||hadDragUnit) return;
     const {x,y}=getPos(t);
     if(Math.hypot(x-dragSX,y-dragSY)>10) return;
-    recordMapEmptyPoint(x,y);
+    
+    // 모바일 더블/트리플 탭: touchend 기준으로 탭 카운트
+    const nowT=Date.now();
+    const clickedA=allies.find(a=>a.isDeployed&&!a.dead&&dist(a,{x,y})<25);
+    if(clickedA){
+      if(lastClickUnit===clickedA&&(nowT-lastClickTime)<320){
+        // 더블탭: hold 토글 (onDown에서 이미 처리하지만 모바일 타이밍 보완)
+        if(!clickedA._tapHandledAt||(nowT-clickedA._tapHandledAt)>100){
+          clickedA._tapHandledAt=nowT;
+          clickedA.onHold=!clickedA.onHold;
+          if(clickedA.onHold&&typeof resetAllyMoveIntent==='function') resetAllyMoveIntent(clickedA);
+          addFloat(clickedA.x,clickedA.y-20,clickedA.onHold?'🛑 HOLD':'🏃 MOVE','#a855f7');
+          lastClickTime=0; lastClickUnit=null;
+        }
+      } else {
+        lastClickTime=nowT; lastClickUnit=clickedA;
+      }
+    } else {
+      recordMapEmptyPoint(x,y);
+    }
   },{passive:false});
   // 상단 전투 컨트롤 버튼은 addEventListener로도 연결해 브라우저별 inline 이벤트 편차를 방지
   const goBtnEl=document.getElementById('btn-go');
@@ -4117,12 +4138,39 @@ function getAutoPursuitRingGoalWorld(a,enemy){
   const R=typeof getAllyMinEquippedSkillRangeWorld==='function'?getAllyMinEquippedSkillRangeWorld(a):120;
   const Re=typeof getUnitBodyRadiusForTerrain==='function'?getUnitBodyRadiusForTerrain(enemy):13;
   const reach=Math.max(8, R-Re-4);
-  const dx=a.x-enemy.x, dy=a.y-enemy.y;
-  const d=Math.hypot(dx,dy);
-  if(d<4) return {x:enemy.x,y:enemy.y};
-  const ux=dx/d, uy=dy/d;
-  const seg=Math.min(reach, Math.max(0, d-8));
-  return {x:enemy.x+ux*seg,y:enemy.y+uy*seg};
+
+  // ── 같은 적을 향하는 아군 목록 파악 → 링 슬롯 배분 ──
+  // 같은 enemy 위치를 추격 중인 아군 정렬 (id순 → 매 프레임 일관성)
+  const pursuers = allies
+    .filter(u => u.isDeployed && !u.dead && !u.permanentlyDead
+      && u._pursuitTrackRef
+      && Math.abs(u._pursuitTrackRef.x - enemy.x) < 16
+      && Math.abs(u._pursuitTrackRef.y - enemy.y) < 16)
+    .sort((x,y) => x.id - y.id);
+
+  // 자신의 슬롯 인덱스
+  let slotIdx = pursuers.findIndex(u => u.id === a.id);
+  if(slotIdx < 0) slotIdx = 0;
+  const slotCount = Math.max(1, pursuers.length);
+
+  // 슬롯 간 각도 분배 (최대 6슬롯 = 60도 간격)
+  // 기준 방향: 아군 → 적 방향 (자기 위치 기준)
+  const dx = a.x - enemy.x, dy = a.y - enemy.y;
+  const d = Math.hypot(dx, dy);
+  const baseAngle = d > 4 ? Math.atan2(dy, dx) : 0;
+
+  // 슬롯 각도: 전방 60도 범위 내에서 균등 분배
+  // 슬롯 1개면 기준 방향, 여러 개면 ±30도 범위로 펼침
+  const spreadRad = Math.min(Math.PI * 0.55, (slotCount - 1) * 0.38);
+  const angleStep = slotCount > 1 ? spreadRad * 2 / (slotCount - 1) : 0;
+  const myAngle = baseAngle - spreadRad + slotIdx * angleStep;
+
+  // 링 위 목표 좌표
+  const ringR = Math.min(reach, Math.max(26, d - 10));
+  return {
+    x: enemy.x + Math.cos(myAngle) * ringR,
+    y: enemy.y + Math.sin(myAngle) * ringR,
+  };
 }
 
 function getAutoPursuitLookaheadTowardPoint(a,tx,ty,maxAheadPx,minAheadPx){
@@ -4825,6 +4873,17 @@ function findHexPathCells(unit,goalCell){
   const key=(r,c)=>`${r}|${c}`;
   const goalK=key(gr,gc);
   const INF=1e30;
+  // 적 점유 셀: 아군 경로에만 비용 추가 (적 자신의 경로 탐색엔 적용 안 함)
+  const isAllyUnit = unit.type === 'ally' || (!unit.type && !unit.animalBehavior && !unit.etype);
+  const enemyOccupied=new Set();
+  if(isBattle && isAllyUnit){
+    const liveEnemies=enemies.filter(e=>!e.dead&&e.hp>0);
+    for(let ei=0;ei<liveEnemies.length;ei++){
+      const e=liveEnemies[ei];
+      const erc=mapHexCellToRowCol(nearestCell(e.x,e.y));
+      if(erc) enemyOccupied.add(erc.r*100+erc.c);
+    }
+  }
   const edgeW=(nCell)=>{
     if(!nCell) return INF;
     if(fogEnabled()&&_allySharedVisionKeys){
@@ -4834,6 +4893,14 @@ function findHexPathCells(unit,goalCell){
       if(!isKnown&&!isGoal) return 4.0;
     }
     let w=terrainMoveCost(nCell,role);
+    // 적 점유 셀: 비용 크게 높여 우회 유도 (목표 셀은 예외)
+    if(isBattle&&enemyOccupied.size>0){
+      const rc2=mapHexCellToRowCol(nCell);
+      const isGoalCell=rc2&&rc2.r===gr&&rc2.c===gc;
+      if(!isGoalCell&&rc2&&enemyOccupied.has(rc2.r*100+rc2.c)){
+        w+=18; // 높은 비용 → Dijkstra가 돌아가는 경로 선택
+      }
+    }
     const ab=terrainAdvantageBias(role,nCell);
     if(Number.isFinite(ab)) w+=ab;
     return Math.max(0.05,w);
@@ -6047,7 +6114,7 @@ function buildPhase0AnimalFormation(s,baseZ){
     out.push({
       name:a.name,
       mark:firstMarkFromAnimalName(a.name),
-      color:isHerb?'#5d8a3c':'#b45309',
+      color:a.color||(isHerb?'#4ade80':(a.behavior==='charge_if_cornered'?'#fbbf24':'#f87171')),
       role,
       etype:isHerb?'prey':'predator',
       x:xx,y:yy,
@@ -6631,30 +6698,55 @@ function onDown(e){
   const pendingCell=nearestCell(x,y);
   const pendingPurple=isDeployZoneCell(pendingCell);
   if(pendingUd.length>0&&pendingPurple){
-    let finalCell=pendingCell;
-    if(isDeployCellOccupied(finalCell,null)){
-      const bestEmptyCell=findNearestEmptyDeployCell(x,y,null);
-      if(bestEmptyCell) finalCell=bestEmptyCell;
-      else { alog("⚠️ 배치 가능한 빈 공간이 없습니다!"); return; }
-    }
-    const u=pendingUd[0];
-    u.x=finalCell.x; u.y=finalCell.y;
-    u.isDeployed=true; u.wx=null; u.wy=null;
-    clearAllyHexPath(u);
-    savedPositions[u.id]={x:u.x,y:u.y};
-    initialPositions[u.id]={x:u.x,y:u.y};
-    _selectedUnitId=u.id;
-    updatePG();
-    renderAllyPanel();
-    markDirty();
-    if (autoStart && getSortedUd().length === 0) {
-      if (!isBattle) {
-        setTimeout(() => { if(!isBattle && autoStart) toggleBattle(); }, 800);
-      } else if (isPaused) {
-        togglePause();
+    // 전투 중: 클릭 위치에 기존 배치 아군이 있으면 드래그 우선 (pendingUd 배치 스킵)
+    if(isBattle){
+      const existingAlly=allies.find(a=>a.isDeployed&&!a.dead&&dist(a,{x,y})<25);
+      if(existingAlly) {} // 아래 [1] clickedAlly 로직으로 진행
+      else {
+        // 빈 배치 구역 클릭 → 신규 유닛 배치
+        let finalCell=pendingCell;
+        if(isDeployCellOccupied(finalCell,null)){
+          const bestEmptyCell=findNearestEmptyDeployCell(x,y,null);
+          if(bestEmptyCell) finalCell=bestEmptyCell;
+          else { alog("⚠️ 배치 가능한 빈 공간이 없습니다!"); return; }
+        }
+        const u=pendingUd[0];
+        u.x=finalCell.x; u.y=finalCell.y;
+        u.isDeployed=true; u.wx=null; u.wy=null;
+        clearAllyHexPath(u);
+        savedPositions[u.id]={x:u.x,y:u.y};
+        initialPositions[u.id]={x:u.x,y:u.y};
+        _selectedUnitId=u.id;
+        updatePG(); renderAllyPanel(); markDirty();
+        if(isPaused) togglePause();
+        return;
       }
+    } else {
+      let finalCell=pendingCell;
+      if(isDeployCellOccupied(finalCell,null)){
+        const bestEmptyCell=findNearestEmptyDeployCell(x,y,null);
+        if(bestEmptyCell) finalCell=bestEmptyCell;
+        else { alog("⚠️ 배치 가능한 빈 공간이 없습니다!"); return; }
+      }
+      const u=pendingUd[0];
+      u.x=finalCell.x; u.y=finalCell.y;
+      u.isDeployed=true; u.wx=null; u.wy=null;
+      clearAllyHexPath(u);
+      savedPositions[u.id]={x:u.x,y:u.y};
+      initialPositions[u.id]={x:u.x,y:u.y};
+      _selectedUnitId=u.id;
+      updatePG();
+      renderAllyPanel();
+      markDirty();
+      if (autoStart && getSortedUd().length === 0) {
+        if (!isBattle) {
+          setTimeout(() => { if(!isBattle && autoStart) toggleBattle(); }, 800);
+        } else if (isPaused) {
+          togglePause();
+        }
+      }
+      return;
     }
-    return;
   }
 
   // [1] 지도 위 아군 유닛 클릭 판정
@@ -6818,19 +6910,34 @@ function onUp(e){
           setTimeout(() => { if(!isBattle && autoStart) toggleBattle(); }, 800);
         }
       } else {
-        // 2. 전투 단계: 전술적 이동 (맵 경로선은 초록 #2ecc71 계열)
-        const wp=resolveMoveCommandPoint(dragUnit,x,y);
-        if(!wp){
-          addFloat(dragUnit.x,dragUnit.y-16,'이동 불가','#e74c3c');
-          dragUnit=null;
-          isDragging=false;
-          return;
+        // 2. 전투 단계: 드롭 위치에 아군 있으면 위치 교체, 없으면 이동 명령
+        // 드래그 시작점(dragSX,dragSY)의 유닛을 드롭 위치 유닛과 교체
+        // 반경을 넉넉히(36px) - 전투중 유닛이 움직이므로 정확도 보완
+        const swapTarget=allies.find(a=>a!==dragUnit&&a.isDeployed&&!a.dead&&dist(a,{x,y})<36);
+        if(swapTarget){
+          // 위치 스왑
+          const tx=swapTarget.x, ty=swapTarget.y;
+          swapTarget.x=dragUnit.x; swapTarget.y=dragUnit.y;
+          dragUnit.x=tx; dragUnit.y=ty;
+          savedPositions[dragUnit.id]={x:dragUnit.x,y:dragUnit.y};
+          savedPositions[swapTarget.id]={x:swapTarget.x,y:swapTarget.y};
+          clearAllyHexPath(dragUnit); clearAllyHexPath(swapTarget);
+          dragUnit.wx=null; dragUnit.wy=null;
+          swapTarget.wx=null; swapTarget.wy=null;
+          addFloat(dragUnit.x,dragUnit.y-16,'🔄 교체','#2ecc71');
+        } else {
+          // 빈 공간: 이동 명령
+          const wp=resolveMoveCommandPoint(dragUnit,x,y);
+          if(!wp){
+            addFloat(dragUnit.x,dragUnit.y-16,'이동 불가','#e74c3c');
+            dragUnit=null; isDragging=false; return;
+          }
+          const keepHold=!!dragUnit.onHold;
+          applyWaypointPath(dragUnit,wp);
+          if(keepHold) dragUnit.onHold=true;
+          if(wp.adjusted) addFloat(dragUnit.wx,dragUnit.wy,'지형 보정','#60a5fa');
+          addFloat(dragUnit.wx,dragUnit.wy,'🎯 이동','#f1c40f');
         }
-        const keepHold=!!dragUnit.onHold;
-        applyWaypointPath(dragUnit,wp);
-        if(keepHold) dragUnit.onHold=true;
-        if(wp.adjusted) addFloat(dragUnit.wx,dragUnit.wy,'지형 보정','#60a5fa');
-        addFloat(dragUnit.wx, dragUnit.wy, '🎯 이동', '#f1c40f');
       }
       if(isDragging&&dragDist>10) _lastCanvasDragEndTs=Date.now();
     } 
@@ -8137,13 +8244,36 @@ function getAnimalMoveTarget(e,allies){
       const fleeHysteresis=52;
       const releaseDist=fleeRange+fleeHysteresis;
       const inThreat=nearDist<fleeRange||lowHp||recentHit;
-      const stillFleeing=e._behaviorState==='flee'&&nearDist<releaseDist&&!lowHp&&!recentHit;
+      const stillFleeing=e._behaviorState==='flee'&&nearDist<releaseDist;
       if(inThreat||stillFleeing){
         e._behaviorState='flee';
         if(nearest){
+          // 모든 아군의 합산 밀어내기 벡터 계산 (가까울수록 강하게)
+          let fx=0, fy=0;
+          for(let ai=0;ai<allies.length;ai++){
+            const a=allies[ai];
+            if(!a.isDeployed||a.dead) continue;
+            const adx=e.x-a.x, ady=e.y-a.y;
+            const ad=Math.hypot(adx,ady);
+            if(ad<1||ad>fleeRange*1.5) continue;
+            const w=1/(ad*ad); // 거리 제곱 반비례 가중치
+            fx+=adx/ad*w;
+            fy+=ady/ad*w;
+          }
+          const fn_=Math.hypot(fx,fy);
+          if(fn_>0.0001){
+            // 아군 합산 반대 방향으로 150px 도망
+            const dist_=150;
+            return{
+              x:e.x+fx/fn_*dist_,
+              y:e.y+fy/fn_*dist_,
+              speedMult:lowHp?1.45:1.05,
+            };
+          }
+          // 폴백: 가장 가까운 아군만 피함
           return{
-            x:e.x+(e.x-nearest.x)*3,
-            y:e.y+(e.y-nearest.y)*3,
+            x:e.x+(e.x-nearest.x)*2.5,
+            y:e.y+(e.y-nearest.y)*2.5,
             speedMult:lowHp?1.45:1.05,
           };
         }
@@ -8160,6 +8290,18 @@ function getAnimalMoveTarget(e,allies){
       }
       if(nearDist<fleeRange){
         e._behaviorState='flee';
+        // flee/retreat와 동일하게 합산 벡터 방향으로 도망
+        let fx=0,fy=0;
+        for(let ai=0;ai<allies.length;ai++){
+          const a=allies[ai];
+          if(!a.isDeployed||a.dead) continue;
+          const adx=e.x-a.x,ady=e.y-a.y,ad=Math.hypot(adx,ady);
+          if(ad<1||ad>fleeRange*1.5) continue;
+          const w=1/(ad*ad);
+          fx+=adx/ad*w; fy+=ady/ad*w;
+        }
+        const fn_=Math.hypot(fx,fy);
+        if(fn_>0.0001) return{x:e.x+fx/fn_*140,y:e.y+fy/fn_*140,speedMult:1.05};
         return nearest?{x:e.x+(e.x-nearest.x)*2.5,y:e.y+(e.y-nearest.y)*2.5,speedMult:1.05}:null;
       }
       return null;
@@ -8551,16 +8693,58 @@ function battleTick(){
       if(mt){
         e._enemyIntentX=null;
         e._enemyIntentY=null;
-        const wp=resolveMoveCommandPoint(e,mt.x,mt.y);
+        // flee: resolveMoveCommandPoint 실패 시 맵 경계 클램프 후 직선 이동
+        let wp=resolveMoveCommandPoint(e,mt.x,mt.y);
+        if(!wp&&(e.animalBehavior==='flee'||e.animalBehavior==='retreat')){
+          // 도망 목표가 맵 밖 → 맵 안 가장 가까운 유효 지점으로 클램프
+          const cx=Math.max(MAP_PAD+10,Math.min(CW-MAP_PAD-10,mt.x));
+          const cy=Math.max(MAP_PAD+10,Math.min(CH-MAP_PAD-10,mt.y));
+          wp=resolveMoveCommandPoint(e,cx,cy)||{x:cx,y:cy,adjusted:true};
+        }
         if(wp){
           applyEnemyWaypointPath(e,wp);
           const sms=mt.speedMult||1;
           if(e._enemyWx!=null&&e._enemyWy!=null){
             stepEnemyAlongNavigation(e,moveSpd*sms);
             didMove=true;
+          }else if(e.animalBehavior==='flee'||e.animalBehavior==='retreat'){
+            // 경로 탐색 실패해도 직접 이동 (맵 경계 방향으로)
+            const dx=wp.x-e.x, dy=wp.y-e.y, dn=Math.hypot(dx,dy);
+            if(dn>1){ e.x+=dx/dn*moveSpd*sms*0.8; e.y+=dy/dn*moveSpd*sms*0.8; }
+            clampToMap(e);
+            didMove=true;
           }
         }
         e._tempAtkMult=mt.atkMult||1;
+      }
+      // ── 동물 behavior 처리 후 일반 추격 로직 차단 ──
+      // charge_if_cornered: flee 상태면 추격 차단, pursue 상태면 아래 일반 로직으로 진행
+      if(e.animalBehavior==='charge_if_cornered'&&e._behaviorState==='flee'){
+        if(!didMove){
+          // 경로 실패 시 배회
+          e.wanderTimer=(e.wanderTimer||0)-1;
+          if((e.wanderTimer||0)<=0){
+            e.wanderAngle=(e.wanderAngle||0)+(Math.random()-0.5)*1.0;
+            e.wanderTimer=25+Math.floor(Math.random()*35);
+          }
+          tryMoveWithTerrain(e,Math.cos(e.wanderAngle||0)*moveSpd*0.55,Math.sin(e.wanderAngle||0)*moveSpd*0.55,{role:getUnitMoveRole(e)});
+          clampToMap(e);
+        }
+        return;
+      }
+      // flee/retreat 중이면 일반 추격 로직으로 절대 넘어가지 않음
+      if(e.animalBehavior==='flee'||e.animalBehavior==='retreat'){
+        if(!didMove){
+          // 아군 없거나 위협 범위 밖 → 배회
+          e.wanderTimer=(e.wanderTimer||0)-1;
+          if((e.wanderTimer||0)<=0){
+            e.wanderAngle=(e.wanderAngle||0)+(Math.random()-0.5)*1.2;
+            e.wanderTimer=30+Math.floor(Math.random()*40);
+          }
+          tryMoveWithTerrain(e,Math.cos(e.wanderAngle||0)*moveSpd*0.5,Math.sin(e.wanderAngle||0)*moveSpd*0.5,{role:getUnitMoveRole(e)});
+          clampToMap(e);
+        }
+        return; // flee는 여기서 반드시 종료 — 아래 추격 로직 실행 금지
       }
       if(!mt&&(e.animalBehavior==='flee'||e.animalBehavior==='retreat')){
         e.wanderTimer=(e.wanderTimer||0)-1;
@@ -8907,9 +9091,9 @@ function battleTick(){
       return;
     }
   }
-  if(isBattle&&!isPaused&&(_frameCount%600===0)){
+  if(isBattle&&!isPaused&&(_frameCount%300===0)){
     const idleCands=allies.filter(a=>a.isDeployed&&!a.dead&&!a.permanentlyDead);
-    if(idleCands.length&&Math.random()<0.35){
+    if(idleCands.length&&Math.random()<0.55){
       triggerSpeech(idleCands[Math.floor(Math.random()*idleCands.length)],'idle_random');
     }
   }
@@ -9370,6 +9554,10 @@ function applyDmg(a,tgt,cell,sk,mult=1){
   const isRearPenetrationHit=isRearOrRearSideHit(a,tgt);
   if(isRearPenetrationHit){
     effDef=0;
+    // 후방 공격 피드백 (30% 확률로 텍스트 표시 - 너무 잦으면 화면 복잡)
+    if(Math.random()<0.30){
+      addFloat(tgt.x, tgt.y-22, '⚔️후방!', '#f97316');
+    }
   }
   let dmgRedMul=1;
   if(tgt&&tgt.type==='ally'){
@@ -13976,7 +14164,7 @@ function drawUnit(u) {
   // 2. 유닛 본체 그리기
   ctx.beginPath(); ctx.arc(u.x, u.y, R, 0, Math.PI * 2);
   ctx.fillStyle = isAlly ? (rd?.color || '#3498db') : u.color; ctx.fill();
-  ctx.strokeStyle = isAlly ? '#1a2a6c' : '#f88'; ctx.lineWidth = isAlly ? 3 : 1; ctx.stroke();
+  ctx.strokeStyle = isAlly ? '#1a2a6c' : (u.color||'#f88'); ctx.lineWidth = isAlly ? 3 : 2.2; ctx.stroke();
   // 3. 유닛 중앙 메인 스킬 아이콘 + 쿨타임 표시
   ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   let centerText;
@@ -14036,7 +14224,7 @@ function drawUnit(u) {
   ctx.arc(fx,fy,markerR,0,Math.PI*2);
   ctx.fillStyle='rgba(248,250,252,0.99)';
   ctx.fill();
-  ctx.strokeStyle=isAlly?'#1e40af':'#7f1d1d';
+  ctx.strokeStyle=isAlly?'#1e40af':(u.color?u.color+'bb':'#7f1d1d');
   ctx.lineWidth=1.15;
   ctx.stroke();
 
@@ -14047,7 +14235,7 @@ function drawUnit(u) {
   ctx.fillStyle = (isAlly && u.id === _selectedUnitId) ? '#f1c40f' : (pct > 0.5 ? '#2ecc71' : '#e74c3c');
   ctx.fillRect(bx, by, bw * pct, bh);
   
-  ctx.fillStyle = isAlly ? (rd?.color || '#fff') : '#ffaaaa';
+  ctx.fillStyle = isAlly ? (rd?.color || '#fff') : (u.color||'#ffaaaa');
   ctx.font = '6px Arial'; ctx.fillText((u.name || '').slice(0, 5), u.x, by - 10);
   
   ctx.restore();
@@ -16013,34 +16201,27 @@ function updateBattleTimerUI(){
 
 // [추가] 아군 유닛 간 겹침 방지 (상시 작동용)
 function resolveOverlap() {
-  // 전장에 배치된 살아있는 아군들만 필터링합니다.
+  // 아군끼리만 분리 (적과의 물리 충돌은 없음 — 후방 우회로 시야 돌리기)
   const aa = allies.filter(a => a.isDeployed && a.hp > 0 && !a.dead && !a.permanentlyDead);
-  const SEP = 26; // 분리 유지 거리
+  const SEP = 26;
   const SEP2 = SEP*SEP;
-
   for (let i = 0; i < aa.length; i++) {
     for (let j = i + 1; j < aa.length; j++) {
       const a = aa[i], b = aa[j];
       const dx = b.x - a.x, dy = b.y - a.y;
       const d2 = dx*dx + dy*dy;
-
-      // 거리가 SEP보다 가까우면 서로 밀어냅니다.
       if (d2 < SEP2 && d2 > 0.01) {
         const d = Math.sqrt(d2);
-        const push = (SEP - d) * 0.3; 
+        const push = (SEP - d) * 0.3;
         const nx = dx / d * push, ny = dy / d * push;
-        
-        a.x -= nx; a.y -= ny; 
+        a.x -= nx; a.y -= ny;
         b.x += nx; b.y += ny;
-        
-        clampToMap(a); clampToMap(b); // 맵 경계 밖으로 나가지 않게 고정
-        // 패널 갱신 금지: markDirty 시 매 프레임 innerHTML 재생성 → 스킬/강화 버튼이 무력화됨.
-        // 맵 좌표는 draw() 캔버스가 이미 반영합니다.
+        clampToMap(a); clampToMap(b);
       }
     }
   }
+  // 아군↔적: 물리 밀침 없음. 경로탐색(Dijkstra)이 적을 우회하도록 edgeW로 처리.
 }
-
 function loop(gen,rafTs) {
   if(gen!==_loopGen) return;
   updateFrameMoveMul(rafTs);
