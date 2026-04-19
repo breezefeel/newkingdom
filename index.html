@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>왕국 연대기 v6.0</title>
+<title>새 왕국 스토리 v6.0</title>
 <style>
 .rv { font-size:0.82em; } .rv span { color:#f1c40f; font-weight:bold; }
 .rv span.g { color:#2ecc71; } .rv span.r { color:#e74c3c; } .rv span.fo { color:#e67e22; }
@@ -149,12 +149,13 @@ body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #cc
   opacity: 0.92;
   margin-top: 2px;
 }
-/* 거점 안내·슬픔 안내 — 컨트롤 첫 줄, 아래에 출발·버프 줄 구분선 */
+/* 거점 안내·슬픔 안내 — 한 줄: 슬픔(좌) · 거점 버프 안내(우 정렬) */
 .ctrl-hints {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 6px 10px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px 12px;
   width: 100%;
   margin: 0 0 6px 0;
   padding: 0 0 6px 0;
@@ -162,64 +163,103 @@ body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #cc
   box-sizing: border-box;
   min-width: 0;
 }
-.ctrl-hints #garrison-bar-benefit {
-  flex: 1 1 220px;
-  min-width: min(100%, 200px);
-}
 .ctrl-hints #ctrl-sorrow-hint {
-  flex: 1 1 160px;
-  min-width: min(100%, 140px);
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
   font-size: 0.78em;
   font-weight: 700;
   color: #f87171;
   line-height: 1.35;
+  text-align: left;
 }
 .ctrl-hints #ctrl-sorrow-hint:empty {
   display: none;
 }
+.ctrl-hints #garrison-bar-benefit {
+  flex: 1 1 200px;
+  min-width: 0;
+  margin-left: auto;
+  text-align: right;
+  align-self: center;
+}
 @media (max-width: 820px) {
   .ctrl-hints #garrison-bar-benefit {
-    text-align: right;
     flex: 1 1 100%;
     max-width: 100%;
   }
 }
 /* 대원 영입 선택 모달: 거점/재기 모달(9999) 위에 표시 */
 #recruit-choice-modal.overlay { z-index: 12000; }
-#garrison-bar-header .garrison-header-recruit .cb-recruit-main {
-  background: linear-gradient(135deg, #1e3a5f 0%, #5a3010 52%, #14532d 100%);
-  border: 1px solid rgba(251, 191, 36, 0.28);
-}
 
-/* 거점 헤더: 대원 영입 버튼 — ctrl-recruit 버튼과 동일 스타일 */
+/* 거점 헤더: 대원 영입·전체 유닛 — 높이·패딩·글자 크기는 .garrison-expand-btn(펼치기)와 동일 */
 #garrison-bar-header .garrison-header-recruit {
   display: flex;
   flex-wrap: nowrap;
   gap: 6px;
-  align-items: stretch;
+  align-items: center;
   flex-shrink: 0;
 }
-#garrison-bar-header .garrison-header-recruit .cb {
-  display: flex;
-  flex-direction: column;
+/* 펼치기: font-size 0.82em, padding 4px 10px, border-radius 6px */
+#garrison-bar-header .garrison-header-recruit .cb.cb-recruit-main {
+  display: inline-flex;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  line-height: 1.15;
-  min-height: 2.6em;
-  padding: 5px 8px;
-  font-size: clamp(0.68rem, 0.35vw + 0.62rem, 0.82rem);
   flex-shrink: 0;
+  box-sizing: border-box;
+  font-size: 0.82em !important;
+  font-weight: bold !important;
+  line-height: 1.25;
+  padding: 4px 10px !important;
+  border-radius: 6px !important;
+  background: linear-gradient(135deg, #1e3a5f 0%, #5a3010 52%, #14532d 100%);
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  white-space: nowrap;
 }
-#garrison-bar-header .garrison-header-recruit .cb-cost {
-  display: block;
-  font-size: 0.72em;
+#garrison-bar-header .garrison-header-recruit .btn-hub-all-units {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  font-size: 0.82em !important;
+  font-weight: bold !important;
+  line-height: 1.25;
+  padding: 4px 10px !important;
+  border-radius: 6px !important;
+  letter-spacing: 0.02em;
+  color: #e0f2fe;
+  background: linear-gradient(180deg, #1e3a5f 0%, #0f172a 100%);
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.07) inset, 0 2px 8px rgba(0,0,0,0.35);
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  white-space: nowrap;
+}
+#garrison-bar-header .garrison-header-recruit .btn-hub-all-units:hover {
+  border-color: rgba(125, 211, 252, 0.85);
+  color: #fff;
+}
+#garrison-bar-header .garrison-header-recruit .btn-hub-all-units:active {
+  transform: translateY(1px);
+}
+.recruit-unified-modal .recruit-unified-section {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid #334155;
+  border-radius: 8px;
+}
+.recruit-unified-modal .recruit-unified-label {
+  font-size: 11px;
   font-weight: 700;
-  opacity: 0.92;
-  margin-top: 2px;
-}
-#garrison-bar-header .garrison-header-recruit #btn-hub-sg-list {
-  align-self: center;
-  flex-shrink: 0;
+  color: #fbbf24;
+  margin-bottom: 8px;
 }
 .garrison-header-trailing {
   display: flex;
@@ -294,7 +334,7 @@ body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #cc
   white-space: nowrap;
 }
 
-/* 상단 연대기 줄 */
+/* 상단 새 왕국 스토리 줄 */
 .top-chronicle-row {
   display: flex;
   align-items: center;
@@ -560,7 +600,16 @@ button, .cb, .skb, .ub, .zone-btn, .class-btn, .gz-unit, .gz-add, .collapse-btn 
 .uc.uc-standby-sliding { pointer-events: none; }
 .uch { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; gap:4px; flex-wrap:nowrap; }
 .un { font-weight:bold; font-size:11px; } .ulv { font-size:9px; color:#f1c40f; }
-.uc .un, .uc .ulv, .uc-meta, .uc-stats { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.uc .un, .uc .ulv, .uc-meta { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* 기본 능력치 줄: 한 줄 유지(두 줄·말줄임 방지). 좁으면 가로 스크롤 */
+#panel-ally #al .uc-stats {
+  white-space: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
 .bw { width:100%; height:4px; background:#1e2d3d; border-radius:2px; margin:2px 0; overflow:hidden; }
 .bf { height:100%; border-radius:2px; transition:width 0.3s; }
 .hf{background:#27ae60} .ef{background:#2980b9}
@@ -650,21 +699,18 @@ canvas {
     height: auto !important;
     display: block;
 }
-/* [개선] 안내창(pg) 디자인: 가독성 및 테마 강화 */
+/* [개선] 안내창(pg) 디자인: 지도·집합소 HUD와 통일 (슬레이트 배경 + 앰버 테두리 + 스카이 강조) */
 #pg {
   position: absolute; 
   top: 50%; 
   left: 72%; 
   transform: translate(-50%, -50%);
-  
-  /* 디자인 변경: 반투명 네이비 + 골드 테두리 */
-  background: rgba(15, 25, 35, 0.92); 
-  color: #f1c40f;
-  border: 1px solid #f1c40f;
-  box-shadow: 0 0 15px rgba(0, 0, 0, 0.7), inset 0 0 10px rgba(241, 196, 15, 0.2);
-  
+  background: rgba(15, 23, 42, 0.94);
+  color: #e2e8f0;
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  box-shadow: 0 4px 22px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   padding: 10px 12px; 
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 13px; 
   font-weight: bold;
   z-index: 1500; 
@@ -868,15 +914,17 @@ canvas {
   width: 100%;
   max-width: none;
 }
-/* 유닛 목록·배치 인원: 그리드 셀이 넓어도 카드는 내용만큼만(우측 빈 여백 제거) */
+/* 유닛 목록·배치 인원: 같은 열에서는 가장 넓은 카드(셀) 폭에 맞춰 전부 채움 */
 .standby-list-pop .standby-list-grid .gz-unit.standby,
 .integrated-members-pop .standby-list-grid .gz-unit.standby,
 .hub-sg-pop .standby-list-grid .gz-unit.standby {
-  width: fit-content;
+  width: 100%;
   max-width: 100%;
+  min-width: 0;
+  justify-self: stretch;
 }
 .gz-unit.standby > .gz-standby-card-col {
-  flex: 0 1 auto;
+  flex: 1 1 0;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -1019,7 +1067,7 @@ canvas {
   flex-wrap: wrap;
 }
 .gz-standby-head .gz-title { margin-bottom: 0; flex: 1; min-width: 0; }
-/* 유닛 목록: 카드는 줄이지 않고(max-content), 화면이 좁으면 열만 5→4→3 */
+/* 유닛 목록: 열 폭=max(해당 열 카드들); 카드는 stretch로 열 전체 폭 통일 */
 .standby-list-pop .standby-list-grid,
 .integrated-members-pop .standby-list-grid,
 .hub-sg-pop .standby-list-grid {
@@ -1030,7 +1078,7 @@ canvas {
   max-width: 100%;
   box-sizing: border-box;
   align-items: start;
-  justify-items: start;
+  justify-items: stretch;
   justify-content: start;
 }
 @media (max-width: 960px) {
@@ -1120,12 +1168,6 @@ canvas {
   box-shadow: 0 0 10px rgba(192, 132, 252, 0.5);
   border-radius: 4px;
 }
-.hub-sg-pop .unit-list-frame,
-.standby-list-pop .unit-list-frame {
-  width: 100%;
-  max-width: min(96vw, 880px);
-  box-sizing: border-box;
-}
 .gz-promote {
   animation: gz-pulse 1.5s infinite;
   background: rgba(241, 196, 15, 0.1) !important;
@@ -1149,6 +1191,47 @@ canvas {
 ::-webkit-scrollbar { width:3px; } ::-webkit-scrollbar-thumb { background:#1e2d3d; border-radius:2px; }
 /* ── 접기 버튼 ── */
 .collapse-btn { font-size:10px; color:#f1c40f; cursor:pointer; padding:2px 8px; border:1px solid #1e2d3d; border-radius:3px; background:#0f1923; }
+/* 파티 패널 헤더: 유닛 정렬·간략히 동일 박스 크기, 유닛 정렬 고대비 글자 */
+#panel-ally .pt .panel-ally-toolbar-btn {
+  font-size: 10px !important;
+  padding: 4px 10px !important;
+  line-height: 1.25 !important;
+  border-radius: 4px !important;
+  font-weight: 600 !important;
+  box-sizing: border-box !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 24px;
+}
+#panel-ally .pt #btn-party-sort.panel-ally-toolbar-btn {
+  background: linear-gradient(180deg, #1e3a5f 0%, #0f172a 100%) !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #64748b !important;
+}
+#panel-ally .pt #btn-party-sort.panel-ally-toolbar-btn:hover {
+  color: #ffffff !important;
+  border-color: #94a3b8 !important;
+  filter: brightness(1.06);
+}
+#panel-ally .pt #btn-compact.panel-ally-toolbar-btn {
+  background: #0f1923 !important;
+  color: #f1c40f !important;
+  border: 1px solid #64748b !important;
+}
+#panel-ally .pt #btn-compact.panel-ally-toolbar-btn:hover {
+  border-color: #94a3b8 !important;
+  background: #152433 !important;
+}
+#panel-ally .pt #btn-party-group.panel-ally-toolbar-btn {
+  background: #1a1525 !important;
+  color: #c4b5fd !important;
+  border: 1px solid #5b2d82 !important;
+}
+#panel-ally .pt #btn-party-group.panel-ally-toolbar-btn:hover {
+  border-color: #a78bfa !important;
+  background: #1f1628 !important;
+}
 #garrison-bar-summary {
   display: none;
   justify-content: space-between;
@@ -1160,7 +1243,7 @@ canvas {
   border-top: 1px solid #1e2d3d;
 }
 #garrison-bar-income { font-size: 0.78em; color: #2ecc71; }
-#garrison-bar-benefit { font-size: 0.78em; color: #f1c40f; text-align: left; line-height: 1.35; }
+#garrison-bar-benefit { font-size: 0.78em; color: #f1c40f; line-height: 1.35; }
 #btn-garrison-buffs {
   flex-shrink: 0;
   font-size: 0.76em;
@@ -1195,11 +1278,12 @@ canvas {
     flex: 1;
     min-height: 0;
 }
+/* 최소 폭 ≈ 기본 능력치(HP~MOV) 한 줄 — 남는 폭에 따라 2열·3열 자동 */
 #al {
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(290px,1fr));
-  gap:6px;
-  align-items:start;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 276px), 1fr));
+  gap: 6px;
+  align-items: start;
 }
 
 /* [수정] 동료·적 패널 헤더 통일 (스티키, 동일 여백) */
@@ -1303,7 +1387,9 @@ canvas {
     max-height: none !important; 
   }
 
-  #al { grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); }
+  #al {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 276px), 1fr));
+  }
 
   #panel-enemy.panel-enemy-below #el {
     display: grid;
@@ -1314,14 +1400,6 @@ canvas {
 
   .ec {
     margin-bottom: 0 !important;
-  }
-}
-
-/* 좁은 화면: 동료 카드 2열이면 카드 폭이 부족해 스탯이 잘림 → 1열 */
-@media (max-width: 900px) {
-  #al {
-    grid-template-columns: 1fr !important;
-    gap: 6px;
   }
 }
 
@@ -1359,7 +1437,7 @@ canvas {
 
 <div id="top">
   <div class="top-chronicle-row">
-    <span class="logo">⚔️ 왕국 연대기 :</span>
+    <span class="logo">⚔️ 새 왕국 스토리 :</span>
     <span id="area-label" style="color:#a855f7;font-weight:bold" onclick="event.stopPropagation();tryOpenZoneModal()">근처 들판 I</span>
     <button type="button" class="cb zone-expand-btn" id="btn-zone-menu" onclick="event.stopPropagation();tryOpenZoneModal()" title="사냥터 선택">▼</button>
     <span id="day-label">1일차</span>
@@ -1379,8 +1457,8 @@ canvas {
 
 <div id="ctrl">
   <div class="ctrl-hints" id="ctrl-bar-hints" aria-label="거점·전투 상태 안내">
-    <span id="garrison-bar-benefit"></span>
     <span id="ctrl-sorrow-hint"></span>
+    <span id="garrison-bar-benefit"></span>
   </div>
   <div class="ctrl-stack">
     <div class="ctrl-row ctrl-main">
@@ -1433,8 +1511,8 @@ canvas {
       </div>
       <div class="garrison-header-actions">
         <div class="garrison-header-recruit">
-          <button type="button" class="cb cb-recruit-main" onclick="event.stopPropagation(); showRecruitChoiceModal()">대원 영입<span class="cb-cost">🍖30 · 💰100</span></button>
-          <button type="button" class="collapse-btn" id="btn-hub-sg-list" onclick="event.stopPropagation();openHubStandbyGarrisonModal()" style="font-size:9px;padding:2px 8px;background:#1a3d5c;color:#93c5fd;border:1px solid #1e3a5f;touch-action:manipulation;white-space:nowrap" title="대기실·거점 주둔 전체">전체 유닛</button>
+          <button type="button" class="cb cb-recruit-main" onclick="event.stopPropagation(); showRecruitChoiceModal()">대원 영입</button>
+          <button type="button" class="btn-hub-all-units" id="btn-hub-sg-list" onclick="event.stopPropagation();openHubStandbyGarrisonModal()" title="통솔·대기실·거점 주둔 전체 목록">전체 유닛</button>
         </div>
         <span id="garrison-bar-toggle" class="garrison-expand-btn" role="button" tabindex="0" onclick="event.stopPropagation();toggleGarrisonBar()">▼ 펼치기</span>
       </div>
@@ -1452,8 +1530,8 @@ canvas {
         <span style="flex-shrink:0">👥 함께하는 동료 <b id="party-count" style="color:#f1c40f"></b></span>
       </div>
       <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0">
-        <button type="button" class="collapse-btn" id="btn-party-sort" onclick="event.stopPropagation();enableAutoSort();" style="font-size:9px;padding:2px 6px;background:#1a3d5c;color:#60a5fa;border-color:#1e3a5f">유닛 정렬</button>
-        <button class="collapse-btn" id="btn-compact" onclick="toggleCompactView()" style="font-size:9px;padding:2px 6px">간략히</button>
+        <button type="button" class="collapse-btn panel-ally-toolbar-btn" id="btn-party-sort" onclick="event.stopPropagation();enableAutoSort();">유닛 정렬</button>
+        <button type="button" class="collapse-btn panel-ally-toolbar-btn" id="btn-compact" onclick="toggleCompactView()">간략히</button>
       </div>
     </div>
     <div id="panel-ally-body">
@@ -1484,6 +1562,16 @@ canvas {
     <div id="shop-sub" style="font-size:10px;color:#9ca3af;margin-bottom:12px;text-align:center"></div>
     <div id="shop-items" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
     <button class="cb" style="width:100%;background:#374151" onclick="document.getElementById('shop-modal').classList.remove('show')">나가기</button>
+  </div>
+</div>
+
+<!-- 도시·왕국: 상점 버튼 → 물품 거래 + 시설 선택 -->
+<div id="facility-shop-hub-modal" class="overlay" style="z-index:13010" onclick="if(event.target===this&&typeof closeFacilityShopHub==='function')closeFacilityShopHub()">
+  <div class="modal-box" style="max-width:340px" onclick="event.stopPropagation()">
+    <div class="modal-title" style="color:#f1c40f">🏪 상점</div>
+    <div style="font-size:10px;color:#9ca3af;margin-bottom:10px;text-align:center">이용할 항목을 선택하세요</div>
+    <div id="facility-shop-hub-buttons" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
+    <button type="button" class="cb" style="width:100%;background:#374151" onclick="if(typeof closeFacilityShopHub==='function')closeFacilityShopHub()">닫기</button>
   </div>
 </div>
 
@@ -1605,21 +1693,42 @@ canvas {
   </div>
 </div>
 
-<!-- 대원 영입: 피난민(식량) / 용병(금화) 선택 -->
+<!-- 대원 영입: 피난민 수 + 용병 포함을 한 번에 확정 -->
 <div id="recruit-choice-modal" class="overlay" onclick="if(event.target===this)closeRecruitChoiceModal()">
-  <div class="modal-box" style="max-width:360px" onclick="event.stopPropagation()">
+  <div class="modal-box recruit-unified-modal" style="max-width:400px" onclick="event.stopPropagation()">
     <div class="modal-title">👥 대원 영입</div>
-    <div class="modal-sub" style="margin-bottom:14px">식량으로 피난민을 합류시키거나, 금화로 전직된 용병을 고용할 수 있습니다.</div>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      <button type="button" class="cb cb-fo" style="width:100%;padding:12px;display:flex;flex-direction:column;align-items:center;gap:4px" onclick="onRecruitPickRefugee()">
-        <span>🍖 피난민 합류</span>
-        <span style="font-size:0.85em;opacity:0.95">인원당 식량 30</span>
-      </button>
-      <button type="button" class="cb cb-hi" style="width:100%;padding:12px;display:flex;flex-direction:column;align-items:center;gap:4px" onclick="onRecruitPickMerc()">
-        <span>💰 용병 고용</span>
-        <span style="font-size:0.85em;opacity:0.95">금화 100 · 전직 레벨 지원자</span>
-      </button>
-      <button type="button" class="cb" style="width:100%;padding:10px;background:#374151" onclick="closeRecruitChoiceModal()">닫기</button>
+    <div class="recruit-unified-sub-wrap" style="margin-bottom:6px;font-size:11px;color:#94a3b8;line-height:1.5">
+      <div id="recruit-unified-sub-line1"></div>
+      <div id="recruit-unified-sub-line2" style="margin-top:4px"></div>
+    </div>
+    <div class="recruit-unified-section">
+      <div class="recruit-unified-label">🍖 피난민 (인원당 식량 30)</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap">
+        <button type="button" class="cb" style="background:#374151;font-size:1.2em;padding:6px 16px" onclick="unifiedRecruitChangeRef(-1)">−</button>
+        <div style="text-align:center;min-width:56px">
+          <div id="recruit-unified-ref-count" style="font-size:1.75em;font-weight:bold;color:#f1c40f">1</div>
+          <div id="recruit-unified-food-line" style="font-size:11px;color:#fb923c">🍖 30</div>
+        </div>
+        <button type="button" class="cb" style="background:#374151;font-size:1.2em;padding:6px 14px" onclick="unifiedRecruitChangeRef(1)">+</button>
+        <button type="button" class="cb" id="recruit-unified-ref-max" style="background:#5b21b6;font-size:11px;padding:6px 10px" onclick="unifiedRecruitSetMax()">최대</button>
+      </div>
+    </div>
+    <div class="recruit-unified-section" style="margin-top:12px">
+      <div class="recruit-unified-label">💰 용병 <span style="font-weight:600;color:#93c5fd">(인원당 금화 100 · 전직 레벨 지원자)</span></div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap">
+        <button type="button" class="cb" style="background:#374151;font-size:1.2em;padding:6px 16px" onclick="unifiedRecruitChangeMerc(-1)">−</button>
+        <div style="text-align:center;min-width:56px">
+          <div id="recruit-unified-merc-count" style="font-size:1.75em;font-weight:bold;color:#38bdf8">0</div>
+          <div id="recruit-unified-gold-line" style="font-size:11px;color:#fbbf24">용병 0명</div>
+        </div>
+        <button type="button" class="cb" style="background:#374151;font-size:1.2em;padding:6px 14px" onclick="unifiedRecruitChangeMerc(1)">+</button>
+        <button type="button" class="cb" id="recruit-unified-merc-max" style="background:#5b21b6;font-size:11px;padding:6px 10px" onclick="unifiedRecruitSetMercMax()">최대</button>
+      </div>
+    </div>
+    <div id="recruit-unified-total" style="margin-top:12px;font-size:11px;color:#cbd5e1;line-height:1.55"></div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button type="button" class="cb" id="recruit-unified-confirm" style="background:#ea580c;flex:1;padding:11px;font-weight:700" onclick="confirmUnifiedRecruit()">영입하기</button>
+      <button type="button" class="cb" style="background:#374151;flex:1;padding:11px" onclick="closeRecruitChoiceModal()">취소</button>
     </div>
   </div>
 </div>
@@ -1638,10 +1747,10 @@ const MOVE_FEEL_MUL=0.77;
 
 // ── Phase 시스템(모듈 1) ──
 const PHASE_CONFIG={
-  0:{name:'떠돌이', partyLimit:6,  unitMaxLv:30, map:{cols:20,rows:12}},
-  1:{name:'마을',   partyLimit:8,  unitMaxLv:50, map:{cols:28,rows:16}},
-  2:{name:'도시',   partyLimit:6,  unitMaxLv:70, map:{cols:36,rows:20}},
-  3:{name:'왕국',   partyLimit:6,  unitMaxLv:80, map:{cols:45,rows:25}},
+  0:{name:'떠돌이',   partyLimit:6,  unitMaxLv:30, map:{cols:20,rows:12}},
+  1:{name:'촌장',   partyLimit:8,  unitMaxLv:50, map:{cols:28,rows:16}},
+  2:{name:'영주',   partyLimit:6,  unitMaxLv:70, map:{cols:36,rows:20}},
+  3:{name:'군주',   partyLimit:6,  unitMaxLv:80, map:{cols:45,rows:25}},
 };
 const PHASE_UNLOCK_REQ={
   1:{needClears:1, needTotalLv:30},
@@ -1707,6 +1816,22 @@ function getMaxRefugeeHireBatch(){
   const room=Math.max(0,getTotalRefugeeCapacityRoom());
   const f=(typeof res!=='undefined'&&res!=null&&Number.isFinite(res.food))?res.food:(typeof food!=='undefined'?food:0);
   const afford=Math.floor(Math.max(0,f)/30);
+  return Math.max(0,Math.min(room,afford));
+}
+/** 대원 영입 통합 모달: 용병 n명을 뺀 뒤 식량으로 살 수 있는 피난민 수 */
+function getUnifiedMaxRefugees(mercAllocated){
+  const m=Math.max(0,mercAllocated|0);
+  const room=Math.max(0,getTotalRefugeeCapacityRoom()-m);
+  const f=(typeof res!=='undefined'&&res!=null&&Number.isFinite(res.food))?res.food:(typeof food!=='undefined'?food:0);
+  const afford=Math.floor(Math.max(0,f)/30);
+  return Math.max(0,Math.min(room,afford));
+}
+/** 대원 영입 통합 모달: 피난민 n명을 뺀 뒤 금화로 살 수 있는 용병 수 */
+function getUnifiedMaxMercs(refAllocated){
+  const n=Math.max(0,refAllocated|0);
+  const room=Math.max(0,getTotalRefugeeCapacityRoom()-n);
+  const g=(typeof res!=='undefined'&&res!=null&&Number.isFinite(res.gold))?res.gold:(typeof gold!=='undefined'?gold:0);
+  const afford=Math.floor(Math.max(0,g)/100);
   return Math.max(0,Math.min(room,afford));
 }
 /** 대기 인원이 단계 한도를 넘으면 id가 큰(늦게 합류한) 유닛부터 대기 해제 */
@@ -1855,6 +1980,7 @@ function buildStandbyUnitCardHtml(a, opts){
   const canPromote=canUnitPromote(a);
   const displayName=getStandbyCardDisplayName(a);
   const t=getTierUiMeta(a);
+  const tierBg=tierBorderToStandbyCardBg(t.border);
   const bdW=t.grow?3:2;
   const rdColorKey=a.class10Key?(CLASS10[a.class10Key]?.base||(a.classKey||a.baseRole)):(a.classKey||a.baseRole);
   const rd=BASE_ROLES[rdColorKey]||BASE_ROLES[a.classKey||a.baseRole];
@@ -1905,7 +2031,7 @@ function buildStandbyUnitCardHtml(a, opts){
   const swapTitle='';
   const hubGzAttr=hasGz?` data-hub-gz="${String(rawGz).replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"`:'';
   return `<div class="gz-unit standby gz-standby-unit-card${canPromote?' gz-promote':''}${statCls}${swapCls}" data-standby-card-id="${a.id}"${hubGzAttr}${swapTitle}${dragAttrs}${hubDragAttrs}${rootClick}
-    style="border:${bdW}px solid ${t.border}">
+    style="border:${bdW}px solid ${t.border};background:${tierBg};border-radius:4px">
     ${menuTrig}
     <div class="gz-standby-card-col">
       <div class="gz-standby-card-name-row">
@@ -2384,7 +2510,7 @@ function applyPhaseSettings(rebuildMap=false){
   if(typeof syncZoneCatalog==='function') syncZoneCatalog();
   if(typeof ensureCityFacilities==='function') ensureCityFacilities();
   const logo=document.querySelector('.logo');
-  if(logo) logo.innerText=`⚔️ 왕국 연대기 [${cfg.name}] :`;
+  if(logo) logo.innerText=`⚔️ 새 왕국 스토리 [${cfg.name}] :`;
   sanitizeArcaneResearchForCivPhase();
   markDirty();
 }
@@ -2636,7 +2762,7 @@ function getZoneFinalPowerMult(zone){
   const step=getDifficultyStep(zone);
   return (1+step*DIFF_STEP_LINEAR_K)*(zone.diffMult||1.0);
 }
-/** 초반 난이도: 적→아군 피해만 감소(스폰 atk/hp는 그대로). 떠돌이·난이도 I 중심 */
+/** 초반 난이도: 적→아군 피해만 감소(스폰 atk/hp는 그대로). 집합소 단계·난이도 I 중심 */
 function getEnemyDamageVsAllyScale(){
   const zp=typeof civPhase==='number'?civPhase:-1;
   const tier=Math.min(5,Math.max(1,Number((currentZone||{}).diffTier)||1));
@@ -2685,13 +2811,13 @@ const WILDS_ENEMY_POOL=['boar_pack','bear','wolf','tiger'];
 const ZONES={
   hunt:   {id:'hunt',   name:'🌿 근처 들판', diffTier:1, conceptPhase:0, diffMult:1.0, tier:'hunt',   terrain:'hunt',  color:'#2d7a3a',
            rFood:5, rWood:2, rStone:1, rGold:1, rIron:0, rHerb:0, rDiamond:0,
-           desc:'초원의 초식동물. 집합소 전투지 — 식량·나무·돌·금 (약초 없음).', finalStage:15, minLv:0, unlockPhase:0},
+           desc:'초원의 초식동물. 집합소 전투지 — 식량·나무·돌·금.', finalStage:15, minLv:0, unlockPhase:0},
   river:  {id:'river',  name:'🌊 얕은 강가', diffTier:1, conceptPhase:0, diffMult:1.0, tier:'hunt',   terrain:'hunt',  color:'#2d5a7a',
            rFood:4, rWood:3, rStone:1, rGold:1, rIron:0, rHerb:0, rDiamond:0,
-           desc:'강가의 초식동물. 식량·나무·돌·금화 (집합소: 약초 없음).', finalStage:15, minLv:0, unlockPhase:0},
+           desc:'강가의 초식동물. 식량·나무·돌·금화.', finalStage:15, minLv:0, unlockPhase:0},
   wilds:  {id:'wilds',  name:'🌲 얕은 숲', diffTier:1, conceptPhase:0, diffMult:1.0, tier:'pred',   terrain:'pred',  color:'#a05a00',
            rFood:3, rWood:4, rStone:2, rGold:1, rIron:0, rHerb:0, rDiamond:0,
-           desc:'맹수들의 영역. 나무·돌·식량·금화 (집합소: 약초 없음).', finalStage:15, minLv:3, unlockPhase:0},
+           desc:'맹수들의 영역. 나무·돌·식량·금화.', finalStage:15, minLv:3, unlockPhase:0},
   bandit: {id:'bandit', name:'⚔️ 깊은 들판', diffTier:1, conceptPhase:1, diffMult:1.0, tier:'bandit', terrain:'bandit',color:'#7b1d1d',
            rFood:0, rWood:0, rStone:0, rGold:2, rIron:0, rCopper:2, rHerb:1, rDiamond:0, rWarSupply:0, rManaCrystal:0,
            desc:'산적의 소굴. 마을 전투지 — 약초·구리·금화.', finalStage:15, minLv:5, unlockPhase:1},
@@ -2725,9 +2851,9 @@ Object.keys(ZONES).forEach(k=>{
   z.name=getZoneDisplayName(z);
 });
 const MODULE6_ZONE_CATALOG={
-  hunt:{name:'🌿 근처 들판',desc:'집합소 전투지. 식량·나무·돌·금 (약초 없음).'},
-  river:{name:'🌊 얕은 강가',desc:'집합소 전투지. 식량·나무·돌·금 (약초 없음).'},
-  wilds:{name:'🌲 얕은 숲',desc:'집합소 전투지. 식량·나무·돌·금 (약초 없음).'},
+  hunt:{name:'🌿 근처 들판',desc:'집합소 전투지. 식량·나무·돌·금.'},
+  river:{name:'🌊 얕은 강가',desc:'집합소 전투지. 식량·나무·돌·금.'},
+  wilds:{name:'🌲 얕은 숲',desc:'집합소 전투지. 식량·나무·돌·금.'},
   bandit:{name:'⚔️ 깊은 들판',desc:'마을 전투지. 약초·구리·금화.'},
   ruins:{name:'🌫 안개 강변',desc:'마을 전투지. 약초·구리·금화.'},
   mine:{name:'🌲 울창한 숲',desc:'마을 전투지. 약초·구리·금화.'},
@@ -3607,7 +3733,7 @@ window.selectZone = function(id) {
   buildMap(); 
   spawnEnemies();
   
-  // 4. UI 갱신 (상단 연대기: 이모지 제외 지명만)
+  // 4. UI 갱신 (상단 새 왕국 스토리: 이모지 제외 지명만)
   setChronicleAreaLabel(currentZone);
   closeZoneModal();
   
@@ -5007,8 +5133,8 @@ function shouldDetourForFasterArrival(unit,targetX,targetY,nextCell,detourCandid
 // ── 모듈2: 등급/성격 데이터 (9단계 · maxLv 단계마다 +1 · 문명 단계별 출현은 TIER_ROLL_BY_PHASE)
 const TIERS = [
   {name:'Poor',    mult:0.84, color:'#7c92a8', maxLv:76},
-  {name:'Common',  mult:0.90, color:'#ffffff', maxLv:77},
-  {name:'Trained', mult:0.96, color:'#b89f84', maxLv:78},
+  {name:'Common',  mult:0.90, color:'#9d8570', maxLv:77},
+  {name:'Trained', mult:0.96, color:'#ffffff', maxLv:78},
   {name:'Veteran', mult:1.04, color:'#86efac', maxLv:79},
   {name:'Rare',    mult:1.14, color:'#60a5fa', maxLv:80},
   {name:'Elite',   mult:1.28, color:'#4f46e5', maxLv:81},
@@ -5967,11 +6093,11 @@ function updatePG() {
       pg.style.display = 'none';
     } else {
       pg.style.display = 'block';
-      pg.style.border = '1px solid #2ecc71'; // 성공의 초록 테두리
+      pg.style.border = '1px solid rgba(251, 191, 36, 0.5)';
       pg.innerHTML = `
-      <div style="white-space:nowrap"><b style="color:#2ecc71">배치 완료!</b></div>
-      <div style="font-size:11px;color:#fff;white-space:nowrap;margin-top:4px">상단의 <b style="color:#e74c3c">▶출발</b> 버튼 </div>
-      <div style="font-size:11px;color:#fff;white-space:nowrap;margin-top:2px">or <b style="color:#e74c3c">스페이스 바</b> 클릭</div>`;
+      <div style="white-space:nowrap"><b style="color:#fbbf24">배치 완료!</b></div>
+      <div style="font-size:11px;color:#cbd5e1;white-space:nowrap;margin-top:4px">상단의 <b style="color:#38bdf8">▶출발</b> 버튼</div>
+      <div style="font-size:11px;color:#cbd5e1;white-space:nowrap;margin-top:2px">또는 <b style="color:#38bdf8">스페이스 바</b> 클릭</div>`;
     }
   } 
   // 2. 유닛 배치가 진행 중일 때
@@ -5989,12 +6115,12 @@ function updatePG() {
     const placingWhich = totalToDeploy > 0 ? Math.min(placedCount + 1, totalToDeploy) : 1;
 
     pg.style.display = 'block';
-    pg.style.border = '1px solid #f1c40f'; // 경고/안내의 금색 테두리
+    pg.style.border = '1px solid rgba(251, 191, 36, 0.45)';
     
     pg.innerHTML = `
-      <div style="color:#f1c40f;white-space:nowrap">📍 배치 중 (${placingWhich}/${totalToDeploy}명)</div>
+      <div style="color:#fbbf24;white-space:nowrap">📍 배치 중 (${placingWhich}/${totalToDeploy}명)</div>
       <div style="white-space:nowrap;margin-top:4px"><b style="color:${classColor}; text-shadow: 1px 1px 2px #000;">${u.name}</b></div>
-      <div style="margin-top:4px;white-space:nowrap;font-size:14px"><span style="color:#c084fc">보라색 영역</span><span style="color:#f1c40f"> 클릭!</span></div>`;
+      <div style="margin-top:4px;white-space:nowrap;font-size:14px"><span style="color:#a78bfa">보라색 영역</span><span style="color:#e2e8f0"> </span><span style="color:#fbbf24">클릭!</span></div>`;
   }
 }
 
@@ -6691,7 +6817,19 @@ function showClassModal(unit){
 window.selectClass = function(key) {
   if(_classModalTimer){clearTimeout(_classModalTimer); _classModalTimer=null;}
   const u = pendingClass; if(!u) return;
-  if(key === '__skip__'){document.getElementById('modal').classList.remove('show'); pendingClass=null; if(typeof _maybeReopenDefeatPicker==='function') _maybeReopenDefeatPicker(); return;}
+  if(key === '__skip__'){
+    document.getElementById('modal').classList.remove('show');
+    const skipped=u;
+    pendingClass=null;
+    if(typeof _maybeReopenDefeatPicker==='function') _maybeReopenDefeatPicker();
+    if(Array.isArray(_mercHireSetupQueue)&&skipped&&_mercHireSetupQueue.length&&_mercHireSetupQueue[0]===skipped){
+      _mercHireSetupQueue.shift();
+      if(_mercHireSetupQueue.length&&typeof showClassModal==='function'){
+        setTimeout(()=>showClassModal(_mercHireSetupQueue[0]),260);
+      }else _mercHireSetupQueue=null;
+    }
+    return;
+  }
 
   // --- [기존] 10레벨 보직 전직 로직 ---
   if(u.lv === FIRST_PROMOTION_LV){
@@ -6825,18 +6963,32 @@ window.applyRename = function(val) {
 
 function confirmRename(){
   if(!_renameUnit) return;
+  const finished=_renameUnit;
   const v = document.getElementById('rename-input').value.trim();
-  if(v) _renameUnit.name = v;
+  if(v) finished.name = v;
   document.getElementById('rename-modal').classList.remove('show');
   _renameUnit = null;
   markDirty();
   if(typeof _maybeReopenDefeatPicker==='function') _maybeReopenDefeatPicker();
+  if(Array.isArray(_mercHireSetupQueue)&&_mercHireSetupQueue.length&&_mercHireSetupQueue[0]===finished){
+    _mercHireSetupQueue.shift();
+    if(_mercHireSetupQueue.length&&typeof showClassModal==='function'){
+      setTimeout(()=>showClassModal(_mercHireSetupQueue[0]),200);
+    }else _mercHireSetupQueue=null;
+  }
 }
 
 function skipRename(){
+  const sk=_renameUnit;
   document.getElementById('rename-modal').classList.remove('show');
   _renameUnit = null;
   if(typeof _maybeReopenDefeatPicker==='function') _maybeReopenDefeatPicker();
+  if(Array.isArray(_mercHireSetupQueue)&&sk&&_mercHireSetupQueue.length&&_mercHireSetupQueue[0]===sk){
+    _mercHireSetupQueue.shift();
+    if(_mercHireSetupQueue.length&&typeof showClassModal==='function'){
+      setTimeout(()=>showClassModal(_mercHireSetupQueue[0]),200);
+    }else _mercHireSetupQueue=null;
+  }
 }
 
 // [수정] 클래스별 전직 보너스 (새로운 6개 보직 대응)
@@ -6989,8 +7141,16 @@ window.changeRefCount = function(delta) {
 function closeRefugeeModal(){document.getElementById('refugee-modal').classList.remove('show');}
 
 let _recruitModalContext='main';
+let _unifiedRefCount=1;
+let _unifiedMercCount=0;
+/** 영입 확정 후 용병 전직·이름 순차 처리 (전직 모달 → 이름 모달) */
+let _mercHireSetupQueue=null;
 function showRecruitChoiceModal(ctx){
   _recruitModalContext=(ctx==='defeat')?'defeat':'main';
+  const mx=getUnifiedMaxRefugees(0);
+  _unifiedRefCount=mx>=1?1:0;
+  _unifiedMercCount=0;
+  updateUnifiedRecruitModal();
   const el=document.getElementById('recruit-choice-modal');
   if(el) el.classList.add('show');
 }
@@ -6998,20 +7158,225 @@ function closeRecruitChoiceModal(){
   const el=document.getElementById('recruit-choice-modal');
   if(el) el.classList.remove('show');
 }
-function onRecruitPickRefugee(){
-  closeRecruitChoiceModal();
-  if(_recruitModalContext==='defeat'){
-    if(typeof window.defeatEmptyHireFood==='function') window.defeatEmptyHireFood();
-  }else{
-    showRefugeeModal();
+function updateUnifiedRecruitModal(){
+  let maxRef=getUnifiedMaxRefugees(_unifiedMercCount);
+  let maxMerc=getUnifiedMaxMercs(_unifiedRefCount);
+  if(_unifiedRefCount>maxRef) _unifiedRefCount=maxRef;
+  if(_unifiedMercCount>maxMerc) _unifiedMercCount=maxMerc;
+  maxRef=getUnifiedMaxRefugees(_unifiedMercCount);
+  maxMerc=getUnifiedMaxMercs(_unifiedRefCount);
+  if(_unifiedRefCount>maxRef) _unifiedRefCount=maxRef;
+  if(_unifiedMercCount>maxMerc) _unifiedMercCount=maxMerc;
+  if(maxRef<1) _unifiedRefCount=0;
+  if(maxMerc<1) _unifiedMercCount=0;
+  else if(_unifiedRefCount<0) _unifiedRefCount=0;
+  else if(_unifiedMercCount<0) _unifiedMercCount=0;
+  const f=Math.floor((typeof res!=='undefined'&&res!=null&&Number.isFinite(res.food))?res.food:(typeof food!=='undefined'?food:0));
+  const g=Math.floor((typeof res!=='undefined'&&res!=null&&Number.isFinite(res.gold))?res.gold:(typeof gold!=='undefined'?gold:0));
+  const pr=getPartyRoom(),sr=getStandbyRoom(),gr=getTotalGarrisonRoom();
+  const line1=document.getElementById('recruit-unified-sub-line1');
+  const line2=document.getElementById('recruit-unified-sub-line2');
+  if(line1) line1.textContent=`보유 🍖${f} · 💰${g}`;
+  if(line2) line2.textContent=`빈자리 통솔 ${pr} · 대기 ${sr} · 거점 ${gr} → 피난민 최대 ${maxRef}명 · 용병 최대 ${maxMerc}명`;
+  const cntEl=document.getElementById('recruit-unified-ref-count');
+  if(cntEl){
+    cntEl.textContent=String(_unifiedRefCount);
+    cntEl.style.color=(maxRef>=1&&_unifiedRefCount>0)?'#f1c40f':'#94a3b8';
+  }
+  const foodLine=document.getElementById('recruit-unified-food-line');
+  const foodCost=_unifiedRefCount*30;
+  if(foodLine) foodLine.textContent=_unifiedRefCount>0?`🍖 ${foodCost} 소모`:'피난민 0명';
+  const mercCntEl=document.getElementById('recruit-unified-merc-count');
+  if(mercCntEl){
+    mercCntEl.textContent=String(_unifiedMercCount);
+    mercCntEl.style.color=(maxMerc>=1&&_unifiedMercCount>0)?'#38bdf8':'#94a3b8';
+  }
+  const goldLine=document.getElementById('recruit-unified-gold-line');
+  const goldCost=_unifiedMercCount*100;
+  if(goldLine) goldLine.textContent=_unifiedMercCount>0?`💰 ${goldCost} 소모`:'용병 0명';
+  const totalEl=document.getElementById('recruit-unified-total');
+  if(totalEl){
+    const parts=[];
+    if(_unifiedRefCount>0) parts.push(`피난민 <b>${_unifiedRefCount}명</b> → 🍖<b>${foodCost}</b>`);
+    if(_unifiedMercCount>0) parts.push(`용병 <b>${_unifiedMercCount}명</b> → 💰<b>${goldCost}</b>`);
+    totalEl.innerHTML=parts.length?`이번 영입: ${parts.join(' · ')}`:'선택한 내용이 없습니다.';
+  }
+  const maxBtn=document.getElementById('recruit-unified-ref-max');
+  if(maxBtn){
+    maxBtn.disabled=maxRef<1;
+    maxBtn.style.opacity=maxRef<1?'0.5':'1';
+  }
+  const mercMaxBtn=document.getElementById('recruit-unified-merc-max');
+  if(mercMaxBtn){
+    mercMaxBtn.disabled=maxMerc<1;
+    mercMaxBtn.style.opacity=maxMerc<1?'0.5':'1';
+  }
+  const ok=document.getElementById('recruit-unified-confirm');
+  if(ok){
+    const needFood=_unifiedRefCount*30;
+    const needGold=_unifiedMercCount*100;
+    const okFood=_unifiedRefCount<1||f>=needFood;
+    const okGold=_unifiedMercCount<1||g>=needGold;
+    const hasPick=_unifiedRefCount>0||_unifiedMercCount>0;
+    ok.disabled=!hasPick||!okFood||!okGold||(_unifiedRefCount>0&&maxRef<1)||(_unifiedMercCount>0&&maxMerc<1);
   }
 }
-function onRecruitPickMerc(){
+function unifiedRecruitChangeRef(delta){
+  const maxRef=getUnifiedMaxRefugees(_unifiedMercCount);
+  if(maxRef<1){
+    _unifiedRefCount=0;
+    updateUnifiedRecruitModal();
+    return;
+  }
+  const next=_unifiedRefCount+delta;
+  const nextCost=next*30;
+  const f=(typeof res!=='undefined'&&res!=null&&Number.isFinite(res.food))?res.food:(typeof food!=='undefined'?food:0);
+  if(delta>0&&nextCost>f){
+    addFloat(mouseX,mouseY,'식량 부족!','#e74c3c');
+    return;
+  }
+  _unifiedRefCount=Math.max(0,Math.min(maxRef,next));
+  const capMerc=getUnifiedMaxMercs(_unifiedRefCount);
+  if(_unifiedMercCount>capMerc) _unifiedMercCount=capMerc;
+  updateUnifiedRecruitModal();
+}
+function unifiedRecruitSetMax(){
+  const maxRef=getUnifiedMaxRefugees(_unifiedMercCount);
+  if(maxRef<1)return;
+  _unifiedRefCount=maxRef;
+  const capMerc=getUnifiedMaxMercs(_unifiedRefCount);
+  if(_unifiedMercCount>capMerc) _unifiedMercCount=capMerc;
+  updateUnifiedRecruitModal();
+}
+function unifiedRecruitChangeMerc(delta){
+  const maxM=getUnifiedMaxMercs(_unifiedRefCount);
+  if(maxM<1){
+    _unifiedMercCount=0;
+    updateUnifiedRecruitModal();
+    return;
+  }
+  const next=_unifiedMercCount+delta;
+  const nextCost=next*100;
+  const g=(typeof res!=='undefined'&&res!=null&&Number.isFinite(res.gold))?res.gold:(typeof gold!=='undefined'?gold:0);
+  if(delta>0&&nextCost>g){
+    addFloat(mouseX,mouseY,'금화 부족!','#e74c3c');
+    return;
+  }
+  _unifiedMercCount=Math.max(0,Math.min(maxM,next));
+  const capRef=getUnifiedMaxRefugees(_unifiedMercCount);
+  if(_unifiedRefCount>capRef) _unifiedRefCount=capRef;
+  updateUnifiedRecruitModal();
+}
+function unifiedRecruitSetMercMax(){
+  const maxM=getUnifiedMaxMercs(_unifiedRefCount);
+  if(maxM<1)return;
+  _unifiedMercCount=maxM;
+  const capRef=getUnifiedMaxRefugees(_unifiedMercCount);
+  if(_unifiedRefCount>capRef) _unifiedRefCount=capRef;
+  updateUnifiedRecruitModal();
+}
+window.unifiedRecruitChangeRef=unifiedRecruitChangeRef;
+window.unifiedRecruitSetMax=unifiedRecruitSetMax;
+window.unifiedRecruitChangeMerc=unifiedRecruitChangeMerc;
+window.unifiedRecruitSetMercMax=unifiedRecruitSetMercMax;
+window.updateUnifiedRecruitModal=updateUnifiedRecruitModal;
+
+/** 금화 100으로 용병 1명 생성. 실패 시 null (골드 미차감은 호출부에서 검증됨). silent: 일괄 영입 시 반복 로그 생략 */
+function _spawnMercenaryHired(silent){
+  if(res.gold<100){ alog('❌ 금화 부족 (필요: 100G)'); return null; }
+  res.gold-=100;
+  syncFromRes();
+  const nextChar=ALP[allies.length%26];
+  const u=mkAlly('지원자'+nextChar);
+  u.lv=FIRST_PROMOTION_LV;
+  allies.push(u);
+  if(!isBattle&&!silent) alog('💰 새로운 지원자가 도착했습니다! 보직을 결정하세요.');
+  return u;
+}
+
+function confirmUnifiedRecruit(){
+  updateUnifiedRecruitModal();
+  const n=Math.max(0,_unifiedRefCount|0);
+  const m=Math.max(0,_unifiedMercCount|0);
+  const maxRef=getUnifiedMaxRefugees(m);
+  const maxMerc=getUnifiedMaxMercs(n);
+  if(n<1 && m<1){
+    alog('⚠️ 피난민 수를 올리거나 용병을 선택해 주세요.');
+    return;
+  }
+  if(n>maxRef || m>maxMerc){
+    alog('❌ 빈자리·식량·금화를 확인해 주세요.');
+    updateUnifiedRecruitModal();
+    return;
+  }
+  const foodCost=n*30;
+  const goldCost=m*100;
+  const f=(res.food!=null?res.food:food);
+  const g=(res.gold!=null?res.gold:gold);
+  if(n>0 && f<foodCost){
+    alog(`❌ 식량 부족 (필요: ${foodCost}🍖)`);
+    return;
+  }
+  if(m>0 && g<goldCost){
+    alog(`❌ 금화 부족 (필요: ${goldCost}💰)`);
+    return;
+  }
+  const roomTotal=getTotalRefugeeCapacityRoom();
+  if(n+m>roomTotal){
+    alog(`❌ 통솔·대기·거점 빈자리가 부족합니다. (필요 ${n+m}칸, 가용 ${roomTotal}칸)`);
+    updateUnifiedRecruitModal();
+    return;
+  }
   closeRecruitChoiceModal();
+
   if(_recruitModalContext==='defeat'){
-    if(typeof window.defeatEmptyHireMerc==='function') window.defeatEmptyHireMerc();
-  }else{
-    hireGold();
+    if(n>0){
+      res.food-=foodCost;
+      food=res.food;
+      for(let i=0;i<n;i++) spawnRefugee({forceStandby:true});
+      alog(`👤 피난민 ${n}명 영입 (−${foodCost}🍖)`);
+    }
+    const mercList=[];
+    for(let i=0;i<m;i++){
+      const defeatMerc=_spawnMercenaryHired(m>1);
+      if(defeatMerc){
+        if(canAddToStandby()){
+          defeatMerc.inStandby=true;
+          defeatMerc.isDeployed=false;
+          defeatMerc.x=-300; defeatMerc.y=-300;
+        }else{
+          alog(`⚠️ 대기 인원 한도(${getStandbyCapacity()}명)로 ${defeatMerc.name}을(를) 대기에 둘 수 없습니다.`);
+        }
+        mercList.push(defeatMerc);
+      }
+    }
+    if(m>1&&!isBattle) alog(`💰 용병 ${mercList.length}명이 도착했습니다. 보직·이름을 순서대로 정해 주세요.`);
+    renderGarrisonBar();
+    markDirty();
+    if(mercList.length&&typeof showClassModal==='function'){
+      _mercHireSetupQueue=mercList.slice();
+      setTimeout(()=>showClassModal(_mercHireSetupQueue[0]),260);
+    }
+    setTimeout(()=>openDefeatStandbyPicker(),80);
+    return;
+  }
+
+  if(n>0){
+    res.food-=foodCost;
+    food=res.food;
+    for(let i=0;i<n;i++) spawnRefugee({silent:isBattle});
+    if(!isBattle) alog(`👤 피난민 ${n}명 영입 (−${foodCost}🍖)`);
+  }
+  const mercList=[];
+  for(let i=0;i<m;i++){
+    const u=_spawnMercenaryHired(m>1);
+    if(u) mercList.push(u);
+  }
+  if(m>1&&!isBattle) alog(`💰 용병 ${mercList.length}명이 도착했습니다. 보직·이름을 순서대로 정해 주세요.`);
+  afterHireAction();
+  if(mercList.length&&typeof showClassModal==='function'){
+    _mercHireSetupQueue=mercList.slice();
+    setTimeout(()=>showClassModal(_mercHireSetupQueue[0]),300);
   }
 }
 
@@ -7032,25 +7397,13 @@ function hireFood(){
   // [수정] 이 위치에 추가
   afterHireAction(); 
 }
-// [수정] 용병 고용 시 네이밍 (약 816행)
 function hireGold(){
-  if(res.gold < 100){ alog('❌ 금화 부족 (필요: 100G)'); return; }
-  res.gold -= 100; syncFromRes();
-
-  const nextChar = ALP[allies.length % 26]; //
-  const u = mkAlly('지원자' + nextChar); 
-  u.lv = FIRST_PROMOTION_LV; 
-  
-  allies.push(u);
-  afterHireAction(); 
-
-  if(!isBattle) alog(`💰 새로운 지원자가 도착했습니다! 보직을 결정하세요.`);
-  
-  setTimeout(() => {
-    if (typeof showClassModal === 'function') {
-      showClassModal(u);
-    }
-  }, 300);
+  const u=_spawnMercenaryHired();
+  if(!u) return;
+  afterHireAction();
+  setTimeout(()=>{
+    if(typeof showClassModal==='function') showClassModal(u);
+  },300);
 }
 
 // [정의] 유닛 고용 후 공통적으로 수행할 UI 갱신 작업
@@ -7158,7 +7511,7 @@ function flashPG() {
     count++;
     if(count > 6) {
       clearInterval(interval);
-      pg.style.borderColor = '#f1c40f'; // 원래 금색으로 복구
+      pg.style.border = '1px solid rgba(251, 191, 36, 0.45)';
       pg.style.transform = 'translate(-50%, -50%)';
     }
   }, 100);
@@ -9102,7 +9455,7 @@ const CIV={
   village:{
     name:'🏘 마을 재건',
     req:{food:9000, wood:3200, stone:1200, gold:900},
-    farmHint:'재건 재원은 <b>집합소 전투지</b>에서 모읍니다. 집합소: 식량·나무·돌·금 (약초 없음).',
+    farmHint:'재건 재원은 <b>집합소 전투지</b>에서 모읍니다. 집합소: 식량·나무·돌·금.',
     desc:'마을을 세우면 산적 사냥터가 해금되고 물약 연구소를 건설할 수 있어요.',
     color:'#2d7a3a', phase:1
   },
@@ -9365,29 +9718,20 @@ function renderTopFacilityButtons(opts={}){
   const facBtnStyle='font-size:0.7em;padding:2px 7px;border-radius:4px;border:1px solid #334155;background:#16212f;color:#cbd5e1;cursor:pointer;touch-action:manipulation';
 
   if(civPhase>=3){
-    const kingdomBtns=[
-      `<button onclick="openShop(event)" style="${cityBtnStyle}">🏪 상점</button>`,
-      `<button onclick="openArcaneFacility(event)" style="${facBtnStyle}">✨ 마도원</button>`,
-    ];
     btn.style.display='inline-flex';
     btn.style.alignItems='center';
     btn.style.gap='4px';
     btn.style.flexWrap='wrap';
-    btn.innerHTML=kingdomBtns.join('');
+    btn.innerHTML=`<button type="button" onclick="openFacilityShopHub(event)" style="${cityBtnStyle}">🏪 상점</button>`;
     return;
   }
 
   if(civPhase===2){
-    const cityBtns=[
-      `<button onclick="openShop(event)" style="${cityBtnStyle}">🏪 상점</button>`,
-      `<button onclick="openForgeFacility(event)" style="${facBtnStyle}">⚒ 대장간</button>`,
-      `<button onclick="openEngineeringFacility(event)" style="${facBtnStyle}">⚙ 공학소</button>`,
-    ];
     btn.style.display='inline-flex';
     btn.style.alignItems='center';
     btn.style.gap='4px';
     btn.style.flexWrap='wrap';
-    btn.innerHTML=cityBtns.join('');
+    btn.innerHTML=`<button type="button" onclick="openFacilityShopHub(event)" style="${cityBtnStyle}">🏪 상점</button>`;
     return;
   }
 
@@ -9396,15 +9740,15 @@ function renderTopFacilityButtons(opts={}){
     btn.style.alignItems='center';
     btn.style.gap='4px';
     btn.style.flexWrap='wrap';
-    const alchemyBtn=`<button onclick="openAlchemyFacility(event)" style="${facBtnStyle}">⚗ 연금공방</button>`;
+    const alchemyBtn=`<button type="button" onclick="openAlchemyFacility(event)" style="${facBtnStyle}">⚗ 연금공방</button>`;
     if(_merchantPresent){
-      const shopLabel=merchantOnlyLabel||`<button onclick="openShop(event)" style="${cityBtnStyle}">🛒 상인</button>`;
-      btn.innerHTML=`${shopLabel}${alchemyBtn}`;
+      const shopLabel=merchantOnlyLabel||`<button type="button" onclick="openShop(event)" style="${cityBtnStyle}">🛒 상인</button>`;
+      btn.innerHTML=`${alchemyBtn}${shopLabel}`;
     }else{
       const waitLeft=Math.max(0,Math.ceil((window._merchantNextTime||0)-Date.now())/1000|0);
       if(waitLeft>0){
         const mm=Math.floor(waitLeft/60),ss=waitLeft%60;
-        btn.innerHTML=`<span style="font-size:0.7em;color:#9ca3af;padding:2px 6px">🛒 상인까지 ${mm>0?mm+'분 ':''}${ss}초</span>${alchemyBtn}`;
+        btn.innerHTML=`${alchemyBtn}<span style="font-size:0.7em;color:#9ca3af;padding:2px 6px">🛒 상인까지 ${mm>0?mm+'분 ':''}${ss}초</span>`;
       }else{
         btn.innerHTML=alchemyBtn;
       }
@@ -9442,6 +9786,36 @@ window.openArcaneFacility=function(ev){
   },100);
   alog('🔮 아래 거점 영역의 「마도원 연구」패널에서 연구를 진행하세요. (결정 파편·금 · 전투 패시브)');
 };
+
+function closeFacilityShopHub(){
+  const el=document.getElementById('facility-shop-hub-modal');
+  if(el) el.classList.remove('show');
+}
+/** 도시·왕국: 상점 단일 버튼 → 물품 거래 + 연금공방·대장간·공학소(+왕국: 마도원) */
+window.openFacilityShopHub=function(ev){
+  if(ev) ev.stopPropagation();
+  if(civPhase<2){
+    alog('❌ 도시 단계부터 상점 메뉴를 사용할 수 있습니다.');
+    return;
+  }
+  const modal=document.getElementById('facility-shop-hub-modal');
+  const host=document.getElementById('facility-shop-hub-buttons');
+  if(!modal||!host) return;
+  const tradeBtn='font-size:0.72em;padding:8px 10px;border-radius:6px;border:1px solid #f1c40f;background:#2d2600;color:#f1c40f;cursor:pointer;touch-action:manipulation;width:100%;box-sizing:border-box';
+  const facBtn='font-size:0.72em;padding:8px 10px;border-radius:6px;border:1px solid #334155;background:#16212f;color:#cbd5e1;cursor:pointer;touch-action:manipulation;width:100%;box-sizing:border-box';
+  const rows=[
+    `<button type="button" style="${tradeBtn}" onclick="closeFacilityShopHub();openShop(event)">🛒 물품 거래</button>`,
+    `<button type="button" style="${facBtn}" onclick="closeFacilityShopHub();openAlchemyFacility(event)">⚗ 연금공방</button>`,
+    `<button type="button" style="${facBtn}" onclick="closeFacilityShopHub();openForgeFacility(event)">⚒ 대장간</button>`,
+    `<button type="button" style="${facBtn}" onclick="closeFacilityShopHub();openEngineeringFacility(event)">⚙ 공학소</button>`,
+  ];
+  if(civPhase>=3){
+    rows.push(`<button type="button" style="${facBtn}" onclick="closeFacilityShopHub();openArcaneFacility(event)">✨ 마도원</button>`);
+  }
+  host.innerHTML=rows.join('');
+  modal.classList.add('show');
+};
+window.closeFacilityShopHub=closeFacilityShopHub;
 
 function spawnMerchant(){
   _merchantPresent=true;
@@ -9680,7 +10054,7 @@ function showTutorialStep3() {
   document.getElementById('garrison-body').innerHTML = `
     <div style="font-size:11px;color:#d1d5db;line-height:1.7;margin-bottom:14px">
       <div style="margin-bottom:8px">👥 <b style="color:#38bdf8">최대 파티원</b><span style="color:#9ca3af">:</span> 이번 전장에서 나갈 수 있는 파티원은 최대 <b style="color:#fff">${PARTY_LIMIT}명</b>까지입니다.</div>
-      <div style="margin-bottom:8px">🍖 <b style="color:#fbbf24">유닛 고용</b><span style="color:#9ca3af">:</span> 집합소의 <b>대원 영입</b>에서 식량(피난민) 또는 금화(용병)를 선택하세요.</div>
+      <div style="margin-bottom:8px">🍖 <b style="color:#fbbf24">유닛 고용</b><span style="color:#9ca3af">:</span> 집합소 <b>대원 영입</b>에서 피난민 수·용병 포함을 정한 뒤 <b>한 번에 영입</b>할 수 있습니다.</div>
       <div style="margin-bottom:8px">🚩 <b style="color:#c084fc">거점</b><span style="color:#9ca3af">:</span> 사냥터를 끝까지 클리어하면 거점을 세우고, 자동 자원·주둔 편성을 이용할 수 있습니다.</div>
       <div style="margin-bottom:8px;margin-top:12px"><b style="color:#7dd3fc">1일차 첫 출발부터 15일차 승리까지 걸린 기록 시간</b><span style="color:#d1d5db">이 짧을수록 재원 얻기에 유리하고, 거점 </span><b style="color:#e5e7eb">단계</b><span style="color:#d1d5db">·</span><b style="color:#e5e7eb">건물 업그레이드</b><span style="color:#d1d5db">로 효율과 보너스가 함께 올라갑니다.</span></div>
       <div style="margin-bottom:8px">🔄 <b style="color:#4ade80">자동 진행</b><span style="color:#9ca3af">:</span> ON 설정 시 전투가 끝나면 대기 시간 없이 즉시 다음 사냥을 시작합니다.</div>
@@ -9689,7 +10063,7 @@ function showTutorialStep3() {
     <div style="display:flex;gap:8px">
       <button onclick="window.closeTutorialAndResume()" 
         style="flex:1;padding:12px;background:#1a5c32;border:none;border-radius:5px;color:#fff;font-weight:bold;cursor:pointer;touch-action:manipulation">
-        🔄 자동 진행하고 시작 ⚔️
+        🔄 자동 진행 시작 ⚔️
       </button>
     </div>`;
 }
@@ -9833,10 +10207,9 @@ function autoStartNextZone(clearedZid) {
   const pg = document.getElementById('pg');
   if (pg) {
     pg.style.display = 'block';
-    // 원래의 어두운 네이비 배경과 노란색 글씨로 되돌립니다.
-    pg.style.background = 'rgba(15, 25, 35, 0.92)'; 
-    pg.style.color = '#f1c40f';
-    pg.style.border = '1px solid #f1c40f'; // 테두리도 노란색으로 고정
+    pg.style.background = 'rgba(15, 23, 42, 0.94)';
+    pg.style.color = '#e2e8f0';
+    pg.style.border = '1px solid rgba(251, 191, 36, 0.45)';
     pg.style.pointerEvents = 'none';
     pg.innerHTML = `${newName} 준비!<br><span style="font-size:10px">${sec}초 후 자동 사냥 시작...</span>`;
     
@@ -10108,7 +10481,7 @@ const ARCANE_RESEARCH={
   },
   heroes_wrath:{
     id:'heroes_wrath', name:'💥 영웅의 분노', tier:3,
-    desc:'연대기 전술 — 파티 궁극기 충전이 조금 빨라집니다.',
+    desc:'스토리 전술 — 파티 궁극기 충전이 조금 빨라집니다.',
     cost:{ crystal_shard:15, gold:800 },
     researchTime:900,
     requires:['chain_lightning','holy_ground'],
@@ -11644,7 +12017,7 @@ window.openGameHelpModal=function(){
       const col=t.color||'#cbd5e1';
       return `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;font-size:10px;border-bottom:1px solid #1e293b;padding:4px 0;line-height:1.4"><span><span style="color:${col};font-weight:600">${lab}</span> <span style="color:${col};opacity:0.82;font-weight:500">(${t.name})</span></span><span style="flex-shrink:0;text-align:right;color:#94a3b8">스탯 <span style="color:${col};font-weight:600">×${t.mult}</span><br>최대 Lv. <span style="color:${col};font-weight:600">${t.maxLv}</span></span></div>`;
     }).join('');
-    const phaseLabels=['집합소 · 떠돌이 (phase 0)','마을 (phase 1)','도시 (phase 2)','왕국 (phase 3)'];
+    const phaseLabels=['집합소 · 떠돌이 (phase 0)','마을 · 촌장 (phase 1)','도시 · 영주 (phase 2)','왕국 · 군주 (phase 3)'];
     let rollBlocks='';
     if(typeof TIER_ROLL_BY_PHASE!=='undefined'&&typeof TIERS!=='undefined'){
       for(let ph=0;ph<4;ph++){
@@ -11707,7 +12080,7 @@ window.openGameHelpModal=function(){
           <div style="color:#fde68a;margin-bottom:6px;font-weight:600">9단계 등급 (한 단계마다 최대 Lv. +1)</div>
           ${tierRows}
           <div style="color:#fde68a;margin:10px 0 6px;font-weight:600">문명 단계별 출현 비율 (합 100%)</div>
-          <div style="font-size:9.5px;color:#94a3b8;margin-bottom:6px;line-height:1.5">상단 연대기: 집합소→마을→도시→왕국 (<b>civPhase 0~3</b>)에 따라 추첨 가중치가 달라집니다. 비율이 <b>0%</b>인 등급은 그 단계에서는 나오지 않습니다.</div>
+          <div style="font-size:9.5px;color:#94a3b8;margin-bottom:6px;line-height:1.5">상단 새 왕국 스토리: 집합소→마을→도시→왕국 (<b>civPhase 0~3</b>)에 따라 추첨 가중치가 달라집니다. 비율이 <b>0%</b>인 등급은 그 단계에서는 나오지 않습니다.</div>
           ${rollBlocks}
         </div>
       </div>
@@ -12040,15 +12413,15 @@ function updateSharedVision(aa){
   _allySharedVisionKeys=vKeys;
 }
 function fogEnabled(){
-  if(!isBattle) return false;
+  if(!isBattle&&!isPlacing) return false;
   const zid=(currentZone||{}).id||'';
   // 집합소: 근처 들판(hunt)·얕은 강가(river)만 전체 공개 — 이어지는 챕터·자동 ID 포함
   if(zid==='hunt'||zid==='river') return false;
   if(zid.startsWith('chapter_hunt_')||zid.startsWith('chapter_river_')) return false;
   if(zid.startsWith('auto_hunt')||zid.startsWith('auto_river')) return false;
-  // 얕은 숲(wilds)부터 마을·도시·왕국 전투지: 안개 + 시야 공유
+  // 얕은 숲(wilds)부터 마을·도시·왕국 전투지: 안개 + 시야 공유 (배치 단계 포함)
   return true;
-} // 전투 중에만 안개 (배치 단계에서는 지형·유닛이 잘 보이도록)
+}
 /** 밤·횃불 느낌의 시야 가장자리 글로우: 울창한 숲·산적 협곡·저주받은 강곡 등만 (나머지 전투지는 시야 안쪽이 원색 지형) */
 const FOG_TORCH_VISION_ZONE_IDS=new Set(['mine','castle','citadel']);
 function fogTorchVisionEnabled(){
@@ -12100,6 +12473,32 @@ function fillFogVisionHole(fctx,ax,ay,vr){
   fctx.fill();
   fctx.restore();
 }
+/** 배치 단계 보라 구역(c<7) 중심·반경 — 안개에서 해당 띠만 뚫기 */
+function getPlacementFogRevealCenterRadius(){
+  if(typeof ROWS==='undefined'||typeof COLS==='undefined'||!hexMap) return null;
+  const maxC=Math.min(6,COLS-1);
+  let sx=0,sy=0,n=0;
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<=maxC;c++){
+      const h=hexMap[r]&&hexMap[r][c];
+      if(!h) continue;
+      sx+=h.x;sy+=h.y;n++;
+    }
+  }
+  if(n===0) return null;
+  const cx=sx/n,cy=sy/n;
+  let maxD=typeof HR!=='undefined'?HR:20;
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<=maxC;c++){
+      const h=hexMap[r]&&hexMap[r][c];
+      if(!h) continue;
+      const d=Math.hypot(h.x-cx,h.y-cy);
+      if(d>maxD) maxD=d;
+    }
+  }
+  const scale=typeof getMapRangeDisplayScale==='function'?getMapRangeDisplayScale():1;
+  return{x:cx,y:cy,r:(maxD+(typeof HR!=='undefined'?HR:20)*2.2)*Math.max(0.85,scale)};
+}
 function getUnitEffectiveSkillRange(u){
   if(!u) return 180;
   const role=u.classKey||u.baseRole||'Refugee';
@@ -12126,6 +12525,11 @@ function getFogVisionRadius(unit){
 function isEnemyVisibleInFog(enemy){
   if(!enemy||enemy.dead||enemy.hp<=0) return false;
   if(!fogEnabled()) return true;
+  if(isPlacing&&!isBattle&&typeof nearestCell==='function'&&typeof mapHexCellToRowCol==='function'){
+    const cell=nearestCell(enemy.x,enemy.y);
+    const idx=cell?mapHexCellToRowCol(cell):null;
+    if(idx&&idx.c<7) return true;
+  }
   for(let i=0;i<allies.length;i++){
     const a=allies[i];
     if(!a||!a.isDeployed||a.dead||a.permanentlyDead||a.garrisoned||a.inStandby) continue;
@@ -12711,6 +13115,10 @@ function draw(crowdedBattle){
         const vr=getFogVisionRadius(a);
         fillFogVisionHole(fctx,a.x,a.y,vr);
       });
+      if(isPlacing&&!isBattle){
+        const pr=getPlacementFogRevealCenterRadius();
+        if(pr) fillFogVisionHole(fctx,pr.x,pr.y,pr.r);
+      }
       ctx.drawImage(_fogLayerCanvas,0,0);
     }
     if(fogTorchVisionEnabled()&&visAllies.length>=1){
@@ -13207,7 +13615,7 @@ function renderAllyPanel() {
   if(pc) pc.innerText = `(${activeAllies.length}/${PARTY_LIMIT})`;
   const groupCnt=getPartyGroupCountByPhase();
   const groupBtnHtml=groupCnt>0
-    ? `<button type="button" class="collapse-btn" id="btn-party-group" onclick="event.stopPropagation();showPartyGroupModal(event)" style="font-size:9px;padding:2px 6px;background:#1a1525;color:#c4b5fd;border-color:#5b2d82">파티 그룹</button>`
+    ? `<button type="button" class="collapse-btn panel-ally-toolbar-btn" id="btn-party-group" onclick="event.stopPropagation();showPartyGroupModal(event)">파티 그룹</button>`
     : '';
   
   // 4. 헤더 및 버튼 구성 — 전체 유닛은 집합소 헤더(대원 영입 우측), 나머지는 오른쪽 묶음
@@ -13218,8 +13626,8 @@ function renderAllyPanel() {
       </div>
       <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0">
         ${groupBtnHtml}
-        <button type="button" class="collapse-btn" id="btn-party-sort" onclick="event.stopPropagation();enableAutoSort();" style="font-size:9px;padding:2px 6px;background:#1a3d5c;color:#60a5fa;border-color:#1e3a5f">유닛 정렬</button>
-        <button class="collapse-btn" id="btn-compact" onclick="toggleCompactView()" style="font-size:9px;padding:2px 6px">간략히</button>
+        <button type="button" class="collapse-btn panel-ally-toolbar-btn" id="btn-party-sort" onclick="event.stopPropagation();enableAutoSort();">유닛 정렬</button>
+        <button type="button" class="collapse-btn panel-ally-toolbar-btn" id="btn-compact" onclick="toggleCompactView()">간략히</button>
       </div>
     </div>`;
 
@@ -13715,6 +14123,18 @@ function getTierUiMeta(u){
   const row=TIERS[idx]||TIERS[1];
   const grow=idx>=4;
   return {border:row.color,chip:row.color,grow,label:row.name};
+}
+/** 통솔/대기실 등 소형 카드 — 테두리 색과 맞는 반투명 배경(등급 구분) */
+function tierBorderToStandbyCardBg(hex){
+  const h=String(hex||'').replace('#','').trim();
+  if(h.length!==6)return 'rgba(15,25,35,0.85)';
+  const r=parseInt(h.slice(0,2),16);
+  const g=parseInt(h.slice(2,4),16);
+  const b=parseInt(h.slice(4,6),16);
+  if(!Number.isFinite(r)||!Number.isFinite(g)||!Number.isFinite(b))return 'rgba(15,25,35,0.85)';
+  const lum=(r*0.299+g*0.587+b*0.114)/255;
+  const a=lum>0.78?0.11:lum<0.32?0.22:0.17;
+  return `rgba(${r},${g},${b},${a})`;
 }
 function getIntegratedFamilyMembers(family){
   const rows=[];
@@ -14877,9 +15297,16 @@ window.cancelClassModal = function() {
     clearTimeout(_classModalTimer);
     _classModalTimer = null;
   }
+  const wasU=pendingClass;
   document.getElementById('modal').classList.remove('show');
   pendingClass = null;
   if(typeof _maybeReopenDefeatPicker==='function') _maybeReopenDefeatPicker();
+  if(Array.isArray(_mercHireSetupQueue)&&wasU&&_mercHireSetupQueue.length&&_mercHireSetupQueue[0]===wasU){
+    _mercHireSetupQueue.shift();
+    if(_mercHireSetupQueue.length&&typeof showClassModal==='function'){
+      setTimeout(()=>showClassModal(_mercHireSetupQueue[0]),260);
+    }else _mercHireSetupQueue=null;
+  }
 };
 
 window.garrisonDrop=function(e,toZid){
@@ -15308,7 +15735,7 @@ function loop(gen,rafTs) {
       _kingdomUpkeepAt=0;
     }
 
-    // 8-4. 날짜 레이블 (상단 연대기 옆)
+    // 8-4. 날짜 레이블 (상단 새 왕국 스토리 옆)
     var dl = document.getElementById('day-label');
     if (dl) {
       dl.innerText = zoneStage + '일차';
@@ -15402,10 +15829,10 @@ function showDeployGuide() {
   const pg = document.getElementById('pg');
   if (pg) {
     pg.style.display = 'block';
-    pg.style.background = 'rgba(0,0,0,0.8)'; // 검은 반투명 배경으로 가독성 향상
-    pg.style.color = '#f1c40f';
-    pg.innerHTML = '대원을 배치한 뒤, 준비가 되면 <b style="color:#e74c3c">▶ 출발!</b> 버튼 or <b style="color:#e74c3c">스페이스 바</b>를 누르세요.';
-    // setTimeout이 없으므로 출발 버튼을 누를 때까지 사라지지 않습니다.
+    pg.style.background = 'rgba(15, 23, 42, 0.94)';
+    pg.style.color = '#e2e8f0';
+    pg.style.border = '1px solid rgba(251, 191, 36, 0.45)';
+    pg.innerHTML = '대원을 배치한 뒤, 준비가 되면 <b style="color:#38bdf8">▶ 출발!</b> 버튼 또는 <b style="color:#38bdf8">스페이스 바</b>를 누르세요.';
   }
 }
 
@@ -15428,8 +15855,7 @@ window.onload = function() {
   window.closeRefugeeModal = closeRefugeeModal;
   window.showRecruitChoiceModal = showRecruitChoiceModal;
   window.closeRecruitChoiceModal = closeRecruitChoiceModal;
-  window.onRecruitPickRefugee = onRecruitPickRefugee;
-  window.onRecruitPickMerc = onRecruitPickMerc;
+  window.confirmUnifiedRecruit = confirmUnifiedRecruit;
   window.hireGold = hireGold;
   window.hireFood = hireFood;
   window.upgradeUnit = upgradeUnit;
