@@ -576,7 +576,7 @@ min-width: 0;
 width: 100%;
 }
 .sp {
-width:270px;
+width:clamp(270px, 40vw, 560px);
 flex-shrink:0;
 background:#0f1923;
 border:1px solid #1e2d3d;
@@ -606,15 +606,12 @@ box-shadow: 0 0 10px rgba(241, 196, 15, 0.3);
 .uc.uc-standby-sliding { pointer-events: none; }
 .uch { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; gap:4px; flex-wrap:nowrap; }
 .un { font-weight:bold; font-size:11px; } .ulv { font-size:9px; color:#f1c40f; }
-.uc .un, .uc .ulv, .uc-meta { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.uc .un, .uc .ulv, .uc-meta { white-space:normal; overflow:hidden; text-overflow:ellipsis; }
 /* 기본 능력치 줄: 한 줄 유지(두 줄·말줄임 방지). 좁으면 가로 스크롤 */
 #panel-ally #al .uc-stats {
 white-space: nowrap;
-overflow-x: auto;
-overflow-y: hidden;
+overflow: visible;
 max-width: 100%;
--webkit-overflow-scrolling: touch;
-scrollbar-width: thin;
 }
 .bw { width:100%; height:4px; background:#1e2d3d; border-radius:2px; margin:2px 0; overflow:hidden; }
 .bf { height:100%; border-radius:2px; transition:width 0.3s; }
@@ -625,7 +622,7 @@ scrollbar-width: thin;
 .skb:hover { border-color:#f1c40f; color:#f1c40f; } .skb.act { background:#f1c40f; color:#000; border-color:#f1c40f; font-weight:bold; } .skb.act span { color: #000 !important; }
 .sl { font-size:9px; color:#374151; margin-bottom:2px; }
 .ur { display:flex; gap:2px; margin-top:4px; flex-wrap:wrap; }
-.ub { flex:1; min-width:calc(33% - 3px); padding:3px 1px; border-radius:3px; border:1px solid #1e2d3d; background:#0f1923; color:#6b7280; font-size:8px; cursor:pointer; text-align:center; transition:all 0.12s; }
+.ub { flex:1; min-width:calc(20% - 3px); padding:3px 1px; border-radius:3px; border:1px solid #1e2d3d; background:#0f1923; color:#6b7280; font-size:8px; cursor:pointer; text-align:center; transition:all 0.12s; }
 .ub:hover { background:#f1c40f; color:#000; border-color:#f1c40f; }
 .ub.dimmed { opacity:0.45; cursor:not-allowed; }
 .ub.dimmed:hover { background:#0f1923; color:#6b7280; border-color:#1e2d3d; }
@@ -1290,6 +1287,11 @@ touch-action: manipulation;
 .compact-mode .sk-row,.compact-mode .ur,.compact-mode .sl { display:none !important; }
 .compact-mode .uc { padding:4px 7px !important; margin-bottom:3px !important; }
 .compact-mode .bw { margin:1px 0 !important; }
+/* compact 모드: 카드 더 좁게 허용 → 3열도 가능 */
+.compact-mode #al {
+grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr));
+}
+.compact-mode .uc-stats { display: none !important; }
 /* 3. 유닛 정보가 담긴 바디 영역 (스크롤 기준점) */
 #panel-ally-body {
 padding-top: 5px;
@@ -1300,7 +1302,7 @@ min-height: 0;
 /* 최소 폭 ≈ 기본 능력치(HP~MOV) 한 줄 — 남는 폭에 따라 2열·3열 자동 */
 #al {
 display: grid;
-grid-template-columns: repeat(auto-fill, minmax(min(100%, 276px), 1fr));
+grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
 gap: 6px;
 align-items: start;
 }
@@ -1407,7 +1409,7 @@ max-height: none !important;
 }
 
 #al {
-grid-template-columns: repeat(auto-fill, minmax(min(100%, 276px), 1fr));
+grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
 }
 
 #panel-enemy.panel-enemy-below #el {
@@ -13433,6 +13435,20 @@ function getMapRangeDisplayScale(){
   return Math.min(1, refW/Math.max(1,CW), refH/Math.max(1,CH));
 }
 let _fogLayerCanvas=null,_fogLayerCtx=null;
+let _torchMaskCanvas=null,_torchMaskCtx=null;
+let _torchColorCanvas=null,_torchColorCtx=null;
+function syncTorchCanvasSize(){
+  if(!_torchMaskCanvas){
+    _torchMaskCanvas=document.createElement('canvas');
+    _torchMaskCtx=_torchMaskCanvas.getContext('2d');
+    _torchColorCanvas=document.createElement('canvas');
+    _torchColorCtx=_torchColorCanvas.getContext('2d');
+  }
+  if(_torchMaskCanvas.width!==CW||_torchMaskCanvas.height!==CH){
+    _torchMaskCanvas.width=CW; _torchMaskCanvas.height=CH;
+    _torchColorCanvas.width=CW; _torchColorCanvas.height=CH;
+  }
+}
 function syncFogLayerCanvasSize(){
   if(typeof CW==='undefined'||typeof CH==='undefined') return;
   if(!_fogLayerCanvas){
@@ -14112,19 +14128,18 @@ function draw(crowdedBattle){
     if(fogTorchVisionEnabled()&&visAllies.length>=1){
       const tint=fogTorchVisionGradientStops();
       ctx.save();
-      // 오프스크린 캔버스에 전체 시야 합산 마스크 생성
-      const _torchCanvas=document.createElement('canvas');
-      _torchCanvas.width=CW; _torchCanvas.height=CH;
-      const _tc=_torchCanvas.getContext('2d');
-      // 1) 전체 시야 영역을 불투명 흰색으로 채우기 (source-over)
+      // 전역 캔버스 재사용 (매 프레임 createElement 방지)
+      syncTorchCanvasSize();
+      const _tc=_torchMaskCtx;
+      const _cc=_torchColorCtx;
+      // 1) 마스크 초기화 후 전체 시야 영역 합산
+      _tc.clearRect(0,0,CW,CH);
       _tc.globalCompositeOperation='source-over';
       visAllies.forEach(a=>{
         const vr=getFogVisionRadius(a);
         const r0=vr*FOG_VISION_CLEAR_FRAC;
-        // 내부(clear_frac 안쪽)는 완전 불투명
         _tc.beginPath(); _tc.arc(a.x,a.y,r0,0,Math.PI*2);
         _tc.fillStyle='rgba(255,255,255,1)'; _tc.fill();
-        // 경계 그라디언트
         const g=_tc.createRadialGradient(a.x,a.y,r0,a.x,a.y,vr);
         g.addColorStop(0,'rgba(255,255,255,1)');
         g.addColorStop(1,'rgba(255,255,255,0)');
@@ -14132,11 +14147,8 @@ function draw(crowdedBattle){
         _tc.beginPath(); _tc.arc(a.x,a.y,vr,0,Math.PI*2);
         _tc.fill();
       });
-      // 2) 합산 마스크를 tint 색상으로 채워 경계만 색상 표현
-      const _colorCanvas=document.createElement('canvas');
-      _colorCanvas.width=CW; _colorCanvas.height=CH;
-      const _cc=_colorCanvas.getContext('2d');
-      // 경계 영역(안개와 만나는 곳) tint 색상
+      // 2) 색상 캔버스 초기화 후 tint 그라디언트
+      _cc.clearRect(0,0,CW,CH);
       _cc.globalCompositeOperation='source-over';
       visAllies.forEach(a=>{
         const vr=getFogVisionRadius(a);
@@ -14150,12 +14162,12 @@ function draw(crowdedBattle){
         _cc.beginPath(); _cc.arc(a.x,a.y,vr,0,Math.PI*2);
         _cc.fill();
       });
-      // 3) 합산 마스크로 색상 캔버스를 clip — 시야 밖 색상 제거
+      // 3) 마스크로 색상 캔버스 clip — 시야 밖 색상 제거
       _cc.globalCompositeOperation='destination-in';
-      _cc.drawImage(_torchCanvas,0,0);
-      // 4) 결과를 메인 캔버스에 합성 (lighter 대신 source-over로 겹침 방지)
+      _cc.drawImage(_torchMaskCanvas,0,0);
+      // 4) 메인 캔버스에 합성
       ctx.globalCompositeOperation='lighter';
-      ctx.drawImage(_colorCanvas,0,0);
+      ctx.drawImage(_torchColorCanvas,0,0);
       ctx.restore();
     }
   }
@@ -14680,7 +14692,7 @@ function renderAllyPanel() {
       const cost = upg.cost(a.lv);
       const cnt = (a.upgCount && a.upgCount[stat]) || 0;
       const isMax = cnt >= 10;
-      return `<button class="ub${(res.gold < cost || isMax) ? ' dimmed' : ''}" onclick="event.stopPropagation(); upgradeUnit(${a.id},'${stat}')" style="min-width:50px; position:relative;">
+      return `<button class="ub${(res.gold < cost || isMax) ? ' dimmed' : ''}" onclick="event.stopPropagation(); upgradeUnit(${a.id},'${stat}')" style="min-width:44px; position:relative;">
         <div style="font-size:7px; color:${isMax ? '#e74c3c' : '#9ca3af'}; margin-bottom:1px;">${upg.label} <b style="color:${isMax ? '#e74c3c' : '#f1c40f'}">(${cnt}/10)</b></div>
         <div style="font-size:9px; font-weight:bold;">${upg.cur(a)}${isMax ? '' : `<span style="color:#2ecc71"> ${upg.gain}</span>`}</div>
         <div style="font-size:8px; color:${isMax ? '#e74c3c' : '#f1c40f'}; margin-top:1px;">${isMax ? 'MAX' : cost + 'G'}</div>
