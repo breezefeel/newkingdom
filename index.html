@@ -184,7 +184,14 @@ body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #cc
     max-width: 100%;
   }
 }
-/* 거점 헤더: 피난민·용병 버튼 — ctrl-recruit 버튼과 동일 스타일 */
+/* 대원 영입 선택 모달: 거점/재기 모달(9999) 위에 표시 */
+#recruit-choice-modal.overlay { z-index: 12000; }
+#garrison-bar-header .garrison-header-recruit .cb-recruit-main {
+  background: linear-gradient(135deg, #1e3a5f 0%, #5a3010 52%, #14532d 100%);
+  border: 1px solid rgba(251, 191, 36, 0.28);
+}
+
+/* 거점 헤더: 대원 영입 버튼 — ctrl-recruit 버튼과 동일 스타일 */
 #garrison-bar-header .garrison-header-recruit {
   display: flex;
   flex-wrap: nowrap;
@@ -210,6 +217,10 @@ body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #cc
   opacity: 0.92;
   margin-top: 2px;
 }
+#garrison-bar-header .garrison-header-recruit #btn-hub-sg-list {
+  align-self: center;
+  flex-shrink: 0;
+}
 .garrison-header-trailing {
   display: flex;
   align-items: center;
@@ -220,7 +231,7 @@ body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #cc
 .garrison-header-trailing .garrison-expand-btn {
   margin-left: 0 !important;
 }
-/* 거점 헤더: 한 줄 — 집합소(좌) · 피난민·용병·펼치기(우, 붙여서) */
+/* 거점 헤더: 한 줄 — 집합소(좌) · 대원 영입·펼치기(우, 붙여서) */
 #garrison-bar-header.garrison-header--split {
   flex-wrap: nowrap;
   align-items: center;
@@ -1422,8 +1433,8 @@ canvas {
       </div>
       <div class="garrison-header-actions">
         <div class="garrison-header-recruit">
-          <button class="cb cb-fo" onclick="event.stopPropagation(); showRefugeeModal()">피난민 합류<span class="cb-cost">🍖30</span></button>
-          <button class="cb cb-hi" onclick="event.stopPropagation(); hireGold()">용병 고용<span class="cb-cost">💰100</span></button>
+          <button type="button" class="cb cb-recruit-main" onclick="event.stopPropagation(); showRecruitChoiceModal()">대원 영입<span class="cb-cost">🍖30 · 💰100</span></button>
+          <button type="button" class="collapse-btn" id="btn-hub-sg-list" onclick="event.stopPropagation();openHubStandbyGarrisonModal()" style="font-size:9px;padding:2px 8px;background:#1a3d5c;color:#93c5fd;border:1px solid #1e3a5f;touch-action:manipulation;white-space:nowrap" title="대기실·거점 주둔 전체">전체 유닛</button>
         </div>
         <span id="garrison-bar-toggle" class="garrison-expand-btn" role="button" tabindex="0" onclick="event.stopPropagation();toggleGarrisonBar()">▼ 펼치기</span>
       </div>
@@ -1439,7 +1450,6 @@ canvas {
     <div class="pt" style="display:flex;justify-content:space-between;align-items:center;gap:8px;position:sticky;top:0;z-index:5;background:#0f1923;margin:-9px -9px 7px -9px;padding:7px 9px 6px 9px;border-bottom:1px solid #1e2d3d">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;flex:1 1 auto">
         <span style="flex-shrink:0">👥 함께하는 동료 <b id="party-count" style="color:#f1c40f"></b></span>
-        <button type="button" class="collapse-btn" id="btn-hub-sg-list" onclick="event.stopPropagation();openHubStandbyGarrisonModal()" style="font-size:9px;padding:2px 8px;background:#1a3d5c;color:#93c5fd;border:1px solid #1e3a5f;flex-shrink:0;touch-action:manipulation;white-space:nowrap" title="대기실·거점 주둔 전체">전체 유닛</button>
       </div>
       <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0">
         <button type="button" class="collapse-btn" id="btn-party-sort" onclick="event.stopPropagation();enableAutoSort();" style="font-size:9px;padding:2px 6px;background:#1a3d5c;color:#60a5fa;border-color:#1e3a5f">유닛 정렬</button>
@@ -1591,6 +1601,25 @@ canvas {
     <div style="display:flex;gap:8px">
       <button type="button" class="cb" id="ref-hire-btn" style="background:#e67e22;flex:1;padding:10px" onclick="hireFood()">🍖 영입</button>
       <button class="cb" style="background:#374151;flex:1;padding:10px" onclick="closeRefugeeModal()">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- 대원 영입: 피난민(식량) / 용병(금화) 선택 -->
+<div id="recruit-choice-modal" class="overlay" onclick="if(event.target===this)closeRecruitChoiceModal()">
+  <div class="modal-box" style="max-width:360px" onclick="event.stopPropagation()">
+    <div class="modal-title">👥 대원 영입</div>
+    <div class="modal-sub" style="margin-bottom:14px">식량으로 피난민을 합류시키거나, 금화로 전직된 용병을 고용할 수 있습니다.</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button type="button" class="cb cb-fo" style="width:100%;padding:12px;display:flex;flex-direction:column;align-items:center;gap:4px" onclick="onRecruitPickRefugee()">
+        <span>🍖 피난민 합류</span>
+        <span style="font-size:0.85em;opacity:0.95">인원당 식량 30</span>
+      </button>
+      <button type="button" class="cb cb-hi" style="width:100%;padding:12px;display:flex;flex-direction:column;align-items:center;gap:4px" onclick="onRecruitPickMerc()">
+        <span>💰 용병 고용</span>
+        <span style="font-size:0.85em;opacity:0.95">금화 100 · 전직 레벨 지원자</span>
+      </button>
+      <button type="button" class="cb" style="width:100%;padding:10px;background:#374151" onclick="closeRecruitChoiceModal()">닫기</button>
     </div>
   </div>
 </div>
@@ -4978,8 +5007,8 @@ function shouldDetourForFasterArrival(unit,targetX,targetY,nextCell,detourCandid
 // ── 모듈2: 등급/성격 데이터 (9단계 · maxLv 단계마다 +1 · 문명 단계별 출현은 TIER_ROLL_BY_PHASE)
 const TIERS = [
   {name:'Poor',    mult:0.84, color:'#7c92a8', maxLv:76},
-  {name:'Common',  mult:0.90, color:'#b89f84', maxLv:77},
-  {name:'Trained', mult:0.96, color:'#6d5340', maxLv:78},
+  {name:'Common',  mult:0.90, color:'#ffffff', maxLv:77},
+  {name:'Trained', mult:0.96, color:'#b89f84', maxLv:78},
   {name:'Veteran', mult:1.04, color:'#86efac', maxLv:79},
   {name:'Rare',    mult:1.14, color:'#60a5fa', maxLv:80},
   {name:'Elite',   mult:1.28, color:'#4f46e5', maxLv:81},
@@ -5956,13 +5985,15 @@ function updatePG() {
     const totalToDeploy=slotIdx.filter(i=>{const a=allies[i];return a&&!a.dead&&!a.permanentlyDead;}).length;
     const remaining = ud.length;
     const placedCount = Math.max(0, totalToDeploy - remaining);
+    // 몇 번째 유닛을 두는 중인지(1~totalToDeploy) — 이미 둔 수(placedCount)는 0부터라 +1
+    const placingWhich = totalToDeploy > 0 ? Math.min(placedCount + 1, totalToDeploy) : 1;
 
     pg.style.display = 'block';
     pg.style.border = '1px solid #f1c40f'; // 경고/안내의 금색 테두리
     
     pg.innerHTML = `
-      <div style="white-space:nowrap">📍 <b style="color:${classColor}; text-shadow: 1px 1px 2px #000;">${u.name}</b></div>
-      <div style="color:#f1c40f;white-space:nowrap;margin-top:4px">배치 중 (${placedCount}/${totalToDeploy})</div>
+      <div style="color:#f1c40f;white-space:nowrap">📍 배치 중 (${placingWhich}/${totalToDeploy}명)</div>
+      <div style="white-space:nowrap;margin-top:4px"><b style="color:${classColor}; text-shadow: 1px 1px 2px #000;">${u.name}</b></div>
       <div style="margin-top:4px;white-space:nowrap;font-size:14px"><span style="color:#c084fc">보라색 영역</span><span style="color:#f1c40f"> 클릭!</span></div>`;
   }
 }
@@ -6956,6 +6987,34 @@ window.changeRefCount = function(delta) {
   _updateRefModal();
 };
 function closeRefugeeModal(){document.getElementById('refugee-modal').classList.remove('show');}
+
+let _recruitModalContext='main';
+function showRecruitChoiceModal(ctx){
+  _recruitModalContext=(ctx==='defeat')?'defeat':'main';
+  const el=document.getElementById('recruit-choice-modal');
+  if(el) el.classList.add('show');
+}
+function closeRecruitChoiceModal(){
+  const el=document.getElementById('recruit-choice-modal');
+  if(el) el.classList.remove('show');
+}
+function onRecruitPickRefugee(){
+  closeRecruitChoiceModal();
+  if(_recruitModalContext==='defeat'){
+    if(typeof window.defeatEmptyHireFood==='function') window.defeatEmptyHireFood();
+  }else{
+    showRefugeeModal();
+  }
+}
+function onRecruitPickMerc(){
+  closeRecruitChoiceModal();
+  if(_recruitModalContext==='defeat'){
+    if(typeof window.defeatEmptyHireMerc==='function') window.defeatEmptyHireMerc();
+  }else{
+    hireGold();
+  }
+}
+
 function hireFood(){
   const mx=getMaxRefugeeHireBatch();
   if(mx<1||_refCount<1){alog('❌ 통솔·대기·거점 빈자리와 식량을 확인해 주세요. 더 이상 피난민을 영입할 수 없습니다.');closeRefugeeModal();return;}
@@ -8021,6 +8080,8 @@ function battleTick(){
       return;
     }
   }
+  // 전투 틱마다 패널 갱신 요청 — 적 HP/사망은 여기서 갱신되는데 markDirty가 없으면 상태창이 지도보다 늦게 멈춤
+  if(isBattle) markDirty();
 }
 
 function _defeatSafeHtml(s){
@@ -8123,8 +8184,7 @@ function openDefeatStandbyPicker(){
       </div>
       <div style="max-height:min(280px,42vh);overflow-y:auto;margin-bottom:12px">${rows}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-        <button type="button" onclick="defeatEmptyHireFood()" style="flex:1;min-width:120px;padding:10px;background:#b45309;border:none;border-radius:5px;color:#fff;font-weight:bold;cursor:pointer;touch-action:manipulation">🍖 피난민 (30)</button>
-        <button type="button" onclick="defeatEmptyHireMerc()" style="flex:1;min-width:120px;padding:10px;background:#7c3aed;border:none;border-radius:5px;color:#fff;font-weight:bold;cursor:pointer;touch-action:manipulation">💰 용병 (100)</button>
+        <button type="button" onclick="showRecruitChoiceModal('defeat')" style="flex:1;min-width:160px;padding:10px;background:linear-gradient(135deg,#1e3a5f 0%,#5a3010 52%,#14532d 100%);border:1px solid rgba(251,191,36,0.28);border-radius:5px;color:#fff;font-weight:bold;cursor:pointer;touch-action:manipulation">👥 대원 영입</button>
       </div>
       <div style="font-size:10px;color:#6b7280;margin-bottom:12px">보유: 🍖${Math.floor(res.food)} · 💰${Math.floor(res.gold)}</div>
       <div style="margin-bottom:12px">
@@ -8138,8 +8198,7 @@ function openDefeatStandbyPicker(){
     document.getElementById('garrison-body').innerHTML=`
       <div style="font-size:11px;color:#94a3b8;margin-bottom:12px;line-height:1.6">선택 가능한 <b>생존 동료</b>가 없습니다.<br>아래에서 피난민·용병을 고용한 뒤 <b>재기 확정</b>을 누르세요. (식량이 있으면 재기 확정 시 자동으로 피난민 1명이 보강될 수 있습니다.)</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-        <button type="button" onclick="defeatEmptyHireFood()" style="flex:1;min-width:120px;padding:10px;background:#b45309;border:none;border-radius:5px;color:#fff;font-weight:bold;cursor:pointer;touch-action:manipulation">🍖 피난민 (30)</button>
-        <button type="button" onclick="defeatEmptyHireMerc()" style="flex:1;min-width:120px;padding:10px;background:#7c3aed;border:none;border-radius:5px;color:#fff;font-weight:bold;cursor:pointer;touch-action:manipulation">💰 용병 (100)</button>
+        <button type="button" onclick="showRecruitChoiceModal('defeat')" style="flex:1;min-width:160px;padding:10px;background:linear-gradient(135deg,#1e3a5f 0%,#5a3010 52%,#14532d 100%);border:1px solid rgba(251,191,36,0.28);border-radius:5px;color:#fff;font-weight:bold;cursor:pointer;touch-action:manipulation">👥 대원 영입</button>
       </div>
       <div style="font-size:10px;color:#6b7280;margin-bottom:12px">보유: 🍖${Math.floor(res.food)} · 💰${Math.floor(res.gold)}</div>
       <div style="display:flex;gap:8px">
@@ -9595,10 +9654,18 @@ function showTutorialStep2() {
     <div style="font-size:11px;color:#d1d5db;line-height:1.7;margin-bottom:14px">
       <div style="margin-bottom:10px">🚑 <b style="color:#f87171">영구 사망 주의</b><span style="color:#9ca3af">:</span> 체력이 0이 되면 빈사 상태가 되며, <b style="color:#fff">7초</b> 내에 치료하지 못하면 대원은 <b style="color:#ef4444">영구히 사망</b>하여 사라집니다!</div>
       <div style="margin-bottom:8px">★ <b style="color:#fcd34d">생존을 높이려면 스킬을 바꿔 보세요.</b><br> 전투 상황에 맞게 동료 카드의 스킬 버튼을 눌러 장착 기술을 교체할 수 있습니다. 자주 사용할수록 <b style="color:#fde047">스킬 레벨</b>이 올라 더욱 강력해집니다.</div>
-      <div style="background:rgba(0,0,0,0.3); padding:8px; border-radius:5px; border:1px solid #1e3a5f; margin-top:10px;">
-        <div style="color:#7dd3fc; font-weight:bold; margin-bottom:4px">📢 추천 설정</div>
-        <div style="margin-bottom:4px">🛡️ <b style="color:#fdba74">방어력을 높이려면</b><span style="color:#9ca3af">:</span> <span style="color:#4ade80">[몸으로 막기]</span> 활성화</div>
-        <div>🚑 <b style="color:#93c5fd">HP를 회복시키려면</b><span style="color:#9ca3af">:</span> <span style="color:#4ade80">[상처 처치]</span> 활성화</div>
+      <div style="margin-top:12px;border:1px solid #475569;border-radius:10px;padding:10px 10px 12px;background:linear-gradient(180deg,#111827 0%,#0b1220 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04)">
+        <div style="font-size:9px;color:#94a3b8;text-align:center;margin-bottom:8px;letter-spacing:0.02em">동료 유닛 카드 — 스킬은 카드 안에서 선택합니다</div>
+        <div style="display:flex;gap:5px;justify-content:center;flex-wrap:wrap;margin-bottom:10px">
+          <span style="padding:4px 7px;border:1px solid #475569;border-radius:4px;font-size:9px;color:#e5e7eb;background:#1e293b;white-space:nowrap">몸으로 막기 Lv.1</span>
+          <span style="padding:4px 7px;border:1px solid #eab308;border-radius:4px;font-size:9px;color:#111;background:#facc15;font-weight:700;white-space:nowrap">돌팔매 Lv.1</span>
+          <span style="padding:4px 7px;border:1px solid #475569;border-radius:4px;font-size:9px;color:#e5e7eb;background:#1e293b;white-space:nowrap">상처 처치 Lv.1</span>
+        </div>
+        <div style="background:rgba(0,0,0,0.35); padding:8px; border-radius:6px; border:1px solid #1e3a5f;">
+          <div style="color:#7dd3fc; font-weight:bold; margin-bottom:6px">📢 추천 설정</div>
+          <div style="margin-bottom:4px">🛡️ <b style="color:#fdba74">방어력을 높이려면</b><span style="color:#9ca3af">:</span> <span style="color:#4ade80">[몸으로 막기]</span> 활성화</div>
+          <div>🚑 <b style="color:#fff">HP를 회복시키려면</b><span style="color:#9ca3af">:</span> <span style="color:#4ade80">[상처 처치]</span> 활성화</div>
+        </div>
       </div>
     </div>
     <button onclick="showTutorialStep3()" 
@@ -9613,8 +9680,9 @@ function showTutorialStep3() {
   document.getElementById('garrison-body').innerHTML = `
     <div style="font-size:11px;color:#d1d5db;line-height:1.7;margin-bottom:14px">
       <div style="margin-bottom:8px">👥 <b style="color:#38bdf8">최대 파티원</b><span style="color:#9ca3af">:</span> 이번 전장에서 나갈 수 있는 파티원은 최대 <b style="color:#fff">${PARTY_LIMIT}명</b>까지입니다.</div>
-      <div style="margin-bottom:8px">🍖 <b style="color:#fbbf24">유닛 고용</b><span style="color:#9ca3af">:</span> 식량으로 피난민을 합류시키거나, 금화로 이미 전직된 강력한 용병을 고용하세요.</div>
-      <div style="margin-bottom:8px">🚩 <b style="color:#c084fc">거점</b><span style="color:#9ca3af">:</span> 사냥터를 끝까지 클리어하면 거점을 세우고, 자동 자원·주둔 편성을 이용할 수 있습니다. <b style="color:#7dd3fc"><br>1일차 첫 출발부터 15일차 승리까지 걸린 기록 시간</b>이 짧을수록 재원 얻기에 유리하고, 거점 <b style="color:#e5e7eb">단계</b>·<b style="color:#e5e7eb">건물 업그레이드</b>로 효율과 보너스가 함께 올라갑니다.</div>
+      <div style="margin-bottom:8px">🍖 <b style="color:#fbbf24">유닛 고용</b><span style="color:#9ca3af">:</span> 집합소의 <b>대원 영입</b>에서 식량(피난민) 또는 금화(용병)를 선택하세요.</div>
+      <div style="margin-bottom:8px">🚩 <b style="color:#c084fc">거점</b><span style="color:#9ca3af">:</span> 사냥터를 끝까지 클리어하면 거점을 세우고, 자동 자원·주둔 편성을 이용할 수 있습니다.</div>
+      <div style="margin-bottom:8px;margin-top:12px"><b style="color:#7dd3fc">1일차 첫 출발부터 15일차 승리까지 걸린 기록 시간</b><span style="color:#d1d5db">이 짧을수록 재원 얻기에 유리하고, 거점 </span><b style="color:#e5e7eb">단계</b><span style="color:#d1d5db">·</span><b style="color:#e5e7eb">건물 업그레이드</b><span style="color:#d1d5db">로 효율과 보너스가 함께 올라갑니다.</span></div>
       <div style="margin-bottom:8px">🔄 <b style="color:#4ade80">자동 진행</b><span style="color:#9ca3af">:</span> ON 설정 시 전투가 끝나면 대기 시간 없이 즉시 다음 사냥을 시작합니다.</div>
     </div>
     
@@ -13142,12 +13210,11 @@ function renderAllyPanel() {
     ? `<button type="button" class="collapse-btn" id="btn-party-group" onclick="event.stopPropagation();showPartyGroupModal(event)" style="font-size:9px;padding:2px 6px;background:#1a1525;color:#c4b5fd;border-color:#5b2d82">파티 그룹</button>`
     : '';
   
-  // 4. 헤더 및 버튼 구성 — 전체 유닛은 제목 바로 우측, 나머지는 오른쪽 묶음
+  // 4. 헤더 및 버튼 구성 — 전체 유닛은 집합소 헤더(대원 영입 우측), 나머지는 오른쪽 묶음
   const headerHtml = `
     <div class="pt" style="display:flex;justify-content:space-between;align-items:center;gap:8px;position:sticky;top:0;z-index:30;background:#0f1923;margin:-9px -9px 7px -9px;padding:10px 9px;border-bottom:1px solid #1e2d3d">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;flex:1 1 auto">
         <span style="flex-shrink:0">👥 함께하는 동료 <b id="party-count" style="color:#f1c40f">(${activeAllies.length}/${PARTY_LIMIT})</b></span>
-        <button type="button" class="collapse-btn" id="btn-hub-sg-list" onclick="event.stopPropagation();openHubStandbyGarrisonModal()" style="font-size:9px;padding:2px 8px;background:#1a3d5c;color:#93c5fd;border:1px solid #1e3a5f;flex-shrink:0;touch-action:manipulation;white-space:nowrap" title="대기실·거점 주둔 전체">전체 유닛</button>
       </div>
       <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0">
         ${groupBtnHtml}
@@ -13539,11 +13606,13 @@ function enableAutoSort() {
 function renderEnemyPanel(){
   const tc={prey:'#5d8a3c',predator:'#a05a00',bandit:'#7b1d1d',king:'#1a5276',basic:'#555'};
   const useFog=fogEnabled();
-  const list=useFog?enemies.filter(e=>{
+  const raw=useFog?enemies.filter(e=>{
     const visible=isEnemyVisibleInFog(e);
     if(visible) e._fogSeen=true; // 한 번이라도 마주치면 패널에 유지
     return visible||!!e._fogSeen;
   }):enemies;
+  // 지도(drawEntityOnMap)와 동일하게 살아있는 적만 표시 — 사망 후 패널만 남는 불일치 방지
+  const list=raw.filter(e=>e&&(e.hp||0)>0&&!e.dead);
   document.getElementById('el').innerHTML=list.map(e=>{
     const col=tc[e.etype]||'#555';
     const visibleNow=!useFog||isEnemyVisibleInFog(e);
@@ -15357,6 +15426,10 @@ window.onload = function() {
   window.closeZoneModal = closeZoneModal;
   window.showRefugeeModal = showRefugeeModal;
   window.closeRefugeeModal = closeRefugeeModal;
+  window.showRecruitChoiceModal = showRecruitChoiceModal;
+  window.closeRecruitChoiceModal = closeRecruitChoiceModal;
+  window.onRecruitPickRefugee = onRecruitPickRefugee;
+  window.onRecruitPickMerc = onRecruitPickMerc;
   window.hireGold = hireGold;
   window.hireFood = hireFood;
   window.upgradeUnit = upgradeUnit;
