@@ -46,10 +46,9 @@
 
 /* 추가로 각 자원(rv)의 간격을 미세 조정하고 싶다면 */
 .rv {
-    display: flex;
-    align-items: center;
+    /* display:flex, align-items 제거 - iOS Safari 폰트 메트릭 버그 방지 */
     gap: 3px;
-    white-space: nowrap;    /* 자원 수치가 줄바꿈되지 않게 방지 */
+    white-space: nowrap;
 }
 
 .hint { margin-left:auto; font-size:9px; color:#374151; }
@@ -1785,7 +1784,7 @@ const ZONE_MAP_SIZE_BY_STAGE={
   4:{cols:45,rows:25}, // 왕국 전투지
 };
 function getCurrentPhaseCfg(){ return PHASE_CONFIG[civPhase]||PHASE_CONFIG[0]; }
-/** 문명 단계별 대기 인원(주둔지) 최대: 집합소 10 · 마을 30 · 도시 50 · 왕국 100 */
+
 function getStandbyCapacity(){
   return [10,30,50,100][Math.max(0,Math.min(3,Number(civPhase)||0))]||10;
 }
@@ -1795,7 +1794,7 @@ function getStandbyCount(){
 function canAddToStandby(){
   return getStandbyCount()<getStandbyCapacity();
 }
-/** 통솔 파티(배치 대상) 인원 — 거점·대기 제외 생존 유닛 */
+
 function getActivePartyMemberCount(){
   return allies.filter(a=>a&&!a.dead&&!a.permanentlyDead&&!a.garrisoned&&!a.inStandby).length;
 }
@@ -1805,7 +1804,7 @@ function getPartyRoom(){
 function getStandbyRoom(){
   return Math.max(0,getStandbyCapacity()-getStandbyCount());
 }
-/** 정복된 거점들의 주둔 빈 슬롯 합 */
+
 function getTotalGarrisonRoom(){
   if(typeof zoneRecords==='undefined'||!zoneRecords)return 0;
   let sum=0;
@@ -1819,18 +1818,18 @@ function getTotalGarrisonRoom(){
   });
   return sum;
 }
-/** 피난민이 들어갈 수 있는 총 빈자리: 통솔 + 대기 + 거점 */
+
 function getTotalRefugeeCapacityRoom(){
   return getPartyRoom()+getStandbyRoom()+getTotalGarrisonRoom();
 }
-/** 한 번에 식량으로 영입 가능한 피난민 수: (파티·대기·거점 빈자리 합)과 식량으로 살 수 있는 수 중 작은 값 */
+
 function getMaxRefugeeHireBatch(){
   const room=Math.max(0,getTotalRefugeeCapacityRoom());
   const f=(typeof res!=='undefined'&&res!=null&&Number.isFinite(res.food))?res.food:(typeof food!=='undefined'?food:0);
   const afford=Math.floor(Math.max(0,f)/30);
   return Math.max(0,Math.min(room,afford));
 }
-/** 대원 영입 통합 모달: 용병 n명을 뺀 뒤 식량으로 살 수 있는 피난민 수 */
+
 function getUnifiedMaxRefugees(mercAllocated){
   const m=Math.max(0,mercAllocated|0);
   const room=Math.max(0,getTotalRefugeeCapacityRoom()-m);
@@ -1838,7 +1837,7 @@ function getUnifiedMaxRefugees(mercAllocated){
   const afford=Math.floor(Math.max(0,f)/30);
   return Math.max(0,Math.min(room,afford));
 }
-/** 대원 영입 통합 모달: 피난민 n명을 뺀 뒤 금화로 살 수 있는 용병 수 */
+
 function getUnifiedMaxMercs(refAllocated){
   const n=Math.max(0,refAllocated|0);
   const room=Math.max(0,getTotalRefugeeCapacityRoom()-n);
@@ -1846,7 +1845,7 @@ function getUnifiedMaxMercs(refAllocated){
   const afford=Math.floor(Math.max(0,g)/100);
   return Math.max(0,Math.min(room,afford));
 }
-/** 대기 인원이 단계 한도를 넘으면 id가 큰(늦게 합류한) 유닛부터 대기 해제 */
+
 function enforceStandbyCapacity(){
   const cap=getStandbyCapacity();
   const sb=allies.filter(a=>a&&!a.dead&&!a.permanentlyDead&&!a.garrisoned&&a.inStandby);
@@ -1871,9 +1870,9 @@ function sortStandbyListForModal(arr,mode){
 let _standbyListSortMode='lv';
 let _hubSgSortMode='lv';
 let _integratedMembersSortMode='lv';
-/** 통합 거점 대원 모달이 열려 있을 때 가문 키 — 내보내기 후 목록 즉시 갱신용 */
+
 let _integratedMembersPopupFamily=null;
-/** 통솔 패티 기준 평균 — 대기 카드 능력치 색 비교용 */
+
 function getStandbyStatAvgsForCompare(){
   let pPool=allies.filter(x=>!x.garrisoned&&!x.inStandby&&!x.permanentlyDead);
   if(pPool.length>PARTY_LIMIT)pPool=pPool.slice(0,PARTY_LIMIT);
@@ -1983,7 +1982,7 @@ window.gzStandbyCardRootClick=function(ev,root){
   if(!Number.isFinite(uid))return;
   showStandbyCardStatPopup(ev,uid,root);
 };
-/** 대기·거점 카드에 표시할 이름(구버전/데이터에 붙은 「교체 중」 접미사 제거) */
+
 function getStandbyCardDisplayName(u){
   return String((u&&u.name)||'').replace(/\s*교체\s*중\s*$/,'').trim();
 }
@@ -1999,7 +1998,7 @@ function buildStandbyUnitCardHtml(a, opts){
   const clsLabel=a.classKey?BASE_ROLES[a.classKey]?.name||'':'피난민';
   const rawGz=opts.garrisonZid;
   const hasGz=rawGz!==undefined&&rawGz!==null&&String(rawGz).length>0;
-  /* HTML 속성은 큰따옴표 — 구역 id는 작은따옴표 JS 리터럴로 (JSON.stringify의 " 는 속성을 끊어버림) */
+  
   const gzJsEsc=hasGz?String(rawGz).replace(/\\/g,'\\\\').replace(/'/g,"\\'"):'';
   const menuClick=opts.usePartyOrderMenu
     ? `showUnitOrderMenu(${a.id},event)`
@@ -2103,7 +2102,7 @@ function refreshStandbyListModal(){
     if(b) b.classList.toggle('is-active',_standbyListSortMode===m);
   });
 }
-/** 대기 유닛 목록·통합 거점 대원 창이 열려 있으면 인원 변경 직후 그리드 동기화 */
+
 function refreshOpenUnitListModalsAfterRosterChange(){
   refreshStandbyListModal();
   if(typeof refreshHubStandbyGarrisonModal==='function') refreshHubStandbyGarrisonModal();
@@ -2196,7 +2195,7 @@ window.setHubSgSort=function(mode){
   if(mode==='tier'||mode==='lv') _hubSgSortMode=mode;
   refreshHubStandbyGarrisonModal();
 };
-/** 허브 모달 드래그 payload (대기·거점 카드에서 시작) */
+
 function hubModalReadDragPayload(e){
   try{
     const standbyId=parseInt(e.dataTransfer.getData('standby-uid'),10);
@@ -2560,7 +2559,7 @@ const CLASS5_SKILLS={
   Whirlwind:{name:'회오리베기',desc:'주변 적 근접 광역 공격',              type:'active_warrior_aoe', range:80,cooldown:110},
   Rush:     {name:'돌격',     desc:'빠르게 돌진하며 강타',                 type:'active_rush',   range:90,cooldown:90},
 };
-/* --- [추가] 전문직업 액티브 스킬 정의 (상단 상수 구역) --- */
+
 const CLASS10_SKILLS = {
   HolyShield: { name: '성역의 방패', desc: '아군 전체 무적 및 회복', type: 'active_ultimate', range: 300, cooldown:720 },
   Headshot:   { name: '헤드샷', desc: '치명적인 급소 사격', type: 'active_ultimate', range: 500, cooldown:420 },
@@ -2572,9 +2571,9 @@ const CLASS10_SKILLS = {
   TimeStop:   { name: '시간 정지', desc: '3초간 모든 적 정지', type: 'active_freeze', range: 1000, cooldown:720 },
   Hellfire:   { name: '지옥의 불길', desc: '맵 전체 강력한 화염 피해', type: 'active_global_atk', range: 1000, cooldown:840 }
 };
-/** draw() 사거리 원 — 유닛마다 매 프레임 spread 객체 생성 금지(GC·프리즈 완화) */
+
 const ALL_SKILLS_DRAW_LOOKUP = Object.assign({}, BASE_SKILLS, CLASS5_SKILLS, CLASS10_SKILLS);
-/** 아군 스킬 정의 중 ‘전장 조준’ 기준 최대 사거리 — 맵 전역 궁(750+)은 제외. 적 인지 거리 하한 계산용 */
+
 function getMaxAllySkillRangeForEnemyDetectRef(){
   let mx=230;
   for(const k of Object.keys(ALL_SKILLS_DRAW_LOOKUP)){
@@ -2719,17 +2718,12 @@ const BASE_ROLES = {
     range:100, atk:22, spd:1.5, def:0.05, atkSpd:0.8, castDelay:0
   }
 };
-/** 피난민 시절 기본 스킬 — 보직 전직(10레벨) 시 목록·장착에서 제거 */
+
 const REFUGEE_BASIC_SKILL_KEYS=['Guard','Arrow','Mend'];
 const RES_IRON_ORE_LABEL='철';
 const RES_COPPER_ORE_LABEL='구리';
 const RES_WAR_SUPPLY_LABEL='전쟁보급품';
-/*
- * 전투지 난이도(getZoneFinalPowerMult·적 스폰)는 "적 기대 강도" 축이다.
- * 돌파 가능성은 유닛 Lv·직업·강화만이 아니라 아래가 **합쳐진 총 전투력**으로 설계해야 한다.
- *   물약·연금(버프) · 장비·드랍/강화 · 파티 그룹·라인 분담 · 파티/개인 궁극기 · 기타 문명 시설
- * 튜닝 시 DIFF_STEP_LINEAR_K·적 프로필·보상·제작 비용을 같은 진행 타임라인에서 함께 맞출 것.
- */
+
 // ── 난이도 테이블 ──
 const ZONE_DIFF_MULTS={
   1:{mult:1.00,label:'I',enemyCountMult:1.0,powerMult:1.00},
@@ -2745,7 +2739,7 @@ function getZoneDisplayName(zone){
   const base=String(zone.name||'').replace(/\s[IVX]+$/,'').trim();
   return `${base} ${label}`;
 }
-/** 문명 블록당 9스텝(3존×티어 겹침): 헌트Ⅲ=강가Ⅰ, 강가Ⅲ=숲Ⅰ … 블록 끝 < 다음 문명 시작 */
+
 const CIV_LADDER_BLOCK_START=[0,9,18,27];
 const ZONE_SLOT_ORDER={
   hunt:0,river:1,wilds:2,
@@ -2753,7 +2747,7 @@ const ZONE_SLOT_ORDER={
   raider:0,castle:1,crystal:2,
   warzone:0,citadel:1,void:2,
 };
-/** step 2 ≈ 1.7 (구 헌트 III 체감) — 이후 문명·존도 한 줄로 단조 증가 */
+
 const DIFF_STEP_LINEAR_K=0.35;
 function getZoneSlotOrder(zone){
   if(!zone) return 0;
@@ -2774,7 +2768,7 @@ function getZoneFinalPowerMult(zone){
   const step=getDifficultyStep(zone);
   return (1+step*DIFF_STEP_LINEAR_K)*(zone.diffMult||1.0);
 }
-/** 초반 난이도: 적→아군 피해만 감소(스폰 atk/hp는 그대로). 집합소 단계·난이도 I 중심 */
+
 function getEnemyDamageVsAllyScale(){
   const zp=typeof civPhase==='number'?civPhase:-1;
   const tier=Math.min(5,Math.max(1,Number((currentZone||{}).diffTier)||1));
@@ -2782,7 +2776,7 @@ function getEnemyDamageVsAllyScale(){
   if(zp<=1&&tier<=1) return 0.92;
   return 1;
 }
-/** 집합소 야생(동물) 전용: 1~5일차는 조작 미숙해도 즉사급 접촉이 나오지 않게 피해만 추가 완화 */
+
 function getWildlifeEarlyDayDamageMul(e){
   if(!e||!(e.animalDefKey||e.animalBehavior)) return 1;
   const zid=(currentZone&&currentZone.id)||'';
@@ -3048,6 +3042,9 @@ function ensureLoopWatchdog(){
     }
   },700);
 }
+function stopLoopWatchdog(){
+  if(_loopWatchdogId){ clearInterval(_loopWatchdogId); _loopWatchdogId=null; }
+}
 function resetLoopTimingState(){
   _loopLastRafTs=0;
   _frameMoveMul=1;
@@ -3076,9 +3073,9 @@ function getFrameMoveMul(){
 }
 const GAME_SAVE_KEY='kingdom_chronicle_v7_save';
 const SAVE_SLOT_COUNT=3;
-/* --- 모바일 터치 드래그 지원 로직 --- */
+
 let touchDragTarget = null;
-/** 통솔 카드 좌측 스와이프 → 대기실 (pointerId, 좌표 등) */
+
 let _allyStandbySwipe = null;
 
 function cloneSafe(v){
@@ -3117,10 +3114,7 @@ function markAllyDeadWithDebuff(u,reason='전사'){
   applySorrowDebuff(`${u.name} ${reason}`);
   return true;
 }
-/**
- * 생존 유닛은 통솔(파티 후보)·대기·거점 주둔 중 하나에만 속하도록 플래그를 정리하고,
- * zoneRecords[].garrison 스냅샷을 allies[].garrisoned와 일치시킵니다. (F5/저장 불일치 방지)
- */
+
 function sanitizeKingdomUnitPlacement(){
   if(!Array.isArray(allies))return;
   allies.forEach(u=>{
@@ -3563,7 +3557,7 @@ function init(){
     const wasMapPan=_mapPanMode;
     const hadDragUnit=!!dragUnit;
     onUp(t);
-    /* touch는 preventDefault로 합성 click이 안 나오므로, 짧은 탭이면 빈 땅 연타 시퀀스에 반영 */
+    
     if(wasMapPan||hadDragUnit) return;
     const {x,y}=getPos(t);
     if(Math.hypot(x-dragSX,y-dragSY)>10) return;
@@ -3669,7 +3663,6 @@ window.tryOpenZoneModal=function(){
   showZoneModal();
 };
 
-/** 전투지 선택 모달·챕터 미리보기용: 단계별로 표시할 재원만 나열 (집합소 / 마을 / 도시 / 왕국) */
 function zoneRewardPreviewLine(z){
   if(!z) return '';
   const parts=[];
@@ -4035,7 +4028,7 @@ function hasLOS(ax,ay,bx,by){
   _losCache.set(key,true);
   return true;
 }
-/** 공격자 위치 지형에 따른 피해 배율(이점·불리 모두). applyDmg에서 사용 */
+
 function terrainAtkBonus(unit,cell){
   if(!cell||!TERRAIN[cell.type])return 1.0;
   const role=getUnitMoveRole(unit);
@@ -4082,10 +4075,7 @@ function getUnitMoveRole(unit){
   if(unit&&unit.overrideTerrainRole) return unit.overrideTerrainRole;
   return (unit.class10Key&&CLASS10[unit.class10Key]?.base)||(unit.classKey||unit.role||unit.baseRole||'Melee');
 }
-/**
- * 자동 이동 시 “이 거리 안이면 더 접근 안 함” — BASE_ROLES 사거리와 장착 스킬(돌팔매 등) 사거리 중 큰 값.
- * 맵에 표시되는 사거리 원(스킬 range)과 크게 어긋나지 않게 함.
- */
+
 function getAllyAutoCombatStandoffRange(a){
   const rb=(a.class10Key&&CLASS10[a.class10Key]?.base)||(a.classKey||a.baseRole||'Refugee');
   const rd=BASE_ROLES[rb]||BASE_ROLES.Refugee;
@@ -4102,10 +4092,7 @@ function getAllyAutoCombatStandoffRange(a){
   }
   return Math.max(28,r);
 }
-/**
- * 자동 추격: **현재 장착(active) 스킬** 정의에 있는 range 중 최소값(+bonusRange). 몸으로 막기·도발 등 짧은 스킬이 있으면 그에 맞춰 더 붙음.
- * 사거리 없는 패시브만 있으면 getAllyAutoCombatStandoffRange로 폴백.
- */
+
 function getAllyMinEquippedSkillRangeWorld(a){
   if(!a) return 120;
   const bonus=Number(a.bonusRange)||0;
@@ -4124,10 +4111,7 @@ function getAllyMinEquippedSkillRangeWorld(a){
   }
   return Math.max(28,minR);
 }
-/**
- * 자동 추격(빨간 링): 적 중심에서 아군 방향으로, **최소 스킬 사거리** 원이 적 원의 아군 반대편 테두리에 닿을 때까지의 거리(R−Re)만큼 떨어진 점.
- * R은 getAllyMinEquippedSkillRangeWorld, Re는 적 몸 반경.
- */
+
 function getAutoPursuitRingGoalWorld(a,enemy){
   if(!a||!enemy) return null;
   const R=typeof getAllyMinEquippedSkillRangeWorld==='function'?getAllyMinEquippedSkillRangeWorld(a):120;
@@ -4140,10 +4124,7 @@ function getAutoPursuitRingGoalWorld(a,enemy){
   const seg=Math.min(reach, Math.max(0, d-8));
   return {x:enemy.x+ux*seg,y:enemy.y+uy*seg};
 }
-/**
- * 자동 추격 빨간 목표: (tx,ty) 방향으로 최대 maxAheadPx만큼 앞 — findHexPath가 길게 깔리게 함.
- * minAheadPx>0 (적 추격 등): 현재 위치에서 최소한 이 거리만큼 앞을 찍어 강·산막 우회 Dijkstra가 여유를 갖게 함.
- */
+
 function getAutoPursuitLookaheadTowardPoint(a,tx,ty,maxAheadPx,minAheadPx){
   if(!a||!Number.isFinite(tx)||!Number.isFinite(ty)) return null;
   const dx=tx-a.x, dy=ty-a.y;
@@ -4172,7 +4153,7 @@ function getAutoPursuitPathGoalWorld(a,enemy){
   const rangeMax=typeof getAllyMinEquippedSkillRangeWorld==='function'?getAllyMinEquippedSkillRangeWorld(a):120;
   return getAutoPursuitLookaheadTowardPoint(a, ring.x, ring.y, rangeMax);
 }
-/** 적→아군: 공격/사거리 원이 아군 몸·헥스의 적 반대편 테두리에 닿을 때의 최대 **중심거리** (center–center) */
+
 function getEnemyMinEngageCenterDist(e,ally){
   if(!e||!ally) return 28;
   const R=Math.max(20,Number(e.range)||60);
@@ -4180,7 +4161,7 @@ function getEnemyMinEngageCenterDist(e,ally){
   const hexFar=Math.max(bodyRa,(typeof HR!=='undefined'?HR:21)*0.92);
   return Math.max(6, R-hexFar-2);
 }
-/** 적이 향해야 할 월드 좌표(아군 중심이 아닌 교전 링 위 한 점). 헥스 경로 목표로 사용 */
+
 function getEnemyEngageGoalWorld(e,ally){
   if(!e||!ally) return null;
   const reach=getEnemyMinEngageCenterDist(e,ally);
@@ -4194,10 +4175,7 @@ function getEnemyEngageGoalWorld(e,ally){
   const ux=dx/d,uy=dy/d;
   return {x:ally.x-ux*reach,y:ally.y-uy*reach};
 }
-/**
- * 아군이 서 있는 칸이 아니라 **인접(또는 근접) 통과 가능 헥스** 후보 — 경로 목표를 아군 중심에 두면 막히거나 UI가 아군으로만 향한 것처럼 보임.
- * 적→아군 방향으로 정렬해 후보 순위를 매긴다.
- */
+
 function listEnemyApproachGoalCandidates(e,ally){
   if(!e||!ally||!ensureHexMapReady()) return [];
   const aCell=nearestCell(ally.x,ally.y);
@@ -4254,7 +4232,7 @@ function listEnemyApproachGoalCandidates(e,ally){
   const arr=Array.from(byKey.values()).sort((A,B)=>B.score-A.score);
   return arr.map(o=>o.cell);
 }
-/** 적 추격: 경로 목표는 **아군 옆 통과 가능 헥스**에 대한 Dijkstra 상 5칸 앞 — 아군 중심 칸 목표는 실패·시각 혼선 유발 */
+
 const ENEMY_NAV_PATH_HEX_STEPS=5;
 function getEnemyNavPathSubgoalWorld(e,ally){
   if(!e||!ally) return null;
@@ -4301,7 +4279,7 @@ function canTraverseTerrain(unit,cell){
   if(!cell) return true;
   return true;
 }
-/** 5.html과 동일: 다점은 막힘만. 타일 효과(이속)는 **중심**이 속한 칸(경계 통과 후) 기준. */
+
 function tryMoveWithTerrain(unit,dx,dy,opts={}){
   if(!unit||!Number.isFinite(dx)||!Number.isFinite(dy)) return false;
   if(!opts._multiBypass){
@@ -4397,14 +4375,14 @@ function terrainMoveCost(cell, role){
   }
   return cost;
 }
-/** 헥스 이웃 그리드 — 타일 **효과**는 중심 getTerrainCellForUnitCenter, 막힘만 다점 getEffectiveTerrainCellMoveMulti */
+
 const HEX_NEIGHBOR_OFFSETS_EVEN=[[0,-1],[0,1],[-1,-1],[-1,0],[1,-1],[1,0]];
 const HEX_NEIGHBOR_OFFSETS_ODD=[[0,-1],[0,1],[-1,0],[-1,1],[1,0],[1,1]];
 function roleCanTraverseCellType(role,cell){
   if(!cell) return true;
   return true;
 }
-/** drawUnit과 동일 기준 — 지형 판정은 유닛 **테두리**(이동 방향 앞쪽)에서 샘플 */
+
 function getUnitBodyRadiusForTerrain(unit){
   const baseR=13;
   if(unit&&unit.type==='ally'){
@@ -4413,13 +4391,13 @@ function getUnitBodyRadiusForTerrain(unit){
   }
   return baseR;
 }
-/** 이동 방향 기준 좌우(rad). 0이 정면. */
+
 const TERRAIN_MULTI_PROBE_SPREAD=[-0.55,-0.28,0,0.28,0.55];
-/** 1.0=몸 테두리, 1.22≈테두리보다 바깥(인접 타일 쪽으로 시야 확장) */
+
 const TERRAIN_MULTI_PROBE_RINGS=[1.0,1.22];
-/** 이 각 범위 안의 샘플이 통과 불가면 한 스텝 이동 거부(전방·측전방) */
+
 const TERRAIN_MULTI_PROBE_CRITICAL_SPREAD=0.58;
-/** (dirx,diry) 이동 의도 방향으로 반지름만큼 떨어진 점 = 단일 테두리 샘플(레거시·보조) */
+
 function getTerrainProbePoint(unit,dirx,diry){
   const cx=unit.x, cy=unit.y;
   const R=getUnitBodyRadiusForTerrain(unit);
@@ -4433,10 +4411,7 @@ function getTerrainProbePoint(unit,dirx,diry){
   }
   return {x:cx+ux*R,y:cy+uy*R};
 }
-/**
- * 다점 프로브: 테두리 + 바깥 링 — **몸이 막히는 방향**만 판단(blocked).
- * 타일 **효과(이속 등)** 는 적용하지 않음 → getTerrainCellForUnitCenter 사용.
- */
+
 function getEffectiveTerrainCellMoveMulti(unit,dirx,diry){
   const baseR=getUnitBodyRadiusForTerrain(unit);
   let ux,uy;
@@ -4465,16 +4440,16 @@ function getEffectiveTerrainCellMoveMulti(unit,dirx,diry){
   if(!sawOk) blocked=true;
   return { blocked };
 }
-/** 강 우회 경로 플래그 시 예전에는 도하 불가 직업의 강 깊이 진입을 잘랐음 — 전 직업 도하 가능이라 더 이상 제한 없음 */
+
 function clampCenterSkirtRiverInterior(unit,ax,ay,px,py){
   if(!unit||!(unit._pathSkirtRiver||unit._enemyPathSkirtRiver)) return {x:px,y:py};
   return {x:px,y:py};
 }
-/** 헥스 반경(HR)의 ½ 이내면 기하적으로 그 칸 위로만 본다(인접 강·산 테두리에서 이속 오인식 완화) */
+
 const TERRAIN_STAND_CORE_R=HR*0.5;
-/** 불리 지형(강/산 등) 이속 디버프는 더 깊게 들어왔을 때만 적용 */
+
 const TERRAIN_DEBUFF_ENTER_R=HR*0.36;
-/** 경로 판단용(우회 인지) 불리 지형 사전 인지 반경 */
+
 const TERRAIN_PATH_AWARE_R=HR*0.62;
 function pickTerrainCellForRole(x,y,role,near,dom,mode='move'){
   const nearOk=!!(near&&roleCanTraverseCellType(role,near));
@@ -4539,9 +4514,7 @@ function getDominantHexCellAt(x,y){
   }
   return nearestCell(x,y);
 }
-/**
- * 이동 판정용 지형: (x,y) 샘플 1점. 다점 프로브는 막힘 판정용으로만 이 함수를 여러 번 호출.
- */
+
 function getEffectiveTerrainCellForMove(unit,x,y){
   if(!ensureHexMapReady()) return nearestCell(x,y);
   const near=nearestCell(x,y);
@@ -4551,7 +4524,7 @@ function getEffectiveTerrainCellForMove(unit,x,y){
   // 불리 지형은 TERRAIN_DEBUFF_ENTER_R 안쪽으로 들어왔을 때만 단정하고, 그 밖은 아래 픽으로 육지 등과 재판정.
   if(near&&nearDist<=TERRAIN_STAND_CORE_R&&canTraverseTerrain(unit,near)){
     const t=near.type;
-    if((t==='river'||t==='mountain')&&nearDist>TERRAIN_DEBUFF_ENTER_R){/* fall through */}
+    if((t==='river'||t==='mountain')&&nearDist>TERRAIN_DEBUFF_ENTER_R){}
     else return near;
   }
   const dom=getDominantHexCellAt(x,y);
@@ -4561,23 +4534,23 @@ function getEffectiveTerrainCellForMove(unit,x,y){
   if(dom&&canTraverseTerrain(unit,dom)) return dom;
   return picked||dom||near;
 }
-/** 타일 효과(이속·보너스): **유닛 중심** 한 점 — 헥스 보로노이상 중심이 경계를 넘어 새 칸에 들어온 뒤 nearest가 바뀌는 시점과 맞춤. */
+
 function getTerrainCellForUnitCenter(unit){
   if(!unit) return null;
   return getEffectiveTerrainCellForMove(unit,unit.x,unit.y);
 }
-/** 프로브 **중심점**이 속한 칸이 해당 직업에게 금지면 true */
+
 function isProbeInsideForbiddenTerrain(role,probeX,probeY){
   const cell=nearestCell(probeX,probeY);
   if(!cell) return false;
   return !roleCanTraverseCellType(role,cell);
 }
-/** 유닛 **중심**이 금지 지형 칸이면 true (외곽 샘플 없음) */
+
 function isForbiddenTerrainTouchingUnitCircle(unit,cx,cy,_dx,_dy){
   if(!unit||!ensureHexMapReady()) return false;
   return isProbeInsideForbiddenTerrain(getUnitMoveRole(unit),cx,cy);
 }
-/** 금지 지형에 갇혔을 때 가장 가까운 통과 가능 헥스 중심으로 탈출 */
+
 function findNearestTraversableHexCell(unit,fromX,fromY){
   if(!ensureHexMapReady()) return null;
   const near=nearestCell(fromX,fromY);
@@ -4659,7 +4632,7 @@ function findNearestTraversableHexCell(unit,fromX,fromY){
   }
   return best;
 }
-/** 경로·우회 점수용(4/5): 코어·픽으로 경로 비용 샘플 — nearest 단독보다 우회 판단 안정 */
+
 function getPathTerrainCellAt(x,y,role){
   const near=nearestCell(x,y);
   if(!near) return null;
@@ -4673,7 +4646,7 @@ function terrainMoveCostForPathAt(x,y,role,unit){
   const c=getPathTerrainCellAt(x,y,roleUse);
   return c?terrainMoveCost(c,roleUse):10;
 }
-/** 발자국: 유닛 통과 규칙 반영한 칸 기준 이동 비용 */
+
 function terrainMoveCostBlendedAt(x,y,unit,role){
   const roleUse=role||getUnitMoveRole(unit);
   const cell=getPathTerrainCellAt(x,y,roleUse);
@@ -4711,7 +4684,6 @@ function localPathPenalty(unit,fromX,fromY,targetX,targetY){
   return Math.max(0,Math.min(2.8,best*0.35));
 }
 
-/** BFS 한 단계 우회: maxScan이 작으면 큰 지도·좁은 통로에서 끊길 수 있어 단계적으로 넓힌다. */
 function findDetourStepCellWithBudget(unit,targetX,targetY,maxScan){
   const startCell=nearestCell(unit.x,unit.y);
   const targetCell=nearestCell(targetX,targetY)||startCell;
@@ -4814,7 +4786,7 @@ function getHexNeighborCells(r,c){
 function getHexNeighbors(r,c){
   return getHexNeighborCells(r,c).map(o=>[o.nr,o.nc]);
 }
-/** 현재 hexMap에서 셀의 격자 인덱스 (nearestCell 캐시로 옛 객체 참조가 와도 좌표로 매칭) */
+
 function mapHexCellToRowCol(cell){
   if(!cell||!Array.isArray(hexMap)) return null;
   if(Number.isFinite(cell.r)&&Number.isFinite(cell.c)){
@@ -4836,10 +4808,7 @@ function mapHexCellToRowCol(cell){
   }
   return null;
 }
-/**
- * 헥스 연결: 통과 가능 칸만. 이웃 칸 **진입 시** terrainMoveCost(직업별) 가중치 합 최소(Dijkstra)
- * 강은 1차는 강 칸 진입 제외(목표가 강이면 예외), 2차는 강 포함.
- */
+
 function findHexPathCells(unit,goalCell){
   if(!unit||!goalCell) return null;
   const startCell=nearestCell(unit.x,unit.y);
@@ -4919,7 +4888,7 @@ function findHexPathCells(unit,goalCell){
   if(!any) return null;
   return {cells:any,skirtRiver:false};
 }
-/** findHexPath 실패·한 칸만일 때: 시작점에서 도달 가능한 칸 중 목표에 월드 거리로 가장 가까운 헥스 */
+
 function findReachableHexClosestToWorldGoal(unit,goalCell){
   if(!unit||!goalCell) return null;
   const startCell=nearestCell(unit.x,unit.y);
@@ -4952,7 +4921,7 @@ function findReachableHexClosestToWorldGoal(unit,goalCell){
   }
   return bestCell;
 }
-/** 클릭/추격 목표까지 헥스 경로(2칸 이상). 불가 시 도달 가능한 최선 접근 칸까지 */
+
 function computeWaypointHexPath(unit,goalCell){
   if(!unit||!goalCell) return null;
   let res=findHexPathCells(unit,goalCell);
@@ -5173,7 +5142,7 @@ const TIERS = [
   {name:'Legend',  mult:1.76, color:'#f1c40f', maxLv:83},
   {name:'Mythic',  mult:2.10, color:'#fb7185', maxLv:84},
 ];
-/** civPhase별 TIERS 순서와 동일한 가중치(행 합=1). Poor…Mythic */
+
 const TIER_ROLL_BY_PHASE=[
   [0.20,0.32,0.25,0.15,0.08,0,0,0,0],
   [0.05,0.12,0.18,0.45,0.065,0.12,0.015,0,0],
@@ -5577,21 +5546,6 @@ function drawSpeechBubbles(){
   ctx.restore();
 }
 
-/* ═══ 피난민(mkAlly) 생성·패널 6스탯·색상 기준 정리 ═══
- * [생성 롤 — 성격·최저이속 보정 전] rnd / rndF
- *   HP:  baseHp 420~580 (균일 정수, 중앙·평균 500) → maxHp = floor(baseHp×tMul)
- *   ATK: baseAtk 16~28 (균일 정수, 중앙·평균 22) → 표시 ATK = 22+bonusAtk = floor(baseAtk×tMul)
- *   DEF: baseDef 0.02~0.08 (소수 둘째, 중앙·평균 0.05) → def = min(0.75, baseDef×tMul) → 패널 DEF% = floor(def×100)
- *   MOV: baseSpd 1.30~1.70 (소수 둘째, 중앙·평균 1.50) → spd = baseSpd×tMul → 이후 max(0.6, …), 성격이 spd/baseSpd 수정
- *   MAG: baseMag 8~14 (균일 정수, 중앙 11) → bonusMagic=floor(baseMag×tMul) → 패널 MAG 동일
- *   SPD(공격속도): 피난민 BASE_ROLES.Refugee.atkSpd=0.8 × unit.atkSpd(=tierAtkSpdMul) × atkSpdMul × (1+bonusCDR)
- *       tierAtkSpdMul = 1 + max(0, tMul−1)×0.35
- * [등급 tMul] TIERS.mult — rollTier는 TIER_ROLL_BY_PHASE[civPhase]로 9등급 가중 추첨(합=1).
- *       기대 배율은 단계·성격에 따라 달라짐.
- * [색상 #f87171 높음 / #60a5fa 낮음] 고정 임계값이 아니라 통솔 패티 평균(computePartyStatAvgs) 대비.
- *       빨강: val > avg+eps  |  파랑: val < avg−eps  |  그 외 #cbd5e1 — relStatColor 참조
- */
-/** 통솔 패티(표시 중인 activeAllies) 스탯 평균 — 패널 수치와 동일 정의 */
 function computePartyStatAvgs(pool){
   if(!pool||!pool.length)return{hp:0,def:0,atk:0,spd:0,mag:0,mov:0};
   let sHp=0,sDef=0,sAtk=0,sAtkSpd=0,sMag=0,sMov=0;
@@ -5609,7 +5563,7 @@ function computePartyStatAvgs(pool){
   const n=pool.length;
   return{hp:sHp/n,def:sDef/n,atk:sAtk/n,spd:sAtkSpd/n,mag:sMag/n,mov:sMov/n};
 }
-/** 패티 평균 대비 색 — eps: mag 0.25 | spd(공속) 0.02 | mov 0.03 | def(%) 1 | hp·atk max(|avg|×0.02, 0.5) */
+
 function relStatColor(val,avg,kind){
   const eps=kind==='mag'?0.25:kind==='spd'?0.02:kind==='mov'?0.03:kind==='def'?1:Math.max(Math.abs(avg)*0.02,0.5);
   if(val>avg+eps)return'#f87171';
@@ -5683,7 +5637,6 @@ function spawnAllies(){
   savedPositions={}; initialPositions={};
 }
 
-/* --- resetDeployment 함수 전체 교체 --- */
 function resetDeployment() {
   allies.forEach(a => {
     if (!a.dead && a.isDeployed) {
@@ -5801,7 +5754,7 @@ const MODULE6_ENEMY_PROFILES={
   citadel:{grade:4,power:2.15,countBase:7,countCap:10,ratio:{tank:0.35,warrior:0.2,ranged:0.15,mage:0.2,heal:0.1},etype:'king'},
   void:{grade:4,power:2.25,countBase:7,countCap:10,ratio:{tank:0.24,warrior:0.2,ranged:0.16,mage:0.28,heal:0.12},etype:'king'},
 };
-/** TASK 12: 왕국 레이드 보스 — 존별 페이즈(체력 구간) 패턴 */
+
 const RAID_BOSSES={
   warzone:{
     id:'warlord', name:'💀 전쟁의 군주', hpScale:2.35, atkScale:1.12, baseSpd:0.58,
@@ -6052,7 +6005,7 @@ function pickPredatorKey(forDay){
   }
   return pool[(Math.random()*pool.length)|0];
 }
-/** 근처 들판: diffTier 표와 무관하게 1~5일차는 초식 비율 하한을 둬 초반 즉사 체감 완화 */
+
 function getHuntHerbivoreShareForDay(diffTier,day){
   const dt=Math.min(5,Math.max(1,diffTier||1));
   const base=(HUNT_COMPOSITION[dt]||HUNT_COMPOSITION[1]).herbivore;
@@ -6060,7 +6013,7 @@ function getHuntHerbivoreShareForDay(diffTier,day){
   const floor=[0.86,0.80,0.72,0.64,0.52][day-1]||0.52;
   return Math.max(base, floor);
 }
-/** 집합소 근처 들판/얕은 강가/얕은 숲 — 동물 적 풀·난이도 티어 비율 */
+
 function buildPhase0AnimalFormation(s,baseZ){
   const H=CH,bx=CW-60;
   const p=MODULE6_ENEMY_PROFILES[baseZ]||MODULE6_ENEMY_PROFILES.hunt;
@@ -6191,7 +6144,7 @@ function getEnemyFormation(s,tier){
   const phase0Base=getPhase0BaseZoneId(zoneId);
   if(phase0Base) return buildPhase0AnimalFormation(s,phase0Base);
   const p=MODULE6_ENEMY_PROFILES[zoneId]||MODULE6_ENEMY_PROFILES.hunt;
-  /** 근처 들판 II~: 일차 진행에 따른 스탯 상승을 I보다 가파르게(초반 무방비 클리어 완화) */
+  
   const huntEscZone=(zoneId==='hunt')?Math.min(6,Number(_autoZoneSeq&&_autoZoneSeq[zoneId])||0):0;
   const stageScale=1+Math.max(0,s-1)*(zoneId==='hunt'&&huntEscZone>=1?0.072:0.055);
   const tDef=ZONE_DIFF_MULTS[currentZone.diffTier||1]||ZONE_DIFF_MULTS[1];
@@ -6203,7 +6156,7 @@ function getEnemyFormation(s,tier){
   cnt=Math.max(1,Math.min(p.countCap,Math.floor(cnt*tDef.enemyCountMult)));
   const out=[];
   let idx=0;
-  /** huntEscZone: 근처 들판 I=0 — 정복 후 II~에서만 단계 상승(위에서 계산됨) */
+  
   const pushRole=function(k,n,etype){
     for(let i=0;i<n;i++){
       const b=ENEMY_ROLE_BASE[k]||ENEMY_ROLE_BASE.warrior;
@@ -6288,7 +6241,7 @@ function comparePartyUnitOrder(a,b){
   if(tierDiff!==0) return tierDiff;
   return (a.id||0)-(b.id||0);
 }
-/** 통솔 파티(최대 PARTY_LIMIT명)에 해당하는 allies 배열 인덱스 — 배열 순서 유지 */
+
 function getPartySlotIndices(){
   const idx=[];
   for(let i=0;i<allies.length;i++){
@@ -6299,12 +6252,12 @@ function getPartySlotIndices(){
   }
   return idx;
 }
-/** 대기↔통솔 교체 팝업 — 실제 파티 슬롯(최대 PARTY_LIMIT)만, 초과 인원 제외 */
+
 function getActivePartyMembersForSwapPick(){
   return getPartySlotIndices().map(i=>allies[i]).filter(a=>a&&!a.dead&&!a.permanentlyDead);
 }
 function getSortedUd(){
-  /** 통솔 슬롯(PARTY_LIMIT·명단 순)에 들어간 동료만 지도 배치 대상 — 초과 인원은 대기/거점 처리로 보라 영역 대상에서 제외 */
+  
   const slotIdx=new Set(getPartySlotIndices());
   return allies
     .filter((a,i)=>slotIdx.has(i)&&!a.isDeployed&&!a.dead&&!a.permanentlyDead&&!a.inStandby&&!a.garrisoned)
@@ -6495,7 +6448,6 @@ function getPos(e){
   };
 }
 
-/** 더블클릭 대형 이동: 탱 → 근딜 → 원거리 → 힐·기타 (적 쪽이 전방) */
 function getFormationLayerRank(u){
   const r=(u&&u.classKey)||(u&&u.baseRole)||'Refugee';
   if(r==='Tank') return 0;
@@ -6512,7 +6464,7 @@ function getFormationForwardDir(anchorX,anchorY){
   const len=Math.hypot(dx,dy)||1;
   return {fx:dx/len,fy:dy/len};
 }
-/** 클릭점 기준 역할별 목표 좌표 (픽셀) — 이후 빈 칸/경로 탐색에 사용 */
+
 function computeFormationAnchorTargets(anchorX,anchorY,units){
   const fwd=getFormationForwardDir(anchorX,anchorY);
   const px=-fwd.fy, py=fwd.fx;
@@ -6540,7 +6492,7 @@ function computeFormationAnchorTargets(anchorX,anchorY,units){
   });
   return out;
 }
-/** 이동 목표·경로만 초기화 (홀드 전환·대형 이동 전에 사용) */
+
 function resetAllyMoveIntent(u){
   if(!u) return;
   clearAllyHexPath(u);
@@ -6548,7 +6500,7 @@ function resetAllyMoveIntent(u){
   u.wy=null;
   u._autoNavTarget=null;
 }
-/** 지도 더블클릭: 홀드 제외 · 역할별 분산 목표로 통솔 아군 이동 */
+
 function moveAllDeployedAlliesTo(x,y){
   const units=allies.filter(a=>a&&a.isDeployed&&!a.dead&&!a.permanentlyDead&&!a.garrisoned&&!a.inStandby&&!a.onHold)
     .sort((a,b)=>(a.id||0)-(b.id||0));
@@ -6604,14 +6556,14 @@ function moveAllDeployedAlliesTo(x,y){
     markDirty();
   }
 }
-/** 같은 빈 땅을 연속 클릭: 2번=대형 이동, 3번 이상=전원 홀드 토글(이미 전원 홀드면 전원 해제) */
+
 let _mapEmptyClickBuf=[];
 let _mapEmptyClickTimer=null;
 let _lastCanvasDragEndTs=0;
 const MAP_EMPTY_CLICK_TOL=46;
-/* 마지막 클릭 후 이 시간이 지나야 시퀀스 확정. 1번만: 빠르게 n=1로 비움 */
+
 const MAP_EMPTY_CLICK_IDLE_MS=180;
-/* 2번 찍힌 뒤: 3번째(전원 홀드)를 기다리며 너무 짧으면 n=2만 먼저 확정→대형 이동이 나감 */
+
 const MAP_EMPTY_CLICK_IDLE_AFTER_DOUBLE_MS=180;
 function toggleAllPartyHoldOnMap(){
   const pool=allies.filter(a=>a&&a.isDeployed&&!a.dead&&!a.permanentlyDead&&!a.garrisoned&&!a.inStandby);
@@ -6639,10 +6591,10 @@ function flushMapEmptyClickSeq(){
   if(n>=3) toggleAllPartyHoldOnMap();
   else if(n===2) moveAllDeployedAlliesTo(x0,y0);
 }
-/** 빈 땅 연속 탭(2·3회) — 마우스 click과 터치 touchend에서 공통 사용 */
+
 function recordMapEmptyPoint(x,y){
   if(Date.now()-_lastCanvasDragEndTs<200) return;
-  /* 첫 탭만 '유닛 위 클릭'을 막음. 2·3번째는 이동 중 부대 근처를 찍어도 연타로 인정해 재지시 가능 */
+  
   if(!_mapEmptyClickBuf.length){
     if(allies.some(a=>a&&a.isDeployed&&!a.dead&&!a.permanentlyDead&&dist(a,{x,y})<25)) return;
   }
@@ -6894,7 +6846,6 @@ function onUp(e){
   isDragging = false;
 }
 
-/* --- [수정] 클릭 시 궁극기 수동 시전 --- */
 function triggerActiveSkill(u) {
   if (!isBattle || isPaused || u.dead) return;
 
@@ -6942,7 +6893,7 @@ function clearAllyHexPath(u){
   u._pursuitGoalKey=null;
   u._pursuitTrackRef=null;
 }
-/** 5.html: 클릭 이동 — 헥스 경로를 한 칸씩(path.slice(1)) 따라가 직선 관통 방지 */
+
 function applyWaypointPath(u,wp,opts){
   if(!u||!wp) return;
   const pursuit=opts&&opts.pursuit;
@@ -7068,7 +7019,7 @@ function stepEnemyAlongNavigation(e,moveSpd){
   e.facing=Math.atan2(dy,dx);
   return true;
 }
-/** 적 추격(월드 목표 gx,gy): 아군 중심이 아닌 교전 링 등 임의 점으로 경로 */
+
 function updateEnemyMovementTowardGoal(e,tgt,gx,gy,moveSpd){
   if(!e||!tgt) return;
   const tid=tgt.id!=null?tgt.id:`${(tgt.x|0)},${(tgt.y|0)}`;
@@ -7096,15 +7047,12 @@ function updateEnemyMovementTowardGoal(e,tgt,gx,gy,moveSpd){
     }
   }
 }
-/** 적 추격: 목표 좌표 = 아군 중심 (레거시·비교용) */
+
 function updateEnemyMovementToward(e,tgt,moveSpd){
   if(!e||!tgt) return;
   updateEnemyMovementTowardGoal(e,tgt,tgt.x,tgt.y,moveSpd);
 }
-/**
- * 아군 자동 추격과 대칭: 사거리가 아군 몸 원의 맞은편 테두리에 닿을 만큼만 접근.
- * 그 거리 안이면 이동하지 않음(붙어서 밀어넣기·쿨 중 재접근·가짜 후퇴 완화).
- */
+
 function updateEnemyChaseAlly(e,tgt,moveSpd){
   if(!e||!tgt) return;
   const opt=getEnemyMinEngageCenterDist(e,tgt);
@@ -7120,7 +7068,7 @@ function updateEnemyChaseAlly(e,tgt,moveSpd){
     if(ring&&Number.isFinite(ring.x)&&Number.isFinite(ring.y)) updateEnemyMovementTowardGoal(e,tgt,ring.x,ring.y,moveSpd);
   }
 }
-/** drawUnit과 동일 기준 — 분리 거리에 반영 */
+
 function getUnitBodyRadius(u){
   if(!u) return 13;
   const base=13;
@@ -7306,7 +7254,7 @@ function showClassModal(unit){
   if(_classModalTimer)clearTimeout(_classModalTimer);
   let countdown=20;
   const closeBtn=document.querySelector('#modal .modal-box button[onclick*="modal"]');
-  /* --- showClassModal 내부의 타이머 종료 로직 수정 --- */
+  
   // (showClassModal 함수 내부의 tick 함수 부분)
   function tick(){
     const btn = document.querySelector('#modal .modal-box button');
@@ -7416,7 +7364,6 @@ const PREFIX_POOL = [
     "신비로운", "황금빛", "은빛", "강인한", "날카로운", "거대한", "작은", "빠른", "빛나는", "어둠의"
 ];
 
-/* --- [수정] 레벨에 따라 제목이 변하는 이름/별명 부여 창 --- */
 function showRenameModal(u){
   _renameUnit = u;
   const isSecondPromotion = u.lv >= SECOND_PROMOTION_LV; // 2차 전직 여부 확인
@@ -7652,7 +7599,7 @@ function closeRefugeeModal(){document.getElementById('refugee-modal').classList.
 let _recruitModalContext='main';
 let _unifiedRefCount=1;
 let _unifiedMercCount=0;
-/** 영입 확정 후 용병 전직·이름 순차 처리 (전직 모달 → 이름 모달) */
+
 let _mercHireSetupQueue=null;
 function showRecruitChoiceModal(ctx){
   _recruitModalContext=(ctx==='defeat')?'defeat':'main';
@@ -7790,7 +7737,6 @@ window.unifiedRecruitChangeMerc=unifiedRecruitChangeMerc;
 window.unifiedRecruitSetMercMax=unifiedRecruitSetMercMax;
 window.updateUnifiedRecruitModal=updateUnifiedRecruitModal;
 
-/** 금화 100으로 용병 1명 생성. 실패 시 null (골드 미차감은 호출부에서 검증됨). silent: 일괄 영입 시 반복 로그 생략 */
 function _spawnMercenaryHired(silent){
   if(res.gold<100){ alog('❌ 금화 부족 (필요: 100G)'); return null; }
   res.gold-=100;
@@ -7948,7 +7894,7 @@ function autoHireRefugeesByGarrisonCapDelta(capDelta,zid){
 }
 
 // [수정] 피난민 합류 시 네이밍 (약 842행)
-/* --- spawnRefugee 함수 전체 교체 --- */
+
 function spawnRefugee(opts={}) {
   const silent=!!opts.silent;
   const forceStandby=!!opts.forceStandby;
@@ -8175,7 +8121,7 @@ function findPackAlpha(packId){
   if(!packId) return null;
   return enemies.find(x=>x&&x._packId===packId&&x._isAlpha&&!x.dead&&(x.hp||0)>0)||null;
 }
-/** 동물 적 이동 목표 (TASK 6) — null이면 정지/배회는 호출측에서 처리 */
+
 function getAnimalMoveTarget(e,allies){
   const b=e.animalBehavior;
   if(!b) return null;
@@ -8318,7 +8264,7 @@ function checkCrystalDefeat(){
   }
   return false;
 }
-/** Guard/Fortress 인접 방어 바닥 — 아군 tick 이후 적용해 처리 순서로 바닥이 덮어씌워지지 않게 함 */
+
 function applyGuardAuraDefenseFloor(aa){
   if(!Array.isArray(aa)||!aa.length) return;
   const live=aa.filter(a=>a&&a.hp>0&&!a.dead);
@@ -8459,7 +8405,7 @@ function battleTick(){
       a.atkCd = cooldownFrames;
     if (role === 'Mage') addFloat(a.x, a.y - 20, '💥', '#00bcd4');
 
-    /* --- [이 구역을 아래 내용으로 교체/수정] --- */
+    
     const mainSkillKey=getUnitMainSkill(a);
     let didOffense=false;
     a.activeSkills.forEach(sk => {
@@ -8851,8 +8797,8 @@ function battleTick(){
     runBattleDefeatSequence('🏰 한 라인이 돌파당했습니다. 결정적 방어선이 무너졌습니다.');
     return;
   }
-  /* --- [수정] 15일차 거점 전환 및 프리징 방지 로직 --- */
-  /* 빈 배열 every()는 true — 적이 한 명도 없으면 즉시 승리로 오인하지 않도록 생존 적만 검사 */
+  
+  
   const _anyLivingEnemy=enemies.some(e=>e&&(e.hp>0)&&!e.dead);
   if(isBattle && !_anyLivingEnemy && enemies.length>0){
     // 1. 보상 수치 먼저 계산 (15일차 체크에서도 사용하기 위함)
@@ -9028,7 +8974,6 @@ window.setDefeatRecoverySort=function(mode){
   openDefeatStandbyPicker();
 };
 
-/** 전멸 후 재기: 대기 + 거점 통합 선택 + 창 내 고용 */
 function openDefeatStandbyPicker(){
   const gf=document.getElementById('garrison-footer');
   if(gf) gf.style.display='none';
@@ -9213,7 +9158,6 @@ window.defeatChangeHire=function(d){
   if(el)el.innerText=window._defeatHireCount;
 };
 
-/* --- [수정] 재기: 대기+거점 통합 목록에서 선택. 거점 대원은 자동 대기로 복귀시키지 않음 --- */
 window.confirmDefeat = function(selectedIds) {
   selectedIds = Array.isArray(selectedIds) ? selectedIds : [];
   document.getElementById('garrison-modal').classList.remove('show');
@@ -9340,7 +9284,6 @@ function skillMult(u,sk){
   return 1.0+span*perLv;
 }
 
-/** TASK 8: 동물/야생 적 처치 시 가죽·뼈·독소 등 재료 드랍 (animalDefKey 필요) */
 function dropCraftMaterialOnEnemyKill(enemy){
   if(!enemy||enemy.type!=='enemy') return;
   const key=enemy.animalDefKey;
@@ -9485,11 +9428,11 @@ function clampToMap(u){
   u.x=Math.max(MAP_PAD, Math.min(CW-MAP_PAD, u.x));
   u.y=Math.max(MAP_PAD, Math.min(CH-MAP_PAD, u.y));
 }
-/** 좌측 후퇴·교체 완료선 — 좌측 클램프(MAP_PAD)에 닿은 것과 동일하게 빠르게 처리(소수·프레임 여유만) */
+
 function getLeftRetreatCompleteX(){
   return MAP_PAD + Math.min(8, Math.max(1.2, HW * 0.035));
 }
-/** AI 힐러 추격 목표(부활/탱 추종). stop이면 이동 불필요 */
+
 function resolveHealerPursuitGoal(a,aa){
   const healRange=210+(a.bonusRange||0);
   const now2=Date.now();
@@ -9529,7 +9472,7 @@ function _pursuitGoalKeyFromWp(wp){
   if(gCell&&gCell.r!==undefined&&gCell.c!==undefined) return `${gCell.r}|${gCell.c}`;
   return `${Math.round(wp.x)},${Math.round(wp.y)}`;
 }
-/** 자동 추격을 끊어도 될 만큼 실제로 공격 가능한지(원거리는 사거리+LOS). standR-18 로만 보면 아직 못 때리는데 경로가 지워지는 문제 방지 */
+
 function allyAutoPursuitCombatReady(a,e,roleBase){
   if(!a||!e) return false;
   const d=dist(a,e);
@@ -9544,16 +9487,14 @@ function allyAutoPursuitCombatReady(a,e,roleBase){
   const meleeCap=isTank?36:Math.max(44,Math.min(sr-2,82));
   return d<=meleeCap;
 }
-/**
- * 자동 추격 **이동**을 멈출지: **장착 스킬 중 최소 사거리** 원이 적 몸의 아군 반대편 테두리에 닿을 때(탱·몸막기·근접 동일 기하).
- */
+
 function allyAutoPursuitShouldStopAdvancing(a,e,roleBase){
   if(!a||!e) return true;
   const R=typeof getAllyMinEquippedSkillRangeWorld==='function'?getAllyMinEquippedSkillRangeWorld(a):120;
   const Re=typeof getUnitBodyRadiusForTerrain==='function'?getUnitBodyRadiusForTerrain(e):13;
   return dist(a,e)+Re<=R+3;
 }
-/** 추격 경로 재계산: 목표 헥스만 보면 적 이동 시 동그라미가 안 따라감 → 추적 기준점 이동 시에도 갱신 */
+
 function shouldRefreshAutoPursuitPath(a,wp,trackXY){
   if(!wp) return false;
   const gk=_pursuitGoalKeyFromWp(wp);
@@ -9565,7 +9506,7 @@ function shouldRefreshAutoPursuitPath(a,wp,trackXY){
   }
   return false;
 }
-/** 최종 wx 도착한 직후 같은 틱에 다음 목표 발급(한 틱 멈춤·미추적 방지) */
+
 function reissueAutoPursuitAfterWaypointCleared(a,ae,aa){
   if(!a||!a._pursuitPathActive||a.retreatingToStandby) return;
   const role=a.classKey||a.class10Key||a.baseRole||'Melee';
@@ -9596,7 +9537,7 @@ function reissueAutoPursuitAfterWaypointCleared(a,ae,aa){
   a._pursuitGoalKey=_pursuitGoalKeyFromWp(wp);
   a._pursuitTrackRef={x:enemyTgt.x,y:enemyTgt.y};
 }
-/** 이동 벡터로 정면(방향 전투용 facing) 갱신 — 웨이포인트 이동은 tryMoveWithTerrain을 타지 않아 별도 처리 */
+
 function setUnitFacingFromMoveDelta(u,dx,dy,minHypot){
   if(!u||!Number.isFinite(dx)||!Number.isFinite(dy)) return;
   const h=Math.hypot(dx,dy);
@@ -10328,7 +10269,7 @@ function closeFacilityShopHub(){
   const el=document.getElementById('facility-shop-hub-modal');
   if(el) el.classList.remove('show');
 }
-/** 도시·왕국: 상점 단일 버튼 → 물품 거래 + 연금공방·대장간·공학소(+왕국: 마도원) */
+
 window.openFacilityShopHub=function(ev){
   if(ev) ev.stopPropagation();
   if(civPhase<2){
@@ -10607,7 +10548,6 @@ function showTutorialStep3() {
     </div>`;
 }
 
-/* --- [수정] 안내창 종료 및 즉시 전투 재개 함수 --- */
 window.closeTutorialAndResume = function() {
   // 1. 안내창 닫기
   document.getElementById('garrison-modal').classList.remove('show');
@@ -10940,11 +10880,7 @@ const GARRISON_UPGRADE_COST={
   9:{food:15800,stone:4200,wood:4400,iron:1720,gold:9800,diamond:136},
   10:{food:20500,stone:5400,wood:5600,iron:2260,gold:13200,diamond:180},
 };
-/**
- * 거점 건물 Lv.3 달성 시 전역 아우라 — 전투지 ID별(12종). 합산·곱 누적이므로 수치는 보수적으로(다거점 스택 시에도 장비·스킬 밸런스 유지).
- * 일일 전투 자원 loot: 자원종류당 +0.2~0.35% 수준(곱 적용).
- * 해금: 건물 Lv.3~ — 위력은 Lv.4~10에서 단계적으로 증가(Lv.10이 기준 대비 가장 높음).
- */
+
 const GARRISON_LV3_GLOBAL_AURA_BY_ZONE={
   hunt:   {name:'들녘 식량로',   tier:'집합소',effect:{regen:0.04},loot:{food:1.003,wood:1.002}},
   river:  {name:'유수 기동선',   tier:'집합소',effect:{heroSpdMul:1.003,dmgRed:0.003},loot:{food:1.002,wood:1.002}},
@@ -10959,7 +10895,7 @@ const GARRISON_LV3_GLOBAL_AURA_BY_ZONE={
   citadel:{name:'저주 절단',     tier:'왕국',effect:{magicPen:0.006,heroDmgMul:1.003},loot:{diamond:1.0025,manaCrystal:1.0025}},
   void:   {name:'심연 숲 서약',  tier:'왕국',effect:{magicAmp:0.005,regen:0.035},loot:{manaCrystal:1.003,diamond:1.002}},
 };
-/** 알 수 없는 zid·구 세이브 호환용(가문 폴백) */
+
 const GARRISON_LV3_AURA_FALLBACK_BY_FAMILY={
   plains:      {name:'들판 보급로',    effect:{regen:0.03},loot:{food:1.002}},
   forestRiver: {name:'강숲 정찰망',    effect:{heroSpdMul:1.002,dmgRed:0.003},loot:{wood:1.002}},
@@ -10971,7 +10907,7 @@ const CRAFT_COSTS={
   potionBasic:{herb:25,gold:80},
   potionAdvanced:{herb:40,iron:35,diamond:4}
 };
-/** TASK 8 가이드: 제작 재료 라벨 (동물 처치 드랍·거점 요약 표시) */
+
 const CRAFT_MATERIALS={
   hide:{id:'hide',name:'🪶 가죽',desc:'동물 가죽. 물약 재료.'},
   bone:{id:'bone',name:'🦴 뼈',desc:'동물 뼈. 물약 재료.'},
@@ -10980,11 +10916,7 @@ const CRAFT_MATERIALS={
   crystal_shard:{id:'crystal_shard',name:'💎 결정 파편',desc:'마법 결정.'},
 };
 let craftMaterials={hide:0,bone:0,herb:0,venom:0,crystal_shard:0};
-/**
- * TASK 13 — 왕국 마도원 연구
- * - 전투 반영: hasArcaneResearch(id) → getArcaneOutgoingDamageMul / getUnitSecondaryBonus / battleTick(궁극기 충전 가속) 등 **패시브 수치만** 사용.
- * - specRef: 장판·연쇄기 등 **연출/밸런스 원안**(확장 시 참고). 현재 전투 루프는 읽지 않음.
- */
+
 const ARCANE_RESEARCH={
   fire_storm:{
     id:'fire_storm', name:'🔥 화염 폭풍', tier:1,
@@ -11050,7 +10982,7 @@ function checkArcaneResearch(){
   renderGarrisonBar();
   markDirty();
 }
-/** 왕국(civPhase>=3)이 아닐 때 진행 중 연구가 있으면 재료·금 환급 후 취소 */
+
 function sanitizeArcaneResearchForCivPhase(){
   if(civPhase>=3) return;
   if(!arcaneInProgress||!arcaneInProgress.id) return;
@@ -11065,7 +10997,7 @@ function sanitizeArcaneResearchForCivPhase(){
   if(typeof renderGarrisonBar==='function') renderGarrisonBar();
   markDirty();
 }
-/** 상단 마도원 버튼 → 거점 요약 후 연구 패널로 스크롤 */
+
 window.focusArcaneResearchPanel=function(){
   const el=document.getElementById('arcane-research-panel');
   if(el&&el.scrollIntoView){
@@ -11801,7 +11733,7 @@ window.applyPotionParty=function(key){
   alog(`✨ 파티 버프 적용: ${p.name}`);
   markDirty();
 };
-/** TASK 8: 전투 중 선택 아군 1명에게 비약 적용 (지도에서 유닛 선택 후 사용) */
+
 window.usePotionOnSelected=function(key){
   if(!isBattle||isPaused){alog('⚠️ 전투 중(일시정지 아님)에만 사용할 수 있습니다.');return;}
   if(civPhase<1){alog('❌ 마을 단계부터 사용 가능합니다.');return;}
@@ -12042,7 +11974,7 @@ function getGarrisonLv3AuraRowForZone(zid,rec){
   const fam=(rec&&rec.family)||getZoneFamily(zid,ZONES[zid]||{});
   return GARRISON_LV3_AURA_FALLBACK_BY_FAMILY[fam]||null;
 }
-/** Lv3=기준(1.0), Lv4~10 단계 강화 — 전역 아우라·일일 전투 자원 가중 */
+
 function getGarrisonAuraEffectPotency(upgradeLv){
   const u=Math.floor(Number(upgradeLv)||1);
   if(u<GARRISON_AURA_MIN_LV) return 0;
@@ -12301,7 +12233,7 @@ function getZoneGarrisonLevel(zid){
   const seq=Number(_autoZoneSeq&&_autoZoneSeq[zid])||0;
   return Math.max(1,seq);
 }
-/** 전역 아우라·경험·일일 보정: 건물 업그레이드 Lv와 거점 단계(로마 숫자, 재정복) 중 큰 값. 단계만 III여도 Lv.3으로 간주 */
+
 function getGarrisonAuraEffectiveUpgradeLv(zid,rec){
   if(!rec)return 1;
   ensureGarrisonRecMeta(rec,zid);
@@ -12328,11 +12260,11 @@ function getZonePerUnitCap(zid){
   const fam=getZoneFamily(zid,ZONES[zid]);
   return GARRISON_ZONE_CAPS[fam]||18;
 }
-/** 거점 주둔 슬롯 상한: 단계(로마 단계)×6 과 가문 절대 상한 중 작은 값 */
+
 function getEffectiveGarrisonSlotCap(zid){
   return Math.min(getGarrisonUnitSlotCap(zid), getZonePerUnitCap(zid));
 }
-/** 같은 가문(통합 거점) 클리어 구역들의 남은 주둔 슬롯 합 — 15일차 배치 안내 기본값·고용 상한 */
+
 function getIntegratedFamilyEmptySlotCount(forZid){
   const selfRec=zoneRecords&&zoneRecords[forZid];
   const fam=(selfRec&&selfRec.family)||getZoneFamily(forZid,ZONES[forZid]||{});
@@ -12347,7 +12279,7 @@ function getIntegratedFamilyEmptySlotCount(forZid){
   });
   return sum;
 }
-/** 통합 가문 내 아직 빈 슬롯이 있는 구역 하나 — 방금 정복한 구역을 먼저 채운 뒤 다른 구역으로 이어짐 */
+
 function pickNextGarrisonZoneInFamily(familyKey, preferredZid){
   const zids=Object.keys(zoneRecords).filter(ozid=>{
     const orec=zoneRecords[ozid];
@@ -12365,7 +12297,7 @@ function pickNextGarrisonZoneInFamily(familyKey, preferredZid){
   }
   return null;
 }
-/** 식량 30 지불 후 신규 피난민을 해당 거점 주둔으로 배치. 실패 시 false */
+
 function tryHireAndAssignRefugeeToGarrison(zid){
   const rec=zoneRecords[zid];
   if(!rec||!rec.cleared)return false;
@@ -12389,7 +12321,7 @@ function tryHireAndAssignRefugeeToGarrison(zid){
   if(typeof startGarrisonTick==='function')startGarrisonTick();
   return true;
 }
-/** 이미 생성된 유닛을 빈 슬롯이 있는 거점 주둔으로 배치 (식량 미차감 — 상위에서 지불 처리된 경우) */
+
 function tryAssignExistingUnitToAnyGarrison(u){
   if(!u||typeof zoneRecords==='undefined'||!zoneRecords)return false;
   const zids=Object.keys(zoneRecords);
@@ -12905,7 +12837,7 @@ function isStealthForestUnit(u){
   return !!(cell&&cell.type==='forest'&&(stealthRole||hasAmbush));
 }
 function enemyDetectRangeForTarget(enemy,target){
-  /** 아군 최장 사거리 스킬보다 넓게 — bonusRange까지 고려한 여유 */
+  
   const MARGIN=56;
   let base=Math.max(220,_ALLY_SKILL_DETECT_REF_RANGE+MARGIN);
   if(enemy&&(enemy.mark==='🐻'||String(enemy.name||'').includes('곰'))){
@@ -12929,7 +12861,7 @@ function getDetectedAllies(enemy, alliesList){
   if(enemy) enemy._detectedCache={frame:_frameCount,list:out};
   return out;
 }
-/** 안개 ON 구간: 아군 시야 타일 합산(경로 탐색·표시와 동기) */
+
 function updateSharedVision(aa){
   if(!fogEnabled()){
     _allySharedVisionKeys=null;
@@ -12963,7 +12895,7 @@ function fogEnabled(){
   // 얕은 숲(wilds)부터 마을·도시·왕국 전투지: 안개 + 시야 공유 (배치 단계 포함)
   return true;
 }
-/** 밤·횃불 느낌의 시야 가장자리 글로우: 울창한 숲·산적 협곡·저주받은 강곡 등만 (나머지 전투지는 시야 안쪽이 원색 지형) */
+
 const FOG_TORCH_VISION_ZONE_IDS=new Set(['mine','castle','citadel']);
 function fogTorchVisionEnabled(){
   if(!fogEnabled())return false;
@@ -12979,7 +12911,7 @@ function fogTorchVisionGradientStops(){
 }
 const FOG_VISION_OVER_SKILL_PX=48;
 const FOG_VISION_CLEAR_FRAC=0.9;
-/** 집합소 기준(20×12) 맵 대비, 더 큰 전투지에서 시야·스킬 원이 과도하게 넓어 보이지 않도록 표시/안개 반경만 축소 (1 이하) */
+
 function getMapRangeDisplayScale(){
   const refW=Math.ceil(20*HW+HW*0.5+10);
   const refH=Math.ceil(12*HR*1.5+HR+10);
@@ -13014,7 +12946,7 @@ function fillFogVisionHole(fctx,ax,ay,vr){
   fctx.fill();
   fctx.restore();
 }
-/** 배치 단계 보라 구역(c<7) 중심·반경 — 안개에서 해당 띠만 뚫기 */
+
 function getPlacementFogRevealCenterRadius(){
   if(typeof ROWS==='undefined'||typeof COLS==='undefined'||!hexMap) return null;
   const maxC=Math.min(6,COLS-1);
@@ -14434,7 +14366,6 @@ window.showPartyGroupModal=function(e){
   },0);
 };
 
-/** 통솔 파티 내에서 한 칸 위/아래로 (allies 순서), 수동 순서 시 병과 자동정렬 해제 */
 window.movePartyMemberRelative=function(uid,dir){
   const slots=getPartySlotIndices();
   const myI=allies.findIndex(a=>a.id===uid);
@@ -14468,7 +14399,6 @@ window.moveGarrisonMemberRelative=function(zid,uid,dir){
   renderGarrisonBar();
 };
 
-/** ▲▼: 위로 / 아래로 / 대기실 메뉴 */
 window.showUnitOrderMenu=function(uid,e){
   if(e){e.preventDefault();e.stopPropagation();}
   closeUnitOrderMenu();
@@ -14503,7 +14433,6 @@ window.showUnitOrderMenu=function(uid,e){
   },0);
 };
 
-/** 파티 헤더 「유닛 정렬」: 병과 우선순위로 정렬 후 메뉴 + 통솔 → 대기 */
 window.showPartySortMenu=function(e){
   if(e){e.preventDefault();e.stopPropagation();}
   closePartySortMenu();
@@ -14666,7 +14595,7 @@ function getTierUiMeta(u){
   const grow=idx>=4;
   return {border:row.color,chip:row.color,grow,label:row.name};
 }
-/** 통솔/대기실 등 소형 카드 — 테두리 색과 맞는 반투명 배경(등급 구분) */
+
 function tierBorderToStandbyCardBg(hex){
   const h=String(hex||'').replace('#','').trim();
   if(h.length!==6)return 'rgba(15,25,35,0.85)';
@@ -14692,7 +14621,7 @@ function getIntegratedFamilyMembers(family){
   });
   return rows;
 }
-/** 통합 거점 모달 제목용: 해당 가문에 속한 클리어 구역 [zid,rec] (하단 바와 동일 순서) */
+
 function getGarrisonGroupZoneRowsForFamily(family){
   const out=[];
   Object.entries(zoneRecords).forEach(([zid,rec])=>{
@@ -14890,7 +14819,7 @@ function renderGarrisonBar(){
 
 // 주둔 유닛 추가
 // 대기 프레임 드롭: 통솔유닛 or 주둔유닛 → 대기
-/* --- [통합] 거점(사냥터)으로 드롭했을 때 (어디서든 -> 거점) --- */
+
 window.zoneFrameDrop = function(e, zid) {
   e.preventDefault();
   const allyId = parseInt(e.dataTransfer.getData('ally-id'));
@@ -14916,7 +14845,7 @@ window.standbyDragStart=function(e,id){
   e.dataTransfer.setData('standby-uid',id);
   e.dataTransfer.effectAllowed='move';
 };
-/** 전체 유닛(허브) 모달: 통솔 카드 드래그 — 거점/대기 드롭과 동일하게 ally-id 사용 */
+
 window.hubPartyDragStart=function(e,id){
   if(typeof hubSgClearCardDragUi==='function') hubSgClearCardDragUi();
   e.dataTransfer.setData('ally-id',String(id));
@@ -14932,7 +14861,7 @@ window.standbyDrop=function(e){
   const aid=parseInt(e.dataTransfer.getData('ally-id'));
   if(aid){const u=allies.find(a=>a.id===aid);if(u){u.isDeployed=false;u.x=-300;u.y=-300;markDirty();renderGarrisonBar();}}
 };
-/** 거점/통솔 → 대기 프레임 드롭 (한도 적용) */
+
 window.standbyFrameDrop=function(e){
   e.preventDefault();
   if(isBattle){alog('❌ 전투 중에는 이동할 수 없습니다.');return;}
@@ -15078,13 +15007,11 @@ window.selectAndSendToStandby=function(){
   showPartySortMenu({currentTarget:btn||null,preventDefault:()=>{},stopPropagation:()=>{}});
 };
 
-/** 카드 클릭(지도 강조) — 좌스와이프 직후에는 무시 */
 window.ucRowClick=function(ev,uid){
   if(ev&&ev.currentTarget&&ev.currentTarget.dataset.suppressUcClick==='1')return;
   selectUnitOnMap(uid);
 };
 
-/** 대기실 반영만 즉시 수행 (애니메이션 없음) */
 function sendToStandbyCore(uid){
   const pendingSwap=resolvePendingBattleSwapJobByPartyUid(uid);
   const u=allies.find(a=>a.id===uid);
@@ -15122,7 +15049,7 @@ function sendToStandbyCore(uid){
 }
 
 let _pendingBattleSwapByPartyId={};
-/** 통솔 후퇴 유닛 id로 교체 예약 job 조회(키 불일치·문자열 키 대비) */
+
 function resolvePendingBattleSwapJobByPartyUid(uid){
   if(!_pendingBattleSwapByPartyId||uid==null||uid==='') return null;
   const n=Number(uid);
@@ -15139,7 +15066,7 @@ function resolvePendingBattleSwapJobByPartyUid(uid){
 function getPendingSwapJobForParty(partyId){
   return resolvePendingBattleSwapJobByPartyUid(partyId);
 }
-/** 현재 이 대기 유닛이 이미 예약한 교체(전투 중) — 다른 통솔 동료를 동시에 고를 수 없음 */
+
 function getPendingSwapJobForStandby(standbyUid){
   const o=_pendingBattleSwapByPartyId||{};
   const keys=Object.keys(o);
@@ -15149,7 +15076,7 @@ function getPendingSwapJobForStandby(standbyUid){
   }
   return null;
 }
-/** 전체 유닛 목록: 후퇴 중 교체를 목록에서는 이미 바뀐 것처럼 표시 */
+
 function getPartyMembersForUnitListView(){
   let list=getActivePartyMembersForSwapPick();
   const jobs=Object.values(_pendingBattleSwapByPartyId||{});
@@ -15181,7 +15108,7 @@ function getStandbyMembersForUnitListView(){
   });
   return out;
 }
-/** 통솔↔대기 교체 진행 중(후퇴 포함) — 목록에서 중복 교체 방지 */
+
 function hubUnitListSwapBusy(u){
   if(!u) return true;
   if(u.retreatingToStandby) return true;
@@ -15270,10 +15197,6 @@ function updateRetreatingAllies(){
   for(let i=0;i<finishedIds.length;i++) sendToStandbyCore(finishedIds[i]);
 }
 
-/**
- * 통솔 카드를 화면 좌측 밖으로 밀고 나서 대기실 처리.
- * el은 #uc-{uid} DOM (이미 body로 옮기지 않은 상태).
- */
 function commitStandbySlideFromCard(el, uid){
   if(!el||el.dataset.standbyAnim==='1')return;
   const u=allies.find(a=>a.id===uid);
@@ -15297,7 +15220,7 @@ function commitStandbySlideFromCard(el, uid){
   el.style.opacity='1';
   el.style.zIndex='12000';
   el.style.pointerEvents='none';
-  /* left 대신 transform만 보간: 레이아웃 thrash·transitionend 누락(일부 브라우저) 완화 */
+  
   const slideDx=-(r.left+r.width+56);
   let finished=false;
   const done=function(){
@@ -15477,7 +15400,7 @@ window.grantFoodAndDismissUnit=function(uid,amount){
   markDirty();renderGarrisonBar();
   if(typeof refreshOpenUnitListModalsAfterRosterChange==='function') refreshOpenUnitListModalsAfterRosterChange();
 };
-/** 통솔 정원 가득 참일 때 — 통솔 대원과 자리 교체 행 HTML (대기 이동·거점 메뉴 공통) */
+
 function buildPartySwapRowsHtml(standbyUid){
   const partyPick=getActivePartyMembersForSwapPick();
   if(partyPick.length===0){
@@ -15579,7 +15502,6 @@ window.standbyToParty=function(uid){
   if(typeof refreshOpenUnitListModalsAfterRosterChange==='function') refreshOpenUnitListModalsAfterRosterChange();
 };
 
-/** 대기 ↔ 통솔 1명 자리 교체 (통솔 정원 가득 찼을 때) */
 window.swapStandbyWithPartyMember=function(standbyUid, partyUid, ev){
   if(ev){try{ev.stopPropagation();ev.preventDefault();}catch(_e){}}
   const s=allies.find(a=>a.id===standbyUid);
@@ -15832,7 +15754,6 @@ window.openPromoteFromGarrison = function(uid) {
   if (u) showClassModal(u);
 };
 
-/* --- [추가] 전직 취소 및 게임 재개 함수 --- */
 window.cancelClassModal = function() {
   // 1. 타이머와 창 정리
   if(_classModalTimer) {
@@ -15964,7 +15885,6 @@ function togglePanel(id){
   if(btn)btn.textContent=hidden?'▲':'▼';
 }
 
-/* --- [통합] 통솔 파티 패널로 드롭했을 때 (어디서든 -> 파티) --- */
 window.allyPanelDrop = function(e) {
   e.preventDefault();
   const gzid = e.dataTransfer.getData('garrison-zid');
@@ -16320,7 +16240,6 @@ var _introData = [
    btn:'⚔️ 왕국을 향한 여정, 시작!'},
 ];
 
-/* --- [통합] 스토리 시스템 (기존 window.showIntro부터 introNext까지 교체) --- */
 window.showIntro = function() {
   _introStep = 0;
   const modal = document.getElementById('intro-modal');
@@ -16377,7 +16296,6 @@ function showDeployGuide() {
     pg.innerHTML = '대원을 배치한 뒤, 준비가 되면 <b style="color:#38bdf8">▶ 출발!</b> 버튼 또는 <b style="color:#818cf8">스페이스 바</b>를 누르세요.';
   }
 }
-
 
 // ── API 키 모달 함수 ──
 function showApiKeyModal(){
@@ -16481,7 +16399,7 @@ window.onload = function() {
       window.showIntro();
     }
   }, 600); 
-  window.addEventListener('beforeunload',()=>{ if(!_skipAutoSaveOnUnload) saveGameState(true); });
+  window.addEventListener('beforeunload',()=>{ stopLoopWatchdog(); if(!_skipAutoSaveOnUnload) saveGameState(true); });
 };
 
 </script>
