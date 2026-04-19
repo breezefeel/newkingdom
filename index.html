@@ -59,7 +59,7 @@ white-space: nowrap;
 
 - { box-sizing: border-box; margin: 0; padding: 0; }
   html { font-size: clamp(12px, 0.45vw + 10px, 17px); }
-  body { font-family: ‘Malgun Gothic’, sans-serif; background: #080c10; color: #ccc; display: flex; flex-direction: column; align-items: center; padding: 6px; user-select: none; }
+  body { font-family: ‘Malgun Gothic’, sans-serif; background: #080c10; color: #ccc; display: flex; flex-direction: column; align-items: center; padding: 6px; user-select: none; overscroll-behavior-y: contain; }
   /* ── 상단 자원바 ── */
   /* [수정] 컨트롤 바 - 상단바에 가려지지 않게 설정 */
   #ctrl {
@@ -1452,8 +1452,22 @@ overflow-y: auto;
 flex: 1;
 min-height: 0;
 }
-</style>
 
+/* ── 모바일 텍스트 선택 방지 (드래그 방해 제거) ── */
+#panel-ally-body,
+#panel-ally-body *,
+#al,
+#al *,
+.uc, .uc *,
+.gz-standby-unit-card, .gz-standby-unit-card *,
+.gz-unit, .gz-unit *,
+.hub-sg-section, .hub-sg-section * {
+-webkit-user-select: none !important;
+user-select: none !important;
+-webkit-touch-callout: none !important;
+}
+
+</style>
 </head>
 <body>
 
@@ -3585,9 +3599,12 @@ function init(){
     const hadDragUnit=!!dragUnit;
     onUp(t);
     
-    if(wasMapPan||hadDragUnit) return;
     const {x,y}=getPos(t);
-    if(Math.hypot(x-dragSX,y-dragSY)>10) return;
+    const moveDist=Math.hypot(x-dragSX,y-dragSY);
+    // 실제로 드래그가 있었으면 탭 처리 건너뜀
+    if(hadDragUnit) return;
+    if(wasMapPan&&moveDist>15) return;
+    if(moveDist>15) return;
     
     // 모바일 더블/트리플 탭: touchend 기준으로 탭 카운트
     const nowT=Date.now();
@@ -3606,7 +3623,26 @@ function init(){
         lastClickTime=nowT; lastClickUnit=clickedA;
       }
     } else {
-      recordMapEmptyPoint(x,y);
+      // 빈 땅 탭 — 유닛 더블탭과 동일한 방식으로 직접 카운트
+      const nowM=Date.now();
+      const dx=x-_mapTapLastX, dy=y-_mapTapLastY;
+      const sameSpot=Math.hypot(dx,dy)<=70;
+      const inTime=(nowM-_mapTapLastT)<420;
+      if(sameSpot&&inTime){
+        _mapTapCount++;
+      } else {
+        _mapTapCount=1;
+      }
+      _mapTapLastX=x; _mapTapLastY=y; _mapTapLastT=nowM;
+      // 더블탭: 단체 이동 (즉시 실행, count 유지 → 세 번째 탭 감지 가능)
+      if(_mapTapCount===2){
+        moveAllDeployedAlliesTo(x,y);
+      }
+      // 트리플탭: 단체 홀드 (즉시 실행 후 리셋)
+      else if(_mapTapCount>=3){
+        _mapTapCount=0;
+        toggleAllPartyHoldOnMap();
+      }
     }
   },{passive:false});
   // 상단 전투 컨트롤 버튼은 addEventListener로도 연결해 브라우저별 inline 이벤트 편차를 방지
@@ -6981,11 +7017,12 @@ function moveAllDeployedAlliesTo(x,y){
 let _mapEmptyClickBuf=[];
 let _mapEmptyClickTimer=null;
 let _lastCanvasDragEndTs=0;
-const MAP_EMPTY_CLICK_TOL=46;
+let _mapTapCount=0,_mapTapLastX=0,_mapTapLastY=0,_mapTapLastT=0;
+const MAP_EMPTY_CLICK_TOL=70;
 
-const MAP_EMPTY_CLICK_IDLE_MS=180;
+const MAP_EMPTY_CLICK_IDLE_MS=420;
 
-const MAP_EMPTY_CLICK_IDLE_AFTER_DOUBLE_MS=180;
+const MAP_EMPTY_CLICK_IDLE_AFTER_DOUBLE_MS=420;
 function toggleAllPartyHoldOnMap(){
   const pool=allies.filter(a=>a&&a.isDeployed&&!a.dead&&!a.permanentlyDead&&!a.garrisoned&&!a.inStandby);
   if(!pool.length){
@@ -7023,6 +7060,11 @@ function recordMapEmptyPoint(x,y){
   if(_mapEmptyClickBuf.length){
     const x0=_mapEmptyClickBuf[0].x, y0=_mapEmptyClickBuf[0].y;
     if(Math.hypot(x-x0,y-y0)>MAP_EMPTY_CLICK_TOL) _mapEmptyClickBuf=[];
+  }
+  // 연속 탭 간격 체크: 이전 탭과 너무 오래됐으면 버퍼 리셋
+  if(_mapEmptyClickBuf.length>0){
+    const lastT=_mapEmptyClickBuf[_mapEmptyClickBuf.length-1].t;
+    if(now-lastT>MAP_EMPTY_CLICK_IDLE_MS) _mapEmptyClickBuf=[];
   }
   _mapEmptyClickBuf.push({x,y,t:now});
   clearTimeout(_mapEmptyClickTimer);
@@ -14165,6 +14207,7 @@ function draw(crowdedBattle){
       // 3) 마스크로 색상 캔버스 clip — 시야 밖 색상 제거
       _cc.globalCompositeOperation='destination-in';
       _cc.drawImage(_torchMaskCanvas,0,0);
+      _cc.globalCompositeOperation='source-over'; // 다음 프레임을 위해 리셋
       // 4) 메인 캔버스에 합성
       ctx.globalCompositeOperation='lighter';
       ctx.drawImage(_torchColorCanvas,0,0);
