@@ -914,22 +914,29 @@ canvas {
   width: 100%;
   max-width: none;
 }
-/* 유닛 목록·배치 인원: 같은 열에서는 가장 넓은 카드(셀) 폭에 맞춰 전부 채움 */
+/* 유닛 목록·배치 인원: 카드는 내용만큼만 넓힘(셀 안에서 우측 빈 여백 방지), 열 폭은 max-content 그리드가 결정 */
 .standby-list-pop .standby-list-grid .gz-unit.standby,
 .integrated-members-pop .standby-list-grid .gz-unit.standby,
 .hub-sg-pop .standby-list-grid .gz-unit.standby {
-  width: 100%;
+  width: auto;
   max-width: 100%;
-  min-width: 0;
-  justify-self: stretch;
+  min-width: auto;
+  justify-self: start;
+  box-sizing: border-box;
 }
 .gz-unit.standby > .gz-standby-card-col {
   flex: 1 1 0;
-  min-width: 0;
+  min-width: auto;
   display: flex;
   flex-direction: column;
   gap: 1px;
   justify-content: center;
+}
+/* 목록 그리드: 텍스트 열 flex-grow 끄면 Lv줄·이름만큼만 폭 사용 → 카드 우측 여백 제거 */
+.standby-list-pop .standby-list-grid .gz-unit.standby > .gz-standby-card-col,
+.integrated-members-pop .standby-list-grid .gz-unit.standby > .gz-standby-card-col,
+.hub-sg-pop .standby-list-grid .gz-unit.standby > .gz-standby-card-col {
+  flex: 0 1 auto;
 }
 .gz-unit.standby .gz-standby-card-name-row {
   display: flex;
@@ -938,10 +945,13 @@ canvas {
   gap: 3px;
   min-width: 0;
 }
+/* Lv + 직업 한 줄: 4글자 클래스 기준 최소폭(7px 기준 em, 과한 여백 방지로 12em) */
 .gz-unit.standby .gz-standby-lv-line {
   font-size: 7px;
   color: #9ca3af;
   line-height: 1.2;
+  display: block;
+  min-width: 7em;
 }
 /* 카드 본문(⇅ 제외) 클릭 → 기본 능력치 팝업 */
 .gz-unit.standby.gz-standby-card--stat-tap {
@@ -951,10 +961,11 @@ canvas {
 .gz-unit.standby.gz-standby-card--stat-tap .gz-standby-open-menu {
   cursor: pointer;
 }
-/* 통솔 대원과 교체 예약 후 후퇴 완료 전 — 이동 팝업의 후퇴 행과 유사하게 흐림 */
+/* 통솔 대원과 교체 예약 후 후퇴 완료 전 — 이동 팝업의 후퇴 행과 유사하게 흐림 + 등급색 테두리는 점선(인라인 solid 덮음) */
 .gz-unit.standby.gz-standby-card--swap-pending {
   opacity: 0.58;
   filter: grayscale(0.12);
+  border-style: dotted !important;
 }
 .gz-standby-stat-pop {
   position: fixed;
@@ -1099,7 +1110,7 @@ canvas {
 .integrated-members-pop .unit-list-frame,
 .hub-sg-pop .unit-list-frame {
   width: 100%;
-  max-width: min(96vw, 880px);
+  max-width: min(96vw, 500px);
   box-sizing: border-box;
 }
 .standby-list-pop .standby-list-grid > span:only-child,
@@ -1532,6 +1543,7 @@ canvas {
       <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0">
         <button type="button" class="collapse-btn panel-ally-toolbar-btn" id="btn-party-sort" onclick="event.stopPropagation();enableAutoSort();">유닛 정렬</button>
         <button type="button" class="collapse-btn panel-ally-toolbar-btn" id="btn-compact" onclick="toggleCompactView()">간략히</button>
+      <button type="button" class="collapse-btn panel-ally-toolbar-btn" onclick="showApiKeyModal()" title="API 키 설정">🔑</button>
       </div>
     </div>
     <div id="panel-ally-body">
@@ -2904,6 +2916,15 @@ function syncFromRes(){gold=res.gold;food=res.food;}
 let currentZone=ZONES.hunt;
 let zoneStage=1; // 현재 전투지 내 스테이지 (1부터 finalStage까지)
 let _allySharedVisionKeys=null; // 아군 공유 시야 Set<r*100+c> (안개 구간 전용)
+// ── 대사 시스템 (kingdom_speech_guide.md) ──
+const SPEECH_LS_KEY = 'kingdom_anthropic_api_key';
+function getApiKey(){ return localStorage.getItem(SPEECH_LS_KEY) || ''; }
+const SPEECH_API_KEY = getApiKey; // 하위 호환: getApiKey() 로 호출
+const SPEECH_API_ENABLED = false;
+let _speechBubbles = [];
+let _speechCooldowns = {};
+const SPEECH_COOLDOWN_FRAMES = 600;
+
 let isBattle=false,isPaused=false,isPlacing=false;
 let autoStart=false;
 let dragUnit=null,isDragging=false,dragSX=0,dragSY=0,mouseX=0,mouseY=0;
@@ -3523,6 +3544,7 @@ function init(){
   setChronicleAreaLabel(currentZone);
   enterPlacement();
   canvas.addEventListener('mousedown',onDown);
+  canvas.addEventListener('click',onMapEmptyClick);
   window.addEventListener('mousemove',onMove);
   window.addEventListener('mouseup',onUp);
   // 터치 이벤트: canvas에만 preventDefault (window에 걸면 버튼 탭 차단됨)
@@ -3536,7 +3558,16 @@ function init(){
   },{passive:false});
   canvas.addEventListener('touchend',e=>{
     e.preventDefault();
-    if(e.changedTouches.length===1)onUp(e.changedTouches[0]);
+    if(e.changedTouches.length!==1) return;
+    const t=e.changedTouches[0];
+    const wasMapPan=_mapPanMode;
+    const hadDragUnit=!!dragUnit;
+    onUp(t);
+    /* touch는 preventDefault로 합성 click이 안 나오므로, 짧은 탭이면 빈 땅 연타 시퀀스에 반영 */
+    if(wasMapPan||hadDragUnit) return;
+    const {x,y}=getPos(t);
+    if(Math.hypot(x-dragSX,y-dragSY)>10) return;
+    recordMapEmptyPoint(x,y);
   },{passive:false});
   // 상단 전투 컨트롤 버튼은 addEventListener로도 연결해 브라우저별 inline 이벤트 편차를 방지
   const goBtnEl=document.getElementById('btn-go');
@@ -5133,8 +5164,8 @@ function shouldDetourForFasterArrival(unit,targetX,targetY,nextCell,detourCandid
 // ── 모듈2: 등급/성격 데이터 (9단계 · maxLv 단계마다 +1 · 문명 단계별 출현은 TIER_ROLL_BY_PHASE)
 const TIERS = [
   {name:'Poor',    mult:0.84, color:'#7c92a8', maxLv:76},
-  {name:'Common',  mult:0.90, color:'#9d8570', maxLv:77},
-  {name:'Trained', mult:0.96, color:'#ffffff', maxLv:78},
+  {name:'Common',  mult:0.90, color:'#8a7563', maxLv:77},
+  {name:'Trained', mult:0.96, color:'#fff8e7', maxLv:78},
   {name:'Veteran', mult:1.04, color:'#86efac', maxLv:79},
   {name:'Rare',    mult:1.14, color:'#60a5fa', maxLv:80},
   {name:'Elite',   mult:1.28, color:'#4f46e5', maxLv:81},
@@ -5247,6 +5278,303 @@ function applyPersonalityEffects(unit, personality){
       unit.maxHp=Math.floor(unit.maxHp*0.80); unit.hp=Math.min(unit.hp,unit.maxHp); break;
     default: break;
   }
+}
+
+const SPEECH_POOL = {
+  battle_start: [
+    '자, 간다!', '긴장되네...', '할 수 있어.',
+    '또 싸움이야.', '오늘도 살아남자.', '다들 준비됐지?',
+    '이번엔 꼭 이긴다.', '...가자.',
+  ],
+  battle_win: [
+    '해냈다!', '역시 우리지!', '수고했어.',
+    '살았다...', '다음엔 더 잘하자.', '오늘 저녁은 뭐지?',
+    '이겼네. 당연하지.', '휴... 끝났다.',
+  ],
+  low_hp: [
+    '윽... 위험해.', '조금만 더...', '물러날 수 없어.',
+    '힐 좀 줘요!', '아프다고!', '죽을 것 같아...',
+    '여기서 끝나나.', '포기 안 해.',
+  ],
+  healed: [
+    '살았다!', '고마워요!', '이제 괜찮아.',
+    '역시 힐러야.', '으음, 살 것 같아.', '감사합니다!',
+  ],
+  kill_enemy: [
+    '하나 처리.', '다음!', '덤벼.',
+    '이 정도야.', '물러서라.', '어렵지 않네.',
+  ],
+  idle_random: [
+    '배고파...', '언제 쉬어.', '발이 아프다.',
+    '날씨는 좋네.', '고향이 그립다.', '빨리 끝났으면.',
+    '밥은 먹었나.', '...(하품)', '오늘 몇 명이나 왔지.',
+  ],
+  class: {
+    Tank: {
+      battle_start: ['내가 막는다.', '뒤에 있어.', '앞은 내 구역.', '온다!'],
+      low_hp:       ['아직 안 쓰러져.', '더 와.', '...버틴다.', '움직이지 마.'],
+      kill_enemy:   ['다음.', '약하군.', '더 없나.', '흥.'],
+      idle_random:  ['...', '든든하지?', '아무도 못 지나간다.', '지루하군.'],
+    },
+    Heal: {
+      battle_start: ['다들 다치지 마요!', '제가 있어요.', '무리하지 마세요.', '걱정 마요.'],
+      low_hp:       ['저도 좀 봐주세요!', '힐러도 아파요!', '제가 먼저 죽으면...', '누가 힐을!'],
+      healed:       ['어, 셀프 힐.', '가끔은 저도요.'],
+      idle_random:  ['다들 밥은 먹었어요?', '부상 없죠?', '제발 조심해요.', '물약 아껴요.'],
+    },
+    Melee: {
+      battle_start: ['덤벼라!', '칼 뽑아.', '빠르게 끝내자.', '재밌겠는데.'],
+      low_hp:       ['이 정도야!', '아직 멀었어.', '흥, 이거밖에.', '더 세게 와.'],
+      kill_enemy:   ['빠르지?', '예상대로야.', '다음 상대.', '재밌네.'],
+      idle_random:  ['칼이 무뎌졌나.', '더 빠를 수 있는데.', '집중 집중.', '지루해.'],
+    },
+    Ranged: {
+      battle_start: ['조준 완료.', '사거리 확인.', '안 맞을 리 없지.', '뒤에서 지원.'],
+      low_hp:       ['거리 유지 실패...', '맞으면 안 되는데!', '도망쳐야 하나.', '탱커 어딨어!'],
+      kill_enemy:   ['명중.', '당연하지.', '백발백중.', '예상 경로였어.'],
+      idle_random:  ['시야 확보 중.', '바람 방향은...', '저 쪽에 뭔가 있나.', '집중력 유지.'],
+    },
+    Mage: {
+      battle_start: ['마력 충전 완료.', '이 몸이 직접 나서야겠군.', '흥미롭군.', '세계의 이치로.'],
+      low_hp:       ['몸이 약한 게 단점이지.', '물리적 위협이란...', '마력이 흐트러져.', '이럴 줄 알았어.'],
+      kill_enemy:   ['원소의 힘이다.', '필연적 결말.', '계산대로.', '허무하군.'],
+      idle_random:  ['이 타일의 마력 흐름이...', '흥미로운 지형이야.', '지식이 곧 힘.', '...계산 중.'],
+    },
+    Warrior: {
+      battle_start: ['으아아!', '박살내주지!', '전진!', '거칠게 가자!'],
+      low_hp:       ['더 와!!!', '이게 더 신나는데!', '아직이야!', '흥분되는군!'],
+      kill_enemy:   ['더 없어?!', '약해!', '이 정도야!', '하하하!'],
+      idle_random:  ['빨리 싸우고 싶다.', '근질근질해.', '심심해.', '적 어딨어?'],
+    },
+    Refugee: {
+      battle_start: ['저... 해도 되는 건가요?', '겁나지만 해볼게요.', '도망가면 안 되죠?', '으... 가자.'],
+      low_hp:       ['역시 전 안 되나봐요.', '살려줘요!', '이건 너무해!', '아파요 진짜로!'],
+      kill_enemy:   ['어, 이겼다?', '제가 한 건가요?', '운이 좋았어.', '또 할 수 있을 것 같아요.'],
+      idle_random:  ['배고파요...', '언제 마을로 가요?', '발이 너무 아파.', '저 원래 농부예요.', '따뜻한 밥이 먹고 싶다.'],
+    },
+  },
+  personality: {
+    '영웅적인':      ['동료를 위해!', '물러서지 않아!', '여기서 멈출 수 없어!'],
+    '완벽주의자':    ['실수는 없다.', '더 잘할 수 있어.', '이 정도론 부족해.'],
+    '불사신':        ['안 죽어.', '이거? 별거 아냐.', '쓰러지지 않아.'],
+    '무모한 돌격대장':['돌격!', '겁 같은 거 없어!', '먼저 간다!'],
+    '강철의 의지':   ['버틴다.', '포기란 없어.', '의지로 버텨.'],
+    '전광석화':      ['빠르게!', '눈 깜짝할 새에.', '따라올 수 없지.'],
+    '날카로운 시야': ['보인다.', '약점 발견.', '놓치지 않아.'],
+    '중립적인':      ['그렇군.', '뭐, 그럭저럭.', '...알겠어.'],
+    '유리 대포':     ['맞으면 죽으니까 맞지 마세요 제가.', '공격만 해요 방어는 포기.', '한 방에 끝내야지.'],
+    '움직이는 성':   ['느려도 막는다.', '뚫어봐라.', '부동의 방벽.'],
+    '광전사':        ['하하하!', '더 와!', '신나!'],
+    '기분파':        ['오늘은 기분이 좋은데.', '왠지 안 내키네.', '기분따라 한다.'],
+    '나무늘보':      ['...잠깐, 뭐라고요?', '천천히 해요.', '(하품) 네...'],
+    '겁쟁이':        ['저는 뒤에서 지원할게요.', '무서워요...', '조심해야 해.'],
+    '허약한':        ['몸이 안 따라줘.', '아, 아파.', '체력이 문제야.'],
+  },
+  civPhase: {
+    0: ['여기서 살아남아야 해.', '집이 그립다.', '언제 정착하나.', '떠돌이 신세야.'],
+    1: ['마을이 생기고 나아졌어.', '이제 좀 살 것 같아.', '지킬 게 생겼네.', '발전하고 있어.'],
+    2: ['도시가 되었군.', '책임이 커졌어.', '지킬 사람이 많아졌어.', '전문가가 됐지.'],
+    3: ['왕국을 위해.', '역사에 남을 싸움이야.', '이게 내 운명인가.', '왕국의 이름으로.'],
+  },
+};
+
+function getSpeechClassKey(unit){
+  const base=(unit.class10Key&&CLASS10[unit.class10Key]?.base)||(unit.classKey||unit.baseRole||'Refugee');
+  const toPool={
+    Tank:'Tank',Heal:'Heal',Melee:'Melee',Ranged:'Ranged',Mage:'Mage',Warrior:'Warrior',Refugee:'Refugee',
+    Sorcerer:'Mage',Warlock:'Mage',Berserker:'Warrior',Berserker2:'Warrior',Sniper:'Ranged',Artillery:'Ranged',
+    Duelist:'Melee',Rogue:'Melee',Paladin:'Tank',Gladiator:'Melee',Cleric:'Heal',Shaman:'Heal',
+  };
+  return toPool[base]||toPool[unit.classKey]||'Refugee';
+}
+
+function pickLocalSpeech(unit, trigger){
+  const role=getSpeechClassKey(unit);
+  const personality=unit.personalityName||'중립적인';
+  const phase=Math.max(0,Math.min(3,Number(civPhase)||0));
+  const candidates=[];
+  const classPool=SPEECH_POOL.class[role];
+  if(classPool&&classPool[trigger]) candidates.push(...classPool[trigger]);
+  if(SPEECH_POOL[trigger]) candidates.push(...SPEECH_POOL[trigger]);
+  if(Math.random()<0.30){
+    const persPool=SPEECH_POOL.personality[personality];
+    if(persPool&&persPool.length) return persPool[Math.floor(Math.random()*persPool.length)];
+  }
+  if(Math.random()<0.15){
+    const civPool=SPEECH_POOL.civPhase[phase];
+    if(civPool&&civPool.length) return civPool[Math.floor(Math.random()*civPool.length)];
+  }
+  if(!candidates.length) return null;
+  return candidates[Math.floor(Math.random()*candidates.length)];
+}
+
+async function generateSpeechFromAPI(unit, trigger){
+  if(!SPEECH_API_ENABLED||!getApiKey()) return null;
+  const roleNames={
+    Tank:'탱커(방패잡이)', Heal:'힐러', Melee:'칼잡이',
+    Ranged:'원거리', Mage:'마법사', Warrior:'전사', Refugee:'피난민',
+  };
+  const triggerDesc={
+    battle_start: '전투가 막 시작되었다',
+    battle_win:   '전투에서 승리했다',
+    low_hp:       'HP가 10% 이하로 빈사 상태다',
+    ally_died:    '동료가 방금 전사했다',
+    boss_appear:  '강력한 보스가 등장했다',
+    healed:       '방금 치유 마법을 받았다',
+    kill_enemy:   '적을 처치했다',
+    idle_random:  '전투 중 잠시 숨을 고르고 있다',
+  };
+  const rk=getSpeechClassKey(unit);
+  const prompt=`당신은 판타지 전략 게임의 캐릭터입니다.
+
+캐릭터 정보:
+- 이름: ${unit.name}
+- 직업: ${roleNames[rk] || '피난민'}
+- 등급: ${unit.tierName||'Normal'}
+- 성격: ${unit.personalityName||'중립적인'}
+- 문명 단계: ${['떠돌이 집합소','마을','도시','왕국'][civPhase||0]}
+
+현재 상황: ${triggerDesc[trigger] || trigger}
+
+이 캐릭터가 지금 상황에서 할 말 한 마디를 써주세요.
+조건:
+- 반드시 한국어
+- 15자 이내
+- 따옴표 없이 대사만
+- 직업과 성격이 느껴지게
+- 유머러스하거나 진지하거나 캐릭터답게`;
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':getApiKey(),
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true',
+      },
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:40,
+        messages:[{role:'user',content:prompt}],
+      }),
+    });
+    const data=await res.json();
+    const text=data?.content?.[0]?.text?.trim();
+    return text&&text.length<=20 ? text : null;
+  }catch(e){
+    return null;
+  }
+}
+
+async function triggerSpeech(unit, trigger, forceAPI){
+  if(!unit||!unit.isDeployed||unit.dead||unit.permanentlyDead) return;
+  const lastFrame=_speechCooldowns[unit.id]||0;
+  if((_frameCount||0)-lastFrame<SPEECH_COOLDOWN_FRAMES) return;
+  if(_speechBubbles.length>=2) return;
+  _speechCooldowns[unit.id]=_frameCount||0;
+  const apiTriggers=['battle_start','battle_win','low_hp','ally_died','boss_appear','healed','kill_enemy'];
+  const useAPI=SPEECH_API_ENABLED&&(forceAPI||(apiTriggers.includes(trigger)));
+  if(useAPI){
+    const fallback=pickLocalSpeech(unit,trigger);
+    if(fallback) showSpeechBubble(unit,fallback);
+    generateSpeechFromAPI(unit,trigger).then(apiText=>{
+      if(apiText){
+        const existing=_speechBubbles.find(b=>b.unitId===unit.id);
+        if(existing) existing.text=apiText;
+        markDirty();
+      }
+    });
+  }else{
+    const text=pickLocalSpeech(unit,trigger);
+    if(text) showSpeechBubble(unit,text);
+  }
+}
+
+function triggerBattleWinSpeech(){
+  const winners=allies.filter(a=>a.isDeployed&&!a.dead&&!a.permanentlyDead)
+    .sort(()=>Math.random()-0.5).slice(0,2);
+  winners.forEach((u,i)=>{
+    setTimeout(()=>triggerSpeech(u,'battle_win',true),i*1000);
+  });
+}
+
+function showSpeechBubble(unit, text){
+  if(!unit||!text) return;
+  _speechBubbles=_speechBubbles.filter(b=>b.unitId!==unit.id);
+  const role=getSpeechClassKey(unit);
+  const rd=BASE_ROLES[role]||BASE_ROLES.Refugee;
+  const color=rd?.color||'#ffffff';
+  _speechBubbles.push({
+    unitId:unit.id,
+    text:String(text),
+    x:unit.x,
+    y:unit.y,
+    color,
+    timer:0,
+    maxTimer:180,
+  });
+  markDirty();
+}
+
+function drawSpeechBubbles(){
+  if(!_speechBubbles.length||typeof ctx==='undefined'||!ctx) return;
+  _speechBubbles=_speechBubbles.filter(b=>b.timer<b.maxTimer);
+  ctx.save();
+  ctx.font='bold 9px "Malgun Gothic",Malgun Gothic,sans-serif';
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  _speechBubbles.forEach(b=>{
+    const unit=allies.find(a=>a.id===b.unitId);
+    if(unit){ b.x=unit.x; b.y=unit.y; }
+    const progress=b.timer/b.maxTimer;
+    let alpha=1;
+    if(progress<0.1) alpha=progress/0.1;
+    else if(progress>0.8) alpha=1-(progress-0.8)/0.2;
+    const px=b.x, py=b.y-34;
+    let line=String(b.text||'');
+    let tw=ctx.measureText(line).width;
+    const maxW=118;
+    if(tw>maxW){
+      while(line.length>2&&ctx.measureText(line+'…').width>maxW) line=line.slice(0,-1);
+      line+='…';
+      tw=ctx.measureText(line).width;
+    }
+    const textW=Math.min(tw+14,130);
+    const textH=18;
+    const bx=px-textW/2;
+    const by=py-textH;
+    ctx.globalAlpha=alpha;
+    ctx.fillStyle='rgba(10,15,25,0.88)';
+    ctx.strokeStyle=b.color||'#94a3b8';
+    ctx.lineWidth=1.2;
+    ctx.beginPath();
+    if(typeof ctx.roundRect==='function'){
+      ctx.roundRect(bx,by,textW,textH,5);
+    }else{
+      ctx.rect(bx,by,textW,textH);
+    }
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle='rgba(10,15,25,0.88)';
+    ctx.beginPath();
+    ctx.moveTo(px-4,by+textH);
+    ctx.lineTo(px+4,by+textH);
+    ctx.lineTo(px,by+textH+6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle=b.color||'#94a3b8';
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.moveTo(px-4,by+textH);
+    ctx.lineTo(px,by+textH+6);
+    ctx.lineTo(px+4,by+textH);
+    ctx.stroke();
+    ctx.fillStyle='#ffffff';
+    ctx.fillText(line,px,by+textH/2);
+    ctx.globalAlpha=1;
+    b.timer++;
+  });
+  ctx.restore();
 }
 
 /* ═══ 피난민(mkAlly) 생성·패널 6스탯·색상 기준 정리 ═══
@@ -5934,9 +6262,11 @@ function getEnemyFormation(s,tier){
 // 배치
 // ══════════════════════════════════════════════════════
 
-// 배치 우선순위: 탱→힐→근딜(전사/전투가)→원딜→마법사→피난민
+// 배치 우선순위: 탱→힐→근딜(전사/전투가)→원딜→마법사→용병 고용(전직 전)→피난민
 function deployPriority(a) {
   const role = a.classKey || a.baseRole;
+  // 전직 전 금화 용병: 난민 베이스(지원자)는 일반 피난민(4)보다 먼저 배치
+  if(!a.classKey && a.fromMercHire && role==='Refugee') return 3;
   // 순서: 탱커(0) -> 힐러(1) -> 원거리(2) -> 전사/전투가/마법사(3) -> 피난민(4)
   const order = {
     Tank: 0, 
@@ -6059,6 +6389,9 @@ function healAlliesAfterBattle(){
 
 // [수정] enterPlacement 함수
 function enterPlacement() {
+  _speechBubbles=[];
+  _speechCooldowns={};
+  allies.forEach(a=>{ if(a) a._lowHpSpeechDone=false; });
   isPlacing = true; isBattle = false; isPaused = false;
   setBadge(currentZone.tier === 'hunt' || currentZone.tier === 'pred' ? '출발 준비' : '전투 준비', 'b-pl');
   
@@ -6097,7 +6430,7 @@ function updatePG() {
       pg.innerHTML = `
       <div style="white-space:nowrap"><b style="color:#fbbf24">배치 완료!</b></div>
       <div style="font-size:11px;color:#cbd5e1;white-space:nowrap;margin-top:4px">상단의 <b style="color:#38bdf8">▶출발</b> 버튼</div>
-      <div style="font-size:11px;color:#cbd5e1;white-space:nowrap;margin-top:2px">또는 <b style="color:#38bdf8">스페이스 바</b> 클릭</div>`;
+      <div style="font-size:11px;color:#cbd5e1;white-space:nowrap;margin-top:2px">또는 <b style="color:#818cf8">스페이스 바</b> 클릭</div>`;
     }
   } 
   // 2. 유닛 배치가 진행 중일 때
@@ -6160,6 +6493,179 @@ function getPos(e){
     x: (e.clientX - r.left) * scaleX,
     y: (e.clientY - r.top)  * scaleY
   };
+}
+
+/** 더블클릭 대형 이동: 탱 → 근딜 → 원거리 → 힐·기타 (적 쪽이 전방) */
+function getFormationLayerRank(u){
+  const r=(u&&u.classKey)||(u&&u.baseRole)||'Refugee';
+  if(r==='Tank') return 0;
+  if(r==='Melee'||r==='Warrior'||r==='Rogue'||r==='Berserker2'||r==='Duelist') return 1;
+  if(r==='Ranged'||r==='Mage'||r==='Sniper'||r==='Artillery') return 2;
+  return 3;
+}
+function getFormationForwardDir(anchorX,anchorY){
+  const cw=typeof CW!=='undefined'?CW:800;
+  const ch=typeof CH!=='undefined'?CH:600;
+  const tx=cw*0.82;
+  const ty=ch*0.48;
+  const dx=tx-anchorX, dy=ty-anchorY;
+  const len=Math.hypot(dx,dy)||1;
+  return {fx:dx/len,fy:dy/len};
+}
+/** 클릭점 기준 역할별 목표 좌표 (픽셀) — 이후 빈 칸/경로 탐색에 사용 */
+function computeFormationAnchorTargets(anchorX,anchorY,units){
+  const fwd=getFormationForwardDir(anchorX,anchorY);
+  const px=-fwd.fy, py=fwd.fx;
+  const step=Math.max((typeof HW!=='undefined'?HW:36)*0.88,(typeof HR!=='undefined'?HR:21)*1.45);
+  const F=(typeof HW!=='undefined'?HW:36)*1.05;
+  const depth=[1.38*F,0.4*F,-0.45*F,-1.15*F];
+  const byLayer=[[],[],[],[]];
+  units.forEach(u=>{
+    const L=getFormationLayerRank(u);
+    byLayer[L].push(u);
+  });
+  byLayer.forEach(arr=>arr.sort((a,b)=>(a.id||0)-(b.id||0)));
+  const out=new Map();
+  [0,1,2,3].forEach(layer=>{
+    const grp=byLayer[layer];
+    const n=grp.length;
+    if(!n) return;
+    const d=depth[layer];
+    const baseX=anchorX+fwd.fx*d, baseY=anchorY+fwd.fy*d;
+    grp.forEach((u,idx)=>{
+      const k=idx-(n-1)/2;
+      const tx=baseX+px*k*step, ty=baseY+py*k*step;
+      out.set(u.id,{x:tx,y:ty});
+    });
+  });
+  return out;
+}
+/** 이동 목표·경로만 초기화 (홀드 전환·대형 이동 전에 사용) */
+function resetAllyMoveIntent(u){
+  if(!u) return;
+  clearAllyHexPath(u);
+  u.wx=null;
+  u.wy=null;
+  u._autoNavTarget=null;
+}
+/** 지도 더블클릭: 홀드 제외 · 역할별 분산 목표로 통솔 아군 이동 */
+function moveAllDeployedAlliesTo(x,y){
+  const units=allies.filter(a=>a&&a.isDeployed&&!a.dead&&!a.permanentlyDead&&!a.garrisoned&&!a.inStandby&&!a.onHold)
+    .sort((a,b)=>(a.id||0)-(b.id||0));
+  if(!units.length){
+    alog('⚠️ 이동할 아군이 없습니다. (홀드 중이거나 배치된 유닛 없음)');
+    return;
+  }
+  const targets=computeFormationAnchorTargets(x,y,units);
+  if(!isBattle){
+    let moved=0;
+    for(let i=0;i<units.length;i++){
+      const u=units[i];
+      resetAllyMoveIntent(u);
+      const t=targets.get(u.id)||{x,y};
+      const cell=findNearestEmptyDeployCell(t.x,t.y,u.id);
+      if(!cell){
+        alog('⚠️ 배치 가능한 빈 칸이 부족해 일부만 이동했습니다.');
+        break;
+      }
+      u.x=cell.x; u.y=cell.y;
+      clearAllyHexPath(u);
+      savedPositions[u.id]={x:u.x,y:u.y};
+      initialPositions[u.id]={x:u.x,y:u.y};
+      moved++;
+    }
+    if(moved>0){
+      addFloat(x,y-22,'📍 전열 이동','#38bdf8');
+      updatePG();
+      renderAllyPanel();
+      markDirty();
+      if(autoStart&&getSortedUd().length===0){
+        setTimeout(()=>{ if(!isBattle&&autoStart) toggleBattle(); },800);
+      }
+    }
+    return;
+  }
+  let ok=0;
+  for(let i=0;i<units.length;i++){
+    const u=units[i];
+    resetAllyMoveIntent(u);
+    const t=targets.get(u.id)||{x,y};
+    const wp=resolveMoveCommandPoint(u,t.x,t.y);
+    if(!wp){
+      addFloat(u.x,u.y-14,'이동 불가','#e74c3c');
+      continue;
+    }
+    applyWaypointPath(u,wp);
+    ok++;
+  }
+  if(ok>0){
+    addFloat(x,y-22,'📍 전열 이동','#f1c40f');
+    renderAllyPanel();
+    markDirty();
+  }
+}
+/** 같은 빈 땅을 연속 클릭: 2번=대형 이동, 3번 이상=전원 홀드 토글(이미 전원 홀드면 전원 해제) */
+let _mapEmptyClickBuf=[];
+let _mapEmptyClickTimer=null;
+let _lastCanvasDragEndTs=0;
+const MAP_EMPTY_CLICK_TOL=46;
+/* 마지막 클릭 후 이 시간이 지나야 시퀀스 확정. 1번만: 빠르게 n=1로 비움 */
+const MAP_EMPTY_CLICK_IDLE_MS=180;
+/* 2번 찍힌 뒤: 3번째(전원 홀드)를 기다리며 너무 짧으면 n=2만 먼저 확정→대형 이동이 나감 */
+const MAP_EMPTY_CLICK_IDLE_AFTER_DOUBLE_MS=180;
+function toggleAllPartyHoldOnMap(){
+  const pool=allies.filter(a=>a&&a.isDeployed&&!a.dead&&!a.permanentlyDead&&!a.garrisoned&&!a.inStandby);
+  if(!pool.length){
+    alog('⚠️ 지도에 통솔 아군이 없습니다.');
+    return;
+  }
+  const allHold=pool.every(u=>u.onHold);
+  pool.forEach(u=>{
+    resetAllyMoveIntent(u);
+    u.onHold=!allHold;
+  });
+  addFloat(pool[0].x,pool[0].y-20,allHold?'🏃 전원 이동 허용':'🛑 전원 홀드','#a855f7');
+  renderAllyPanel();
+  markDirty();
+}
+function flushMapEmptyClickSeq(){
+  _mapEmptyClickTimer=null;
+  const seq=_mapEmptyClickBuf.slice();
+  _mapEmptyClickBuf=[];
+  if(!seq.length) return;
+  const x0=seq[0].x, y0=seq[0].y;
+  if(!seq.every(p=>Math.hypot(p.x-x0,p.y-y0)<=MAP_EMPTY_CLICK_TOL)) return;
+  const n=seq.length;
+  if(n>=3) toggleAllPartyHoldOnMap();
+  else if(n===2) moveAllDeployedAlliesTo(x0,y0);
+}
+/** 빈 땅 연속 탭(2·3회) — 마우스 click과 터치 touchend에서 공통 사용 */
+function recordMapEmptyPoint(x,y){
+  if(Date.now()-_lastCanvasDragEndTs<200) return;
+  /* 첫 탭만 '유닛 위 클릭'을 막음. 2·3번째는 이동 중 부대 근처를 찍어도 연타로 인정해 재지시 가능 */
+  if(!_mapEmptyClickBuf.length){
+    if(allies.some(a=>a&&a.isDeployed&&!a.dead&&!a.permanentlyDead&&dist(a,{x,y})<25)) return;
+  }
+  const now=Date.now();
+  if(_mapEmptyClickBuf.length){
+    const x0=_mapEmptyClickBuf[0].x, y0=_mapEmptyClickBuf[0].y;
+    if(Math.hypot(x-x0,y-y0)>MAP_EMPTY_CLICK_TOL) _mapEmptyClickBuf=[];
+  }
+  _mapEmptyClickBuf.push({x,y,t:now});
+  clearTimeout(_mapEmptyClickTimer);
+  _mapEmptyClickTimer=null;
+  if(_mapEmptyClickBuf.length>=3){
+    flushMapEmptyClickSeq();
+    return;
+  }
+  const idleMs=_mapEmptyClickBuf.length>=2?MAP_EMPTY_CLICK_IDLE_AFTER_DOUBLE_MS:MAP_EMPTY_CLICK_IDLE_MS;
+  _mapEmptyClickTimer=setTimeout(flushMapEmptyClickSeq,idleMs);
+}
+function onMapEmptyClick(e){
+  if(typeof e.button==='number'&&e.button!==0) return;
+  try{ e.preventDefault(); }catch(_){}
+  const {x,y}=getPos(e);
+  recordMapEmptyPoint(x,y);
 }
 
 function onDown(e){
@@ -6228,6 +6734,7 @@ function onDown(e){
     if (lastClickUnit === clickedAlly && (now - lastClickTime) < 300) {
       cancelPendingTapSkill(clickedAlly.id);
       clickedAlly.onHold = !clickedAlly.onHold;
+      if(clickedAlly.onHold) resetAllyMoveIntent(clickedAlly);
       addFloat(clickedAlly.x, clickedAlly.y - 20, clickedAlly.onHold ? '🛑 HOLD' : '🏃 MOVE', '#a855f7');
       
       // 상태 초기화하여 클릭/드래그가 중복 발동되지 않게 방어
@@ -6367,11 +6874,13 @@ function onUp(e){
           isDragging=false;
           return;
         }
+        const keepHold=!!dragUnit.onHold;
         applyWaypointPath(dragUnit,wp);
-        dragUnit.onHold = false; // 이동 명령 시 홀드 해제
+        if(keepHold) dragUnit.onHold=true;
         if(wp.adjusted) addFloat(dragUnit.wx,dragUnit.wy,'지형 보정','#60a5fa');
         addFloat(dragUnit.wx, dragUnit.wy, '🎯 이동', '#f1c40f');
       }
+      if(isDragging&&dragDist>10) _lastCanvasDragEndTs=Date.now();
     } 
     // [조건] 거의 움직이지 않았다면(10px 이하) '클릭'으로 간주하여 스킬 발동
     else {
@@ -6696,14 +7205,14 @@ function executeMoveOrder(u, x, y) {
     // 배치 단계: 기존 배치 로직 호출
     handlePlacementDrop(u, x, y); 
   } else {
-    // 전투 단계: 웨이포인트 설정 및 홀드 해제
     const wp=resolveMoveCommandPoint(u,x,y);
     if(!wp){
       addFloat(u.x,u.y-16,'이동 불가','#e74c3c');
       return;
     }
+    const keepHold=!!u.onHold;
     applyWaypointPath(u,wp);
-    u.onHold = false; // 이동 명령 시 홀드는 자동으로 풀립니다.
+    if(keepHold) u.onHold=true;
     if(wp.adjusted) addFloat(u.wx,u.wy,'지형 보정','#60a5fa');
     addFloat(u.wx, u.wy, '🎯', '#f1c40f');
   }
@@ -7289,6 +7798,7 @@ function _spawnMercenaryHired(silent){
   const nextChar=ALP[allies.length%26];
   const u=mkAlly('지원자'+nextChar);
   u.lv=FIRST_PROMOTION_LV;
+  u.fromMercHire=true;
   allies.push(u);
   if(!isBattle&&!silent) alog('💰 새로운 지원자가 도착했습니다! 보직을 결정하세요.');
   return u;
@@ -7330,12 +7840,6 @@ function confirmUnifiedRecruit(){
   closeRecruitChoiceModal();
 
   if(_recruitModalContext==='defeat'){
-    if(n>0){
-      res.food-=foodCost;
-      food=res.food;
-      for(let i=0;i<n;i++) spawnRefugee({forceStandby:true});
-      alog(`👤 피난민 ${n}명 영입 (−${foodCost}🍖)`);
-    }
     const mercList=[];
     for(let i=0;i<m;i++){
       const defeatMerc=_spawnMercenaryHired(m>1);
@@ -7351,6 +7855,12 @@ function confirmUnifiedRecruit(){
       }
     }
     if(m>1&&!isBattle) alog(`💰 용병 ${mercList.length}명이 도착했습니다. 보직·이름을 순서대로 정해 주세요.`);
+    if(n>0){
+      res.food-=foodCost;
+      food=res.food;
+      for(let i=0;i<n;i++) spawnRefugee({forceStandby:true});
+      alog(`👤 피난민 ${n}명 영입 (−${foodCost}🍖)`);
+    }
     renderGarrisonBar();
     markDirty();
     if(mercList.length&&typeof showClassModal==='function'){
@@ -7361,18 +7871,18 @@ function confirmUnifiedRecruit(){
     return;
   }
 
-  if(n>0){
-    res.food-=foodCost;
-    food=res.food;
-    for(let i=0;i<n;i++) spawnRefugee({silent:isBattle});
-    if(!isBattle) alog(`👤 피난민 ${n}명 영입 (−${foodCost}🍖)`);
-  }
   const mercList=[];
   for(let i=0;i<m;i++){
     const u=_spawnMercenaryHired(m>1);
     if(u) mercList.push(u);
   }
   if(m>1&&!isBattle) alog(`💰 용병 ${mercList.length}명이 도착했습니다. 보직·이름을 순서대로 정해 주세요.`);
+  if(n>0){
+    res.food-=foodCost;
+    food=res.food;
+    for(let i=0;i<n;i++) spawnRefugee({silent:isBattle});
+    if(!isBattle) alog(`👤 피난민 ${n}명 영입 (−${foodCost}🍖)`);
+  }
   afterHireAction();
   if(mercList.length&&typeof showClassModal==='function'){
     _mercHireSetupQueue=mercList.slice();
@@ -7582,6 +8092,12 @@ function toggleBattle(){
   setBadge(`${stage}일차`, 'b-ba');
   alog(`⚔️ 전투 시작! (파티원 ${currentParty.length}명, 식량 -${cost}🍖)`);
   markDirty();
+  setTimeout(()=>{
+    const deployed=allies.filter(a=>a.isDeployed&&!a.dead&&!a.permanentlyDead);
+    if(!deployed.length) return;
+    const speakers=deployed.sort(()=>Math.random()-0.5).slice(0,2);
+    speakers.forEach((u,i)=>{ setTimeout(()=>triggerSpeech(u,'battle_start'), i*800); });
+  },300);
 }
 
 function togglePause() {
@@ -7874,6 +8390,14 @@ function battleTick(){
   if(_frameCount%12===0) updateSharedVision(aa);
 
   aa.forEach((a,idx) => {
+    if(isBattle&&!isPaused){
+      const hpRat=a.maxHp>0?a.hp/a.maxHp:1;
+      if(hpRat<0.15&&!a.dead&&!a._lowHpSpeechDone){
+        a._lowHpSpeechDone=true;
+        triggerSpeech(a,'low_hp');
+      }
+      if(hpRat>0.4) a._lowHpSpeechDone=false;
+    }
     const runThis=!crowdedAI||((idx%aiShardCount)===aiStripe);
     tickUnitUltimateBuff(a,now);
     const secBonus=getUnitSecondaryBonus(a);
@@ -7960,6 +8484,7 @@ function battleTick(){
               alog(`✨ ${a.name} → ${dead.name} 응급 소생!`);addFloat(dead.x,dead.y,'소생!','#a855f7');
               needGarrisonRender=true;
               if(sk===mainSkillKey) setMainSkillCooldown(a,getSkillCooldownFrames(a,sk,cooldownFrames));
+              triggerSpeech(dead,'healed');
             }
           }else{
             const tgt=aa.filter(x=>x!==a&&x.hp<x.maxHp).sort((x,y)=>x.hp-y.hp)[0];
@@ -7977,6 +8502,7 @@ function battleTick(){
                   addBattleContribution(a,'heal',actualHeal);
                   useSkill(a,sk);
                   if(sk===mainSkillKey) setMainSkillCooldown(a,getSkillCooldownFrames(a,sk,cooldownFrames));
+                  if(actualHeal>=30&&Math.random()<0.4) triggerSpeech(tgt,'healed');
                 }
               }
             }
@@ -8022,8 +8548,8 @@ function battleTick(){
       }
     }
 
-    // 이동 (홀드 아닐 때)
-    if(!a.onHold) moveAlly(a,ae,aa,terrSpd);
+    // 이동: 홀드여도 수동 웨이포인트(wx/wy)가 있으면 이동 — 도착 후 wx가 비면 moveAlly 안에서만 정지, onHold는 유지
+    if(!a.onHold || (a.wx!=null && a.wy!=null)) moveAlly(a,ae,aa,terrSpd);
     // 아군도 경계 클램프
     clampToMap(a);
   });
@@ -8360,6 +8886,7 @@ function battleTick(){
 
     // 3. [핵심] 15일차(최종일) 정복 성공 판정
     if (zoneStage >= (currentZone.finalStage || 15)) {
+        triggerBattleWinSpeech();
         isBattle = false;
         isPlacing = false;
         healAlliesAfterBattle();
@@ -8402,6 +8929,7 @@ function battleTick(){
     }
 
     // 4. 1~14일차: 다음 날로 자동 진행
+    triggerBattleWinSpeech();
     alog(`✅ ${zoneStage}일차 승리! ${formatIncomeLine({food:fR2,gold:gR2,stone:sR2,wood:wR2,iron:iR2,copper:cuR2,herb:hR2,diamond:dR2,warSupply:wsR2,manaCrystal:mcR2})}`);
     zoneStage++; stage = zoneStage; isBattle = false;
     healAlliesAfterBattle();
@@ -8431,6 +8959,12 @@ function battleTick(){
     if (isBattle && liveAllies.length === 0) {
       runBattleDefeatSequence('💀 부대가 전멸했습니다. 지휘관님, 정비가 필요합니다.');
       return;
+    }
+  }
+  if(isBattle&&!isPaused&&(_frameCount%600===0)){
+    const idleCands=allies.filter(a=>a.isDeployed&&!a.dead&&!a.permanentlyDead);
+    if(idleCands.length&&Math.random()<0.35){
+      triggerSpeech(idleCands[Math.floor(Math.random()*idleCands.length)],'idle_random');
     }
   }
   // 전투 틱마다 패널 갱신 요청 — 적 HP/사망은 여기서 갱신되는데 markDirty가 없으면 상태창이 지도보다 늦게 멈춤
@@ -8929,6 +9463,9 @@ function applyDmg(a,tgt,cell,sk,mult=1){
       alog(`👑 레이드 보스 격파! 💎+${dB} 🔮+${mB}`);
     }
     addBattleContribution(a,'kills',1);
+    if(tgt.type==='enemy'&&a&&a.type==='ally'&&Math.random()<0.3){
+      triggerSpeech(a,'kill_enemy');
+    }
     if(tgt.type==='enemy'&&Number(tgt.cityGold||0)>0){
       res.gold=(res.gold||0)+Number(tgt.cityGold||0);
       gold=res.gold;
@@ -10011,7 +10548,9 @@ function showDay1Tutorial() {
     <div style="font-size:11px;color:#d1d5db;line-height:1.7;margin-bottom:14px">
       <div style="margin-bottom:10px">👆 <b style="color:#fbbf24">드래그 이동</b><span style="color:#9ca3af">:</span> 전투 중 대원을 드래그하여 실시간으로 위치를 바꿀 수 있습니다. 위험한 상황에서 대원을 구출하거나 유리한 지형으로 옮기세요!</div>
       <div style="margin-bottom:10px">🧭 <b style="color:#38bdf8">방향 전투</b><span style="color:#9ca3af">:</span> 유닛 테두리의 작은 원이 정면입니다. <b style="color:#e5e7eb">정면에서의 공격은 방어도가 적용</b>되고, <b style="color:#fca5a5">후방·후방측면에서의 공격은 방어를 무시</b>합니다.</div>
-      <div style="margin-bottom:10px">🖱️ <b style="color:#c084fc">더블 클릭</b><span style="color:#9ca3af">:</span> 대원을 더블 클릭하면 그 자리에 고정되는 <b style="color:#d8b4fe">홀드(Hold)</b> 상태가 되어 제자리에서 적을 맞이합니다.</div>
+      <div style="margin-bottom:10px">🖱️ <b style="color:#c084fc">더블 클릭</b><span style="color:#9ca3af">:</span> 대원을 더블 클릭하면 그 자리에 고정되는 <b style="color:#d8b4fe">홀드(Hold)</b> 상태가 되어 제자리에서 적을 맞이합니다. 이동 중에 더블 클릭으로 홀드를 켜면 <b style="color:#e5e7eb">그 자리에서 즉시 멈추고</b> 목표 지점이 리셋됩니다.</div>
+      <div style="margin-bottom:10px">🗺️ <b style="color:#fbbf24">빈 땅 연타</b><span style="color:#9ca3af">:</span> 아군이 없는 땅을 <b style="color:#fde047">같은 위치에 빠르게 두 번</b> 클릭(또는 탭)하면 통솔 아군이 역할에 맞춰 <b style="color:#fde047">대형 이동</b>합니다. <b style="color:#fde047">세 번</b> 연속이면 <b style="color:#d8b4fe">전원 홀드</b>를 켜거나(이미 전원 홀드면) 끕니다. 이동 중에도 다시 두 번 찍어 <b>새 목표</b>로 바꿀 수 있습니다.</div>
+      <div style="margin-bottom:10px">⚑ <b style="color:#a855f7">홀드 + 이동 명령</b><span style="color:#9ca3af">:</span> 홀드인 채로 드래그해 이동하면 <b style="color:#e5e7eb">도착한 뒤에도 홀드</b>가 유지됩니다.</div>
     </div>
     <button onclick="showTutorialStep2()" 
       style="width:100%;padding:12px;background:#1a5c32;border:none;border-radius:5px;color:#fff;font-weight:bold;cursor:pointer;touch-action:manipulation">
@@ -12061,7 +12600,9 @@ window.openGameHelpModal=function(){
     <details class="game-help-details" id="gh-controls">
       <summary>기본 조작 · 방향·홀드</summary>
       <div class="game-help-panel">
-        <div style="color:#e2e8f0;line-height:1.65;font-size:11px">전투 중 유닛을 <b style="color:#7dd3fc">드래그</b>해 위치를 바꿉니다. 위기 때는 딜러를 뒤로 빼거나, 탱커를 앞으로 당겨 보세요. <b style="color:#7dd3fc">더블 탭/클릭</b>으로 <b>홀드</b>(제자리 고정)를 켜면 제자리에서 적을 받아칩니다.</div>
+        <div style="color:#e2e8f0;line-height:1.65;font-size:11px">전투 중 유닛을 <b style="color:#7dd3fc">드래그</b>해 위치를 바꿉니다. 위기 때는 딜러를 뒤로 빼거나, 탱커를 앞으로 당겨 보세요. <b style="color:#7dd3fc">더블 탭/클릭</b>으로 <b>홀드</b>(제자리 고정)를 켜면 제자리에서 적을 받아칩니다. 이동 중에 유닛을 더블 클릭해 홀드를 켜면 <b>그 자리에서 멈추고</b> 이동 목표가 리셋됩니다.</div>
+        <div style="margin-top:10px;color:#e2e8f0;line-height:1.65;font-size:11px"><b style="color:#fde047">빈 땅 연타:</b> 아군이 없는 칸을 <b style="color:#fde047">같은 위치에 두 번</b> 클릭·탭하면 통솔 아군이 역할에 맞춰 <b>대형 이동</b>합니다. <b style="color:#fde047">세 번</b> 연속이면 <b>전원 홀드</b>를 켜거나(이미 전원 홀드면) 끕니다. 이동 중에도 다시 두 번 찍어 <b>목표를 바꿀</b> 수 있으며, 모바일은 합성 클릭 대신 <b>탭</b>으로 같은 동작이 됩니다.</div>
+        <div style="margin-top:10px;color:#e2e8f0;line-height:1.65;font-size:11px"><b style="color:#a855f7">홀드 + 이동:</b> 홀드 상태에서 드래그로 이동 명령을 주면 <b>도착한 뒤에도 홀드</b>가 유지됩니다.</div>
         <div style="margin-top:10px;color:#e2e8f0;line-height:1.65;font-size:11px">유닛 테두리의 <b>작은 원</b>은 정면입니다. <b style="color:#86efac">정면 피격</b>은 방어가 적용되고, <b style="color:#fb923c">후방·후방측면 피격</b>은 방어가 무시됩니다 — 포위·측면을 의식해 배치하세요.</div>
       </div>
     </details>
@@ -13473,6 +14014,7 @@ function draw(crowdedBattle){
       ctx.restore();
     }
   });
+  if(typeof drawSpeechBubbles==='function') drawSpeechBubbles();
 }
 function drawUnit(u) {
   const isAlly = u.type === 'ally';
@@ -14318,7 +14860,7 @@ function renderGarrisonBar(){
           <div class="gz-income" style="margin:0;font-size:9px">${incomeHtmlRow2}</div>
           <div class="gz-income" style="margin:0;font-size:9px">${incomeHtmlRow3}</div>
         </div>
-        <button type="button" class="cb gz-garrison-members-btn" style="position:absolute;top:50%;right:0;transform:translateY(-50%);width:76px;margin:0;padding:1px 2px;font-size:7px;background:#1a3d5c;border:1px solid #60a5fa;color:#93c5fd;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:0;line-height:1.05;text-align:center;white-space:normal;overflow:hidden" onclick="event.stopPropagation();showIntegratedMembersPopup('${item.family}')"><span style="display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis">👥 배치 인원</span><span style="font-size:8px;font-weight:700;line-height:1">${members.length}/${memberCap}명</span></button>
+        <button type="button" class="cb gz-garrison-members-btn" style="position:absolute;top:50%;right:0;transform:translateY(-50%);width:76px;height:26px;margin:0;padding:1px 2px;font-size:9px;background:#1a3d5c;border:1px solid #60a5fa;color:#93c5fd;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:0;line-height:1.05;text-align:center;white-space:normal;overflow:hidden" onclick="event.stopPropagation();showIntegratedMembersPopup('${item.family}')"><span style="display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis">배치 인원</span><span style="display:block;font-size:9px;font-weight:700;line-height:1">${members.length}/${memberCap}명</span></button>
       </div>
     </div>`;
   }).join('');
@@ -15832,16 +16374,53 @@ function showDeployGuide() {
     pg.style.background = 'rgba(15, 23, 42, 0.94)';
     pg.style.color = '#e2e8f0';
     pg.style.border = '1px solid rgba(251, 191, 36, 0.45)';
-    pg.innerHTML = '대원을 배치한 뒤, 준비가 되면 <b style="color:#38bdf8">▶ 출발!</b> 버튼 또는 <b style="color:#38bdf8">스페이스 바</b>를 누르세요.';
+    pg.innerHTML = '대원을 배치한 뒤, 준비가 되면 <b style="color:#38bdf8">▶ 출발!</b> 버튼 또는 <b style="color:#818cf8">스페이스 바</b>를 누르세요.';
   }
 }
+
+
+// ── API 키 모달 함수 ──
+function showApiKeyModal(){
+  const modal=document.getElementById('apikey-modal');
+  if(!modal) return;
+  modal.style.display='flex';
+  const existing=getApiKey();
+  const input=document.getElementById('apikey-input');
+  if(existing&&input) input.value=existing;
+  const status=document.getElementById('apikey-status');
+  if(status) status.textContent=existing?'✅ 저장된 키가 있습니다':'';
+}
+window.saveApiKey=function(){
+  const key=(document.getElementById('apikey-input')?.value||'').trim();
+  const status=document.getElementById('apikey-status');
+  if(!key){
+    if(status){status.textContent='❌ 키를 입력해주세요';status.style.color='#e74c3c';}
+    return;
+  }
+  if(!key.startsWith('sk-ant-')){
+    if(status){status.textContent='❌ 올바른 키 형식이 아닙니다';status.style.color='#e74c3c';}
+    return;
+  }
+  localStorage.setItem(SPEECH_LS_KEY,key);
+  if(status){status.textContent='✅ 저장 완료!';status.style.color='#2ecc71';}
+  setTimeout(()=>{
+    document.getElementById('apikey-modal').style.display='none';
+    if(typeof alog==='function') alog('🔑 API 키가 설정되었습니다.');
+  },800);
+};
+window.skipApiKey=function(){
+  document.getElementById('apikey-modal').style.display='none';
+};
+window.showApiKeyModal=showApiKeyModal;
 
 window.onload = function() {
   if ('scrollRestoration' in history) {
     history.scrollRestoration = 'manual';
   }
   window.scrollTo(0, 0); 
-  init(); 
+  init();
+  // API 키 없으면 2초 후 모달 자동 표시
+  setTimeout(()=>{ if(!getApiKey()) showApiKeyModal(); }, 2000);
 
   // 모바일 터치 드래그 지원 (handleTouchStart 등 정의는 기존 유지)
 
@@ -15906,5 +16485,25 @@ window.onload = function() {
 };
 
 </script>
+
+<!-- ── API 키 입력 모달 ── -->
+<div id="apikey-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#0f1923;border:1px solid #1e3a5f;border-radius:12px;padding:28px 24px;max-width:340px;width:90%;text-align:center;">
+    <div style="font-size:22px;margin-bottom:8px">🔑</div>
+    <div style="font-size:15px;font-weight:bold;color:#f1c40f;margin-bottom:8px">Anthropic API 키 설정</div>
+    <div style="font-size:11px;color:#9ca3af;margin-bottom:18px;line-height:1.6">
+      대사 생성 기능을 위한 API 키를 입력해주세요.<br>
+      입력한 키는 이 기기에만 저장되며<br>다음부터는 자동으로 불러옵니다.
+    </div>
+    <input id="apikey-input" type="password" placeholder="sk-ant-api03-..."
+      style="width:100%;box-sizing:border-box;background:#060a0d;border:1px solid #1e3a5f;color:#e2e8f0;border-radius:6px;padding:10px 12px;font-size:11px;margin-bottom:14px;outline:none;font-family:'Malgun Gothic',sans-serif;">
+    <div style="display:flex;gap:8px;justify-content:center;">
+      <button onclick="saveApiKey()" style="flex:1;padding:10px;background:#1a5c32;border:none;border-radius:6px;color:#fff;font-size:12px;font-weight:bold;cursor:pointer;touch-action:manipulation">저장</button>
+      <button onclick="skipApiKey()" style="flex:1;padding:10px;background:#1a2030;border:1px solid #374151;border-radius:6px;color:#9ca3af;font-size:12px;cursor:pointer;touch-action:manipulation">나중에</button>
+    </div>
+    <div id="apikey-status" style="font-size:10px;color:#2ecc71;margin-top:10px;min-height:16px;"></div>
+  </div>
+</div>
+
 </body>
 </html>
