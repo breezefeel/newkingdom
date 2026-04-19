@@ -71,7 +71,7 @@ body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #cc
     border: 1px solid #1e3a5f;
     border-radius: 7px;
     padding: 8px 10px;
-    align-items: center;
+    align-items: stretch;
 }
 
 /* [핵심 수정] 각 줄의 정렬 및 줄바꿈 방지 */
@@ -85,17 +85,45 @@ body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #cc
   overflow-x: auto;         /* 혹시라도 넘치면 가로 스크롤 허용 (최후의 수단) */
   scrollbar-width: none;    /* 스크롤바 숨기기 (Firefox) */
 }
-.ctrl-row .ctrl-left {
+.ctrl-stack {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+/* 출발·자동·거점 버프 한 줄 — 버튼 글자 줄바꿈 없음, 좁으면 가로 스크롤 */
+.ctrl-row.ctrl-main {
+  flex-wrap: nowrap;
+  align-items: stretch;
+}
+.ctrl-row.ctrl-main .ctrl-left {
   display: flex;
   flex-wrap: nowrap;
   gap: 4px;
   align-items: center;
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
 }
-.ctrl-row .ctrl-left::-webkit-scrollbar { display: none; }
+.ctrl-row.ctrl-main .ctrl-left > .cb,
+.ctrl-row.ctrl-main .ctrl-left > .badge,
+.ctrl-row.ctrl-main .ctrl-left > #battle-timer {
+  flex-shrink: 0;
+}
+.ctrl-row.ctrl-main .ctrl-left .cb,
+.ctrl-row.ctrl-main .ctrl-left .badge {
+  white-space: nowrap;
+}
+.ctrl-row.ctrl-main #btn-garrison-buffs {
+  flex-shrink: 0;
+  align-self: center;
+  margin-left: auto;
+  white-space: nowrap;
+}
+.ctrl-row.ctrl-main .ctrl-left::-webkit-scrollbar { display: none; }
+/* 레거시: 과거 모집 행 — 유지 시 호환 */
 .ctrl-row .ctrl-recruit {
   display: flex;
   flex-wrap: nowrap;
@@ -121,6 +149,34 @@ body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #cc
   opacity: 0.92;
   margin-top: 2px;
 }
+/* 거점 전역 안내·슬픔 안내 — 좁으면 아래 줄에서 줄바꿈 */
+.ctrl-hints {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 6px 10px;
+  width: 100%;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid #1e293b;
+  box-sizing: border-box;
+  min-width: 0;
+}
+.ctrl-hints #garrison-bar-benefit {
+  flex: 1 1 220px;
+  min-width: min(100%, 200px);
+}
+.ctrl-hints #ctrl-sorrow-hint {
+  flex: 1 1 160px;
+  min-width: min(100%, 140px);
+  font-size: 0.78em;
+  font-weight: 700;
+  color: #f87171;
+  line-height: 1.35;
+}
+.ctrl-hints #ctrl-sorrow-hint:empty {
+  display: none;
+}
 /* 거점 헤더: 피난민·용병 (펼치기 좌측) — ctrl-recruit 버튼과 동일 스타일 */
 #garrison-bar-header .garrison-header-recruit {
   display: flex;
@@ -138,6 +194,7 @@ body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #cc
   min-height: 2.6em;
   padding: 5px 8px;
   font-size: clamp(0.68rem, 0.35vw + 0.62rem, 0.82rem);
+  flex-shrink: 0;
 }
 #garrison-bar-header .garrison-header-recruit .cb-cost {
   display: block;
@@ -155,6 +212,34 @@ body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #cc
 }
 .garrison-header-trailing .garrison-expand-btn {
   margin-left: 0 !important;
+}
+/* 거점 헤더: 좁은 화면에서 피난민·용병만 아래 줄·우측 정렬 */
+#garrison-bar-header.garrison-header--split {
+  flex-wrap: wrap;
+  align-items: center;
+}
+#garrison-bar-header.garrison-header--split > .garrison-header-lead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+#garrison-bar-header.garrison-header--split > .garrison-expand-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+@media (max-width: 820px) {
+  #garrison-bar-header.garrison-header--split .garrison-header-recruit {
+    flex-basis: 100%;
+    justify-content: flex-end;
+    width: 100%;
+    order: 4;
+  }
+  #garrison-bar-header.garrison-header--split > .garrison-expand-btn {
+    order: 3;
+  }
 }
 .ctrl-row::-webkit-scrollbar { display: none; } /* 스크롤바 숨기기 (Chrome/Safari) */
 
@@ -729,7 +814,7 @@ canvas {
     box-sizing: border-box;
     flex-shrink: 0;
 }
-#garrison-bar-header { display:flex; align-items:center; gap:8px; padding:6px 12px; background:#0f1923; flex-wrap:nowrap; }
+#garrison-bar-header { display:flex; align-items:center; gap:8px; padding:6px 12px; background:#0f1923; flex-wrap:wrap; }
 #garrison-bar-body { padding:8px; display:flex; gap:6px; flex-wrap:nowrap; overflow-x:auto; }
 .gz { background:#111d2b; border:1px solid #1e2d3d; border-radius:6px; padding:7px; min-width:160px; flex-shrink:0; }
 .gz-title { font-size:10px; font-weight:bold; margin-bottom:4px; }
@@ -893,13 +978,21 @@ canvas {
   font-weight: 700;
   color: #e2e8f0;
 }
-/* 거점 바「대기 인원」2열 — gap 5px · 제목과의 간격 */
+/* 거점 바「대기 인원」2열 — 카드 폭 유지, 좁으면 1열 */
 .gz-standby-bar-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, max-content);
+  justify-content: end;
   gap: 5px;
   min-height: 24px;
   margin-top: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+@media (max-width: 420px) {
+  .gz-standby-bar-grid {
+    grid-template-columns: max-content;
+  }
 }
 .gz-standby-head {
   display: flex;
@@ -909,24 +1002,40 @@ canvas {
   flex-wrap: wrap;
 }
 .gz-standby-head .gz-title { margin-bottom: 0; flex: 1; min-width: 0; }
-/* 유닛 목록·배치 인원: 최대 5열 · 열은 max-content(카드 폭만) — 그리드 가로는 내용만큼만, gap은 대기 바와 동일 5px */
+/* 유닛 목록: 카드는 줄이지 않고(max-content), 화면이 좁으면 열만 5→4→3 */
 .standby-list-pop .standby-list-grid,
 .integrated-members-pop .standby-list-grid,
 .hub-sg-pop .standby-list-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, max-content));
+  grid-template-columns: repeat(5, max-content);
   gap: 5px;
-  width: max-content;
+  width: 100%;
   max-width: 100%;
   box-sizing: border-box;
   align-items: start;
   justify-items: start;
+  justify-content: start;
+}
+@media (max-width: 960px) {
+  .standby-list-pop .standby-list-grid,
+  .integrated-members-pop .standby-list-grid,
+  .hub-sg-pop .standby-list-grid {
+    grid-template-columns: repeat(4, max-content);
+  }
+}
+@media (max-width: 720px) {
+  .standby-list-pop .standby-list-grid,
+  .integrated-members-pop .standby-list-grid,
+  .hub-sg-pop .standby-list-grid {
+    grid-template-columns: repeat(3, max-content);
+  }
 }
 .standby-list-pop .unit-list-frame,
 .integrated-members-pop .unit-list-frame,
 .hub-sg-pop .unit-list-frame {
-  width: fit-content;
-  max-width: min(96vw, 760px);
+  width: 100%;
+  max-width: min(96vw, 880px);
+  box-sizing: border-box;
 }
 .standby-list-pop .standby-list-grid > span:only-child,
 .integrated-members-pop .standby-list-grid > span:only-child,
@@ -996,8 +1105,9 @@ canvas {
 }
 .hub-sg-pop .unit-list-frame,
 .standby-list-pop .unit-list-frame {
-  width: fit-content;
+  width: 100%;
   max-width: min(96vw, 880px);
+  box-sizing: border-box;
 }
 .gz-promote {
   animation: gz-pulse 1.5s infinite;
@@ -1033,19 +1143,7 @@ canvas {
   border-top: 1px solid #1e2d3d;
 }
 #garrison-bar-income { font-size: 0.78em; color: #2ecc71; }
-#garrison-benefit-wrap {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-}
-.ctrl-row .ctrl-recruit #garrison-benefit-wrap {
-  max-width: min(480px, 52vw);
-}
-#garrison-bar-benefit { font-size: 0.78em; color: #f1c40f; text-align: right; line-height: 1.35; }
+#garrison-bar-benefit { font-size: 0.78em; color: #f1c40f; text-align: left; line-height: 1.35; }
 #btn-garrison-buffs {
   flex-shrink: 0;
   font-size: 0.76em;
@@ -1140,11 +1238,11 @@ canvas {
   }
 }
 
-/* (B) 1000px 이상: 컨트롤 버튼들을 가로로 한 줄 배치 */
+/* (B) 1000px 이상: 컨트롤 패딩만 확대 — 거점 안내 줄은 항상 아래 유지 */
 @media (min-width: 1000px) {
   #ctrl {
-    flex-direction: row;
-    justify-content: space-between;
+    flex-direction: column;
+    justify-content: flex-start;
     padding: 8px 20px;
   }
   .ctrl-row {
@@ -1156,6 +1254,11 @@ canvas {
     padding: 5px 12px;
     font-size: 11px;
     min-width: 0;
+  }
+  .ctrl-row.ctrl-main .cb,
+  .ctrl-row.ctrl-main .badge {
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 }
 
@@ -1258,24 +1361,25 @@ canvas {
 </div>
 
 <div id="ctrl">
-  <div class="ctrl-row">
-    <div class="ctrl-left">
-      <button class="cb cb-go" id="btn-go" onclick="event.stopPropagation(); toggleBattle()">▶ 출발</button>
-      <button class="cb" id="btn-auto" onclick="toggleAutoStart()" style="background:#1a4030">자동: OFF</button>
-      <div class="badge b-pl" id="sb">준비</div>
-      <div id="battle-timer">
-        <span id="timer-clock">⏱0:00</span>
-        <span id="timer-enemy">남은 적 0</span>
+  <div class="ctrl-stack">
+    <div class="ctrl-row ctrl-main">
+      <div class="ctrl-left">
+        <button class="cb cb-go" id="btn-go" onclick="event.stopPropagation(); toggleBattle()">▶ 출발</button>
+        <button class="cb" id="btn-auto" onclick="toggleAutoStart()" style="background:#1a4030">자동: OFF</button>
+        <div class="badge b-pl" id="sb">준비</div>
+        <div id="battle-timer">
+          <span id="timer-clock">⏱0:00</span>
+          <span id="timer-enemy">남은 적 0</span>
+        </div>
+        <button class="cb cb-pa" id="btn-pa" onclick="togglePause()" style="display:none">휴식</button>
       </div>
-      <button class="cb cb-pa" id="btn-pa" onclick="togglePause()" style="display:none">휴식</button>
+      <button type="button" class="cb" id="btn-garrison-buffs" onclick="event.stopPropagation();openGarrisonBuffsModal()">거점 버프</button>
     </div>
     <div id="battle-potion-row" style="display:none;flex-wrap:wrap;gap:5px;align-items:center;width:100%;padding:4px 0 0 0;margin-top:2px;border-top:1px solid #1e293b;box-sizing:border-box"></div>
-    <div class="ctrl-recruit">
-      <div id="garrison-benefit-wrap">
-        <span id="garrison-bar-benefit"></span>
-        <button type="button" class="cb" id="btn-garrison-buffs" onclick="event.stopPropagation();openGarrisonBuffsModal()">거점 버프</button>
-      </div>
-    </div>
+  </div>
+  <div class="ctrl-hints" id="ctrl-bar-hints" aria-label="거점·전투 상태 안내">
+    <span id="garrison-bar-benefit"></span>
+    <span id="ctrl-sorrow-hint"></span>
   </div>
 </div>
 
@@ -1305,16 +1409,16 @@ canvas {
     </div>
   </div>
   <div id="garrison-bar">
-    <div id="garrison-bar-header" style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:#0f1923;flex-wrap:nowrap">
-      <span id="garrison-title-btn" onclick="event.stopPropagation();showGarrisonSummaryModal()"><span id="garrison-hud-main">🚩 집합소</span><span id="garrison-hud-grade"></span><span id="garrison-hud-up" class="garrison-hud-pin garrison-hud-up" style="display:none" title="거점 업그레이드 가능">⬆</span><span id="garrison-hud-rebuild" class="garrison-hud-pin garrison-hud-rebuild" title="문명 재건">🏘마을 재건</span></span>
-      <button type="button" class="collapse-btn" id="btn-hub-sg-list" onclick="event.stopPropagation();openHubStandbyGarrisonModal()" style="font-size:9px;padding:2px 8px;background:#1a3d5c;color:#93c5fd;border:1px solid #1e3a5f;flex-shrink:0;touch-action:manipulation;white-space:nowrap;margin-left:2px" title="대기실·거점 주둔 전체">전체 유닛 목록</button>
-      <span id="shop-btn" style="display:none"></span>
-      <div class="garrison-header-trailing">
-        <div class="garrison-header-recruit">
-          <button class="cb cb-fo" onclick="event.stopPropagation(); showRefugeeModal()">피난민 합류<span class="cb-cost">🍖30</span></button>
-          <button class="cb cb-hi" onclick="event.stopPropagation(); hireGold()">용병 고용<span class="cb-cost">💰100</span></button>
-        </div>
-        <span id="garrison-bar-toggle" class="garrison-expand-btn" role="button" tabindex="0" onclick="event.stopPropagation();toggleGarrisonBar()">▼ 펼치기</span>
+    <div id="garrison-bar-header" class="garrison-header--split">
+      <div class="garrison-header-lead">
+        <span id="garrison-title-btn" onclick="event.stopPropagation();showGarrisonSummaryModal()"><span id="garrison-hud-main">🚩 집합소</span><span id="garrison-hud-grade"></span><span id="garrison-hud-up" class="garrison-hud-pin garrison-hud-up" style="display:none" title="거점 업그레이드 가능">⬆</span><span id="garrison-hud-rebuild" class="garrison-hud-pin garrison-hud-rebuild" title="문명 재건">🏘마을 재건</span></span>
+        <button type="button" class="collapse-btn" id="btn-hub-sg-list" onclick="event.stopPropagation();openHubStandbyGarrisonModal()" style="font-size:9px;padding:2px 8px;background:#1a3d5c;color:#93c5fd;border:1px solid #1e3a5f;flex-shrink:0;touch-action:manipulation;white-space:nowrap;margin-left:2px" title="대기실·거점 주둔 전체">전체 유닛 목록</button>
+        <span id="shop-btn" style="display:none"></span>
+      </div>
+      <span id="garrison-bar-toggle" class="garrison-expand-btn" role="button" tabindex="0" onclick="event.stopPropagation();toggleGarrisonBar()">▼ 펼치기</span>
+      <div class="garrison-header-recruit">
+        <button class="cb cb-fo" onclick="event.stopPropagation(); showRefugeeModal()">피난민 합류<span class="cb-cost">🍖30</span></button>
+        <button class="cb cb-hi" onclick="event.stopPropagation(); hireGold()">용병 고용<span class="cb-cost">💰100</span></button>
       </div>
     </div>
     <div id="garrison-bar-summary" class="garrison-res-line">
@@ -1777,6 +1881,7 @@ function refreshStandbyListModal(){
   closeStandbyCardStatPopup();
   const root=document.getElementById('standby-list-modal');
   if(!root)return;
+  const standbyOnly=root.getAttribute('data-standby-only')==='1';
   const allyById=new Map(allies.map(a=>[a.id,a]));
   const cap=getStandbyCapacity();
   const party=getPartyMembersForUnitListView();
@@ -1785,17 +1890,23 @@ function refreshStandbyListModal(){
   const sorted=sortStandbyListForModal(standby,_standbyListSortMode);
   const garrisonCt=allies.filter(a=>!a.dead&&!a.permanentlyDead&&a.garrisoned).length;
   const title=root.querySelector('[data-standby-modal-title]');
-  if(title) title.textContent=`전체 유닛 목록 (통솔 ${party.length}/${PARTY_LIMIT} · 대기 ${standby.length}/${cap} · 거점 ${garrisonCt})`;
+  if(title){
+    title.textContent=standbyOnly
+      ?`유닛 목록 (대기 ${standby.length}/${cap})`
+      :`전체 유닛 목록 (통솔 ${party.length}/${PARTY_LIMIT} · 대기 ${standby.length}/${cap} · 거점 ${garrisonCt})`;
+  }
   const partyTitle=root.querySelector('[data-unit-list-party-title]');
   if(partyTitle) partyTitle.textContent=`⚔️ 통솔 파티 · ${party.length}/${PARTY_LIMIT}`;
   const standbyTitle=root.querySelector('[data-unit-list-standby-title]');
   if(standbyTitle) standbyTitle.textContent=`⏳ 대기실 · ${standby.length}/${cap}`;
-  const partyGrid=root.querySelector('[data-unit-list-party-grid]');
-  if(partyGrid) partyGrid.innerHTML=partySorted.map(a=>buildStandbyUnitCardHtml(a,{statCardClick:true,usePartyOrderMenu:true,hubCardDragUi:true,hubPartyDraggable:true})).join('')||'<span style="font-size:10px;color:#6b7280">없음</span>';
+  if(!standbyOnly){
+    const partyGrid=root.querySelector('[data-unit-list-party-grid]');
+    if(partyGrid) partyGrid.innerHTML=partySorted.map(a=>buildStandbyUnitCardHtml(a,{statCardClick:true,usePartyOrderMenu:true,hubCardDragUi:true,hubPartyDraggable:true})).join('')||'<span style="font-size:10px;color:#6b7280">없음</span>';
+  }
   const grid=root.querySelector('[data-unit-list-standby-grid]');
   if(grid) grid.innerHTML=sorted.map(a=>buildStandbyUnitCardHtml(a,{statCardClick:true,useStandbyMoveMenu:true,hubCardDragUi:true})).join('')||'<span style="font-size:10px;color:#6b7280">없음</span>';
   const host=root.querySelector('[data-unit-list-garrison-zones]');
-  if(host){
+  if(host&&!standbyOnly){
     const cleared=Object.entries(zoneRecords).filter(([,r])=>r&&r.cleared).sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
     host.innerHTML=cleared.length?cleared.map(([zid,rec])=>{
       const z=ZONES[zid]||{name:zid,color:'#94a3b8'};
@@ -2125,36 +2236,37 @@ window.setStandbyListSort=function(mode){
   if(mode==='tier'||mode==='lv') _standbyListSortMode=mode;
   refreshStandbyListModal();
 };
-window.openStandbyListModal=function(){
+window.openStandbyListModal=function(standbyOnly){
   closeStandbyListModal();
+  const only=!!standbyOnly;
   const mkBtn=(m,label)=>{
     const on=_standbyListSortMode===m;
     return `<button type="button" data-sort="${m}" class="standby-sort-btn${on?' is-active':''}" onclick="event.stopPropagation();setStandbyListSort('${m}')">${label}</button>`;
   };
-  const html=`<div class="standby-list-pop" id="standby-list-modal" style="position:fixed;inset:0;z-index:12040;background:rgba(3,8,16,0.78);display:flex;align-items:center;justify-content:center;padding:10px" onclick="closeStandbyListModal()">
+  const html=`<div class="standby-list-pop" id="standby-list-modal" data-standby-only="${only?'1':'0'}" style="position:fixed;inset:0;z-index:12040;background:rgba(3,8,16,0.78);display:flex;align-items:center;justify-content:center;padding:10px" onclick="closeStandbyListModal()">
     <div class="unit-list-frame" style="max-height:min(90vh,860px);overflow:auto;background:#08121d;border:1px solid #5b2d82;border-radius:10px;padding:12px;box-shadow:0 12px 40px #000a" onclick="event.stopPropagation()">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-        <div data-standby-modal-title style="color:#a855f7;font-weight:bold;font-size:15px">전체 유닛 목록</div>
+        <div data-standby-modal-title style="color:#a855f7;font-weight:bold;font-size:15px">${only?'유닛 목록':'전체 유닛 목록'}</div>
         <button type="button" class="cb" style="padding:4px 10px;background:#374151;touch-action:manipulation" onclick="closeStandbyListModal()">닫기</button>
       </div>
-      <div class="standby-sort-bar" style="margin-bottom:8px">
+      <div class="standby-sort-bar" style="margin-bottom:8px" data-standby-sort-bar>
         <span style="font-size:11px;color:#9ca3af">정렬</span>
         ${mkBtn('lv','레벨별 정렬')}
         ${mkBtn('tier','등급별 정렬')}
       </div>
-      <div class="hub-sg-section" ondragover="event.preventDefault()" ondrop="hubModalStandbyDrop(event)">
+      <div class="hub-sg-section" data-unit-list-section="party" ondragover="event.preventDefault()" ondrop="hubModalStandbyDrop(event)" style="${only?'display:none':''}">
         <div data-unit-list-party-title class="hub-sg-section-title" style="color:#4ade80">⚔️ 통솔 파티</div>
         <div class="standby-list-grid" data-unit-list-party-grid style="min-height:36px"></div>
       </div>
-      <div class="hub-sg-section" ondragover="event.preventDefault()" ondrop="hubModalStandbyDrop(event)">
+      <div class="hub-sg-section" data-unit-list-section="standby" ondragover="event.preventDefault()" ondrop="hubModalStandbyDrop(event)">
         <div data-unit-list-standby-title class="hub-sg-section-title" style="color:#a855f7">⏳ 대기실</div>
         <div class="standby-list-grid" data-unit-list-standby-grid style="min-height:40px"></div>
       </div>
-      <div class="hub-sg-section">
+      <div class="hub-sg-section" data-unit-list-section="garrison" style="${only?'display:none':''}">
         <div class="hub-sg-section-title" style="color:#f1c40f">🏕 거점 주둔 (구역별)</div>
         <div data-unit-list-garrison-zones></div>
       </div>
-      <div style="font-size:9px;color:#64748b;margin-top:8px;line-height:1.45">통솔·대기·거점 카드를 드래그해 <b>통솔 ↔ 대기 ↔ 거점</b> 간 교체·이동할 수 있습니다. (전투 중에는 이동할 수 없습니다)</div>
+      <div data-standby-modal-footer style="font-size:9px;color:#64748b;margin-top:8px;line-height:1.45">${only?'대기실 유닛만 표시됩니다. 통솔·거점 이동은 상단 <b>전체 유닛 목록</b>에서 할 수 있습니다. (전투 중에는 이동할 수 없습니다)':'통솔·대기·거점 카드를 드래그해 <b>통솔 ↔ 대기 ↔ 거점</b> 간 교체·이동할 수 있습니다. (전투 중에는 이동할 수 없습니다)'}</div>
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend',html);
@@ -2670,7 +2782,7 @@ let _cityMobaState={
   objectiveBuffType:null,
 };
 let _panelDirty=true,_frameCount=0;
-let _cachedBattleClockStr='',_cachedBattleEnemyStr='';
+let _cachedBattleClockStr='',_cachedBattleEnemyStr='',_cachedSorrowHintStr='';
 let _elBattleTimer=null,_elTimerClock=null,_elTimerEnemy=null;
 let _lastBattlePanelRenderFrame=-9999;
 let _isCrowdedBattleFrame=false;
@@ -13625,7 +13737,7 @@ function renderGarrisonBar(){
   const sbCap=getStandbyCapacity();
   const standbySorted=sortStandbyListForModal(standby,'lv');
   const standbyShown=standbySorted.slice(0,6);
-  const listBtn=`<button type="button" class="cb" style="padding:3px 8px;font-size:9px;flex-shrink:0;touch-action:manipulation;background:#1b1530;border-color:#7c3aed;color:#c4b5fd" onclick="event.stopPropagation();openStandbyListModal()">전체 유닛 목록</button>`;
+  const listBtn=`<button type="button" class="cb" style="padding:3px 8px;font-size:9px;flex-shrink:0;touch-action:manipulation;background:#1b1530;border-color:#7c3aed;color:#c4b5fd" onclick="event.stopPropagation();openStandbyListModal(true)">유닛 목록</button>`;
   const standbyHtml=`<div class="gz" ondragover="event.preventDefault()" ondrop="standbyFrameDrop(event)">
     <div class="gz-standby-head">
       <div class="gz-title" style="color:#a855f7">⏳ 대기 인원 (${standby.length}/${sbCap})</div>
@@ -14896,16 +15008,22 @@ function updateBattleTimerUI(){
 
   const activeEnemies=enemies.filter(e=>!e.dead&&e.hp>0).length;
   const sorrowDebuff=getSorrowDebuffState();
-  let enemyStr='남은 적 '+activeEnemies;
+  const enemyOnlyStr='남은 적 '+activeEnemies;
+  let sorrowHintStr='';
   if(sorrowDebuff.stacks>0){
     const leftMin=Math.max(1,Math.ceil(sorrowDebuff.remainMs/60000));
-    enemyStr+=` · 😢${SORROW_DEBUFF_NAME} x${sorrowDebuff.stacks} (${leftMin}분)`;
+    sorrowHintStr=`😢 ${SORROW_DEBUFF_NAME} x${sorrowDebuff.stacks} (${leftMin}분 남음)`;
   }
 
   if(!_elTimerClock)_elTimerClock=document.getElementById('timer-clock');
   if(!_elTimerEnemy)_elTimerEnemy=document.getElementById('timer-enemy');
   if(_elTimerClock&&clockStr!==_cachedBattleClockStr){_cachedBattleClockStr=clockStr;_elTimerClock.innerText=clockStr;}
-  if(_elTimerEnemy&&enemyStr!==_cachedBattleEnemyStr){_cachedBattleEnemyStr=enemyStr;_elTimerEnemy.innerText=enemyStr;}
+  if(_elTimerEnemy&&enemyOnlyStr!==_cachedBattleEnemyStr){_cachedBattleEnemyStr=enemyOnlyStr;_elTimerEnemy.innerText=enemyOnlyStr;}
+  const sorrowEl=document.getElementById('ctrl-sorrow-hint');
+  if(sorrowEl&&sorrowHintStr!==_cachedSorrowHintStr){
+    _cachedSorrowHintStr=sorrowHintStr;
+    sorrowEl.textContent=sorrowHintStr;
+  }
 }
 
 // [추가] 아군 유닛 간 겹침 방지 (상시 작동용)
