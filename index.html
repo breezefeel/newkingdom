@@ -1235,6 +1235,9 @@ canvas {
   align-items: center !important;
   justify-content: center !important;
   min-height: 24px;
+  cursor: pointer !important;
+  transition: filter 0.12s, background 0.12s, border-color 0.12s !important;
+  touch-action: manipulation !important;
 }
 #panel-ally .pt #btn-party-sort.panel-ally-toolbar-btn {
   background: linear-gradient(180deg, #1e3a5f 0%, #0f172a 100%) !important;
@@ -1244,7 +1247,11 @@ canvas {
 #panel-ally .pt #btn-party-sort.panel-ally-toolbar-btn:hover {
   color: #ffffff !important;
   border-color: #94a3b8 !important;
-  filter: brightness(1.06);
+  filter: brightness(1.15) !important;
+}
+.panel-ally-toolbar-btn:active {
+  transform: translateY(1px) !important;
+  filter: brightness(0.92) !important;
 }
 #panel-ally .pt #btn-compact.panel-ally-toolbar-btn {
   background: #0f1923 !important;
@@ -1497,6 +1504,35 @@ canvas {
   }
 }
 
+
+.feast-card:hover { background: #152030 !important; }
+.feast-card:has(input:checked) { background: #1a2535 !important; box-shadow: 0 0 0 1px #fbbf2466; }
+
+#btn-refugee-feast {
+  background: linear-gradient(180deg, #2d1f00 0%, #1a1000 100%) !important;
+  color: #fbbf24 !important;
+  border: 1px solid #92400e !important;
+}
+#btn-refugee-feast:hover {
+  background: linear-gradient(180deg, #3d2a00 0%, #221500 100%) !important;
+  border-color: #f59e0b !important;
+  color: #fde68a !important;
+  filter: brightness(1.1) !important;
+}
+#btn-refugee-feast:active {
+  transform: translateY(1px) !important;
+  filter: brightness(0.9) !important;
+}
+#btn-refugee-feast[style*="opacity:0.4"] {
+  filter: grayscale(0.5) !important;
+  cursor: not-allowed !important;
+}
+
+.feast-btn-disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+  filter: grayscale(0.4) !important;
+}
 </style>
 </head>
 <body>
@@ -2365,7 +2401,7 @@ function hubTryHubCardSwap(e,tgtCard){
       return false;
     }
     if(tgtIsS||tgtIsG){
-      if(typeof swapStandbyWithPartyMember==='function') swapStandbyWithPartyMember(tid,pl.id,e);
+      if(typeof swapStandbyWithPartyMember==='function') swapStandbyWithPartyMember(tid,pl.id,e,tGz);
       return true;
     }
     return false;
@@ -2396,7 +2432,7 @@ function hubTryHubCardSwap(e,tgtCard){
     if(!g1||!g1.garrisoned) return false;
     const z1=String(pl.zid);
     if(tgtIsParty){
-      if(typeof swapStandbyWithPartyMember==='function') swapStandbyWithPartyMember(pl.id,tid,e);
+      if(typeof swapStandbyWithPartyMember==='function') swapStandbyWithPartyMember(pl.id,tid,e,z1);
       return true;
     }
     if(tgtIsS) return hubCrossSwapStandbyGarrison(tid,z1,pl.id);
@@ -2540,6 +2576,166 @@ function getNeedExpForLv(lv){
 }
 const FIRST_PROMOTION_LV=10;   // 1차 보직 전직
 const SECOND_PROMOTION_LV=30;  // 2차 전문 전직
+/** 만찬으로 연속 전직 모달 시 순차 표시 */
+let _classPromoQueue=[];
+// 훈련 만찬 비용: 대원의 Lv→10까지 필요 EXP 기준 차등 계산
+// Lv1→10 총 EXP(3898) 기준 240 식량
+const _FEAST_FOOD_PER_EXP = 0.061570;
+function getFeastCostForUnit(u){
+  const cap=Math.min(FIRST_PROMOTION_LV, getUnitLevelCap(u)||FIRST_PROMOTION_LV);
+  if(u.lv>=cap) return 0;
+  // 현재 레벨부터 cap(10)까지 필요 EXP 합산
+  let expNeeded=getNeedExpForLv(u.lv)-(u.exp||0); // 현 레벨 잔여
+  for(let lv=u.lv+1;lv<cap;lv++) expNeeded+=getNeedExpForLv(lv);
+  return Math.max(10,Math.round(expNeeded*_FEAST_FOOD_PER_EXP));
+}
+function getRefugeeTrainingFeastCost(){
+  // 전체 대상 합산 (하위 호환)
+  const targets=allies.filter(a=>a&&!a.dead&&!a.permanentlyDead&&a.lv<FIRST_PROMOTION_LV&&a.lv<(getUnitLevelCap(a)||30));
+  if(!targets.length) return 240;
+  return targets.reduce((s,u)=>s+getFeastCostForUnit(u),0);
+}
+// ── 훈련 만찬: 대원 선택 모달 ──
+let _feastSortMode='tier'; // 'tier' | 'lv'
+
+function _buildFeastCards(candidates, sortMode){
+  const sorted=[...candidates].sort((a,b)=>{
+    if(sortMode==='lv') return (b.lv-a.lv)||a.name.localeCompare(b.name);
+    // tier 정렬
+    const tierOrder={Legendary:0,Epic:1,Rare:2,Veteran:3,Trained:4,Common:5,Poor:6};
+    const ta=tierOrder[a.tierName]??5, tb=tierOrder[b.tierName]??5;
+    return (ta-tb)||(b.lv-a.lv);
+  });
+  const tierColors={Poor:'#7c92a8',Common:'#8a7563',Trained:'#fff8e7',Veteran:'#86efac',Rare:'#60a5fa',Epic:'#c084fc',Legendary:'#fde68a'};
+  return sorted.map(u=>{
+    const tc=tierColors[u.tierName]||'#64748b';
+    const loc=u.garrisoned?'거점':u.inStandby?'대기':'통솔';
+    const locColor=u.garrisoned?'#f1c40f':u.inStandby?'#a855f7':'#4ade80';
+    const cap=Math.min(FIRST_PROMOTION_LV, getUnitLevelCap(u)||FIRST_PROMOTION_LV);
+    const pct=Math.min(100,Math.round(((u.exp||0)/(u.maxExp||1))*100));
+    const clsLabel=u.classKey||'피난민';
+    const cost=getFeastCostForUnit(u);
+    const costColor=cost<=(res.food||0)?'#fbbf24':'#f87171';
+    return `<label class="feast-card" data-uid="${u.id}" style="border:2px solid ${tc};background:#0f1923;border-radius:8px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background 0.12s">
+      <input type="checkbox" name="feast-pick" value="${u.id}" data-cost="${cost}" checked style="width:16px;height:16px;accent-color:#fbbf24;flex-shrink:0">
+      <div style="min-width:0;flex:1">
+        <div style="font-weight:700;color:${tc};font-size:13px">${u.name} <span style="font-size:10px;color:#64748b;font-weight:400">${clsLabel}</span></div>
+        <div style="font-size:10px;color:#94a3b8;margin-top:2px">Lv.${u.lv}→${cap} · <span style="color:${locColor}">${loc}</span></div>
+        <div style="margin-top:4px;height:3px;background:#1e293b;border-radius:2px"><div style="width:${pct}%;height:100%;background:#3b82f6;border-radius:2px"></div></div>
+      </div>
+      <div style="text-align:right;font-size:11px;color:${costColor};white-space:nowrap;flex-shrink:0;font-weight:600">🍖${cost}</div>
+    </label>`;
+  }).join('');
+}
+
+window.openTrainingFeastModal=function(){
+  const allAlive=allies.filter(a=>a&&!a.dead&&!a.permanentlyDead);
+  // 레벨 한계 10 (FIRST_PROMOTION_LV) 미만 대원만
+  const candidates=allAlive.filter(a=>a.lv<Math.min(FIRST_PROMOTION_LV, getUnitLevelCap(a)||FIRST_PROMOTION_LV));
+  if(!candidates.length){
+    alog('🍖 훈련 만찬 대상이 없습니다. (모든 대원이 Lv.'+FIRST_PROMOTION_LV+' 이상)');
+    return;
+  }
+  const food=Math.floor(res.food||0);
+  const cards=_buildFeastCards(candidates,_feastSortMode);
+
+  const _existing=document.getElementById('feast-modal-overlay');
+  if(_existing) _existing.remove();
+  const overlay=document.createElement('div');
+  overlay.id='feast-modal-overlay';
+  overlay.style.cssText='position:fixed;inset:0;z-index:19000;background:rgba(3,8,16,0.82);display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML=`
+    <div onclick="event.stopPropagation()" style="background:#0d1520;border:1px solid #92400e;border-radius:12px;padding:20px;width:min(440px,100%);max-height:85vh;display:flex;flex-direction:column;gap:10px;box-shadow:0 12px 40px #000c">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:15px;font-weight:700;color:#fbbf24">🍖 훈련 만찬 — 대원 선택</div>
+        <button onclick="document.getElementById('feast-modal-overlay').remove()" style="background:none;border:none;color:#64748b;font-size:18px;cursor:pointer;padding:2px 6px">✕</button>
+      </div>
+      <div style="font-size:11px;color:#94a3b8;line-height:1.5">
+        초대할 대원을 선택하세요. 보유: <b style="color:#4ade80">${food}🍖</b> · 각 대원의 비용은 Lv.${FIRST_PROMOTION_LV}까지 필요 경험치 기준
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <button id="feast-sort-tier" onclick="window._feastResort('tier')" style="font-size:10px;padding:3px 8px;border-radius:4px;border:1px solid ${_feastSortMode==='tier'?'#fbbf24':'#334155'};background:${_feastSortMode==='tier'?'#3d2a00':'#1e293b'};color:${_feastSortMode==='tier'?'#fbbf24':'#e2e8f0'};cursor:pointer;font-weight:${_feastSortMode==='tier'?'700':'400'}">등급별 정렬</button>
+        <button id="feast-sort-lv" onclick="window._feastResort('lv')" style="font-size:10px;padding:3px 8px;border-radius:4px;border:1px solid ${_feastSortMode==='lv'?'#fbbf24':'#334155'};background:${_feastSortMode==='lv'?'#3d2a00':'#1e293b'};color:${_feastSortMode==='lv'?'#fbbf24':'#e2e8f0'};cursor:pointer;font-weight:${_feastSortMode==='lv'?'700':'400'}">레벨별 정렬</button>
+        <div style="flex:1"></div>
+        <button onclick="document.querySelectorAll('#feast-modal-overlay input[name=feast-pick]').forEach(c=>c.checked=true);window._updateFeastPreview()" style="font-size:10px;padding:3px 8px;border-radius:4px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;cursor:pointer">전체 선택</button>
+        <button onclick="document.querySelectorAll('#feast-modal-overlay input[name=feast-pick]').forEach(c=>c.checked=false);window._updateFeastPreview()" style="font-size:10px;padding:3px 8px;border-radius:4px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;cursor:pointer">전체 해제</button>
+      </div>
+      <div id="feast-card-list" style="overflow-y:auto;display:flex;flex-direction:column;gap:8px;max-height:50vh;padding-right:4px">${cards}</div>
+      <div style="display:flex;align-items:center;justify-content:flex-end">
+        <span id="feast-cost-preview" style="font-size:11px;color:#fbbf24"></span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="document.getElementById('feast-modal-overlay').remove()" style="flex:1;padding:10px;border-radius:6px;border:1px solid #374151;background:#1e293b;color:#e2e8f0;cursor:pointer;font-size:13px">취소</button>
+        <button onclick="window.confirmTrainingFeast()" style="flex:2;padding:10px;border-radius:6px;border:none;background:linear-gradient(180deg,#92400e,#451a03);color:#fde68a;font-weight:700;cursor:pointer;font-size:13px">🍖 만찬 시작</button>
+      </div>
+    </div>`;
+
+  window._updateFeastPreview=function(){
+    const checks=[...overlay.querySelectorAll('input[name=feast-pick]:checked')];
+    const total=checks.reduce((s,c)=>s+Number(c.getAttribute('data-cost')||0),0);
+    const ok=total<=(res.food||0);
+    const el=overlay.querySelector('#feast-cost-preview');
+    if(el) el.innerHTML=checks.length?`선택 ${checks.length}명 · 총 <b style="color:${ok?'#fbbf24':'#f87171'}">${total}🍖</b>`:'';
+  };
+  window._feastResort=function(mode){
+    _feastSortMode=mode;
+    // 체크 상태 보존
+    const checked=new Set([...overlay.querySelectorAll('input[name=feast-pick]:checked')].map(c=>c.value));
+    const list=overlay.querySelector('#feast-card-list');
+    if(list){
+      list.innerHTML=_buildFeastCards(candidates,mode);
+      list.querySelectorAll('input[name=feast-pick]').forEach(c=>{ if(checked.has(c.value)) c.checked=true; else c.checked=false; });
+    }
+    // 버튼 스타일 갱신
+    const bt=overlay.querySelector('#feast-sort-tier'), bl=overlay.querySelector('#feast-sort-lv');
+    if(bt){ bt.style.borderColor=mode==='tier'?'#fbbf24':'#334155'; bt.style.background=mode==='tier'?'#3d2a00':'#1e293b'; bt.style.color=mode==='tier'?'#fbbf24':'#e2e8f0'; bt.style.fontWeight=mode==='tier'?'700':'400'; }
+    if(bl){ bl.style.borderColor=mode==='lv'?'#fbbf24':'#334155'; bl.style.background=mode==='lv'?'#3d2a00':'#1e293b'; bl.style.color=mode==='lv'?'#fbbf24':'#e2e8f0'; bl.style.fontWeight=mode==='lv'?'700':'400'; }
+    window._updateFeastPreview();
+  };
+  overlay.addEventListener('change',()=>window._updateFeastPreview());
+  overlay.addEventListener('click',e=>{if(e.target===overlay) overlay.remove();});
+  document.body.appendChild(overlay);
+  window._updateFeastPreview();
+};
+
+window.confirmTrainingFeast=function(){
+  const overlay=document.getElementById('feast-modal-overlay');
+  if(!overlay) return;
+  const checks=[...overlay.querySelectorAll('input[name=feast-pick]:checked')];
+  if(!checks.length){alog('⚠️ 대원을 1명 이상 선택하세요.');return;}
+  const totalCost=checks.reduce((s,c)=>s+Number(c.getAttribute('data-cost')||0),0);
+  if((res.food||0)<totalCost){alog(`❌ 식량 부족 (필요: ${totalCost}🍖 · 보유: ${Math.floor(res.food||0)}🍖)`);return;}
+  const ids=checks.map(c=>parseInt(c.value,10));
+  overlay.remove();
+  res.food-=totalCost; food=res.food;
+  const qBefore=(_classPromoQueue&&_classPromoQueue.length)||0;
+  let leveled=0;
+  ids.forEach(id=>{
+    const u=allies.find(a=>a&&a.id===id);
+    if(!u||u.dead||u.permanentlyDead) return;
+    // 레벨 한계 10까지만 올림
+    gainExp(u,999999,{applyRoleBias:false,feastSilent:true,suppressPromotionModal:true,capAtFirstPromotion:true});
+    leveled++;
+  });
+  const qAdded=((_classPromoQueue&&_classPromoQueue.length)||0)-qBefore;
+  alog(`🍖 훈련 만찬! 🍖${totalCost} 소비 · ${leveled}명 단련 완료${qAdded?' · 전직 선택 '+qAdded+'명':''}`);
+  markDirty();
+  if(typeof renderAllyPanel==='function') renderAllyPanel();
+  if(typeof renderGarrisonBar==='function') renderGarrisonBar();
+  if(_classPromoQueue&&_classPromoQueue.length){
+    const first=_classPromoQueue.shift();
+    if(first) setTimeout(()=>showClassModal(first),320);
+  }
+};
+
+window.feedRefugeesTrainingFeast=function(){
+  window.openTrainingFeastModal();
+};
+function drainClassPromoQueueAfterFlow(){
+  if(!Array.isArray(_classPromoQueue)||!_classPromoQueue.length) return;
+  const next=_classPromoQueue.shift();
+  if(next&&typeof showClassModal==='function') setTimeout(()=>showClassModal(next),260);
+}
 const SLOT4_UNLOCK_LV=40;      // 4번째 스킬 슬롯 해금
 function canUnitPromote(u){
   if(!u) return false;
@@ -7640,6 +7836,8 @@ let _mapEmptyClickTimer=null;
 let _lastCanvasDragEndTs=0;
 let _mapTapCount=0,_mapTapLastX=0,_mapTapLastY=0,_mapTapLastT=0;
 let _defeatGraceTimer=null;
+/** 전투 중 필드 공백이 교체·후퇴 때문일 때 전멸 모달 대신 후퇴 문구 사용 */
+let _defeatUiRetreatMode=false;
 const MAP_EMPTY_CLICK_TOL=70;
 
 const MAP_EMPTY_CLICK_IDLE_MS=420;
@@ -8401,7 +8599,7 @@ window.selectClass = function(key) {
       if(_mercHireSetupQueue.length&&typeof showClassModal==='function'){
         setTimeout(()=>showClassModal(_mercHireSetupQueue[0]),260);
       }else _mercHireSetupQueue=null;
-    }
+    }else if(typeof drainClassPromoQueueAfterFlow==='function') drainClassPromoQueueAfterFlow();
     return;
   }
 
@@ -8596,7 +8794,7 @@ function confirmRename(){
     if(_mercHireSetupQueue.length&&typeof showClassModal==='function'){
       setTimeout(()=>showClassModal(_mercHireSetupQueue[0]),200);
     }else _mercHireSetupQueue=null;
-  }
+  }else if(typeof drainClassPromoQueueAfterFlow==='function') drainClassPromoQueueAfterFlow();
 }
 
 function skipRename(){
@@ -8609,7 +8807,7 @@ function skipRename(){
     if(_mercHireSetupQueue.length&&typeof showClassModal==='function'){
       setTimeout(()=>showClassModal(_mercHireSetupQueue[0]),200);
     }else _mercHireSetupQueue=null;
-  }
+  }else if(typeof drainClassPromoQueueAfterFlow==='function') drainClassPromoQueueAfterFlow();
 }
 
 // [수정] 클래스별 전직 보너스 (새로운 6개 보직 대응)
@@ -9421,7 +9619,9 @@ function getAnimalMoveTarget(e,allies){
 // ══════════════════════════════════════════════════════
 // 전투 틱
 // ══════════════════════════════════════════════════════
-function runBattleDefeatSequence(alogMsg){
+function runBattleDefeatSequence(alogMsg, showAsRetreatUi){
+  window._showDefeatAsRetreat=!!showAsRetreatUi;
+  _defeatUiRetreatMode=false;
   isBattle=false;
   isPlacing=false;
   allies.forEach(a=>{
@@ -10159,22 +10359,44 @@ function battleTick(){
     }, 300);
     return;
   } else {
-    // 아군 전멸 판정: 필드에 살아있는 대원 없으면 1초(60프레임) 유예 후 전멸
+    // 아군 전멸·후퇴 판정: 필드에 살아있는 대원 없으면 1초 유예 후 처리
+    // (대기·미배치로 isPlacing이 켜져 있어도 필드 공백이면 동일하게 판정 — 예전에는 여기서 전멸이 막혔음)
     const liveAllies = allies.filter(a => a.isDeployed && !a.dead && a.hp > 0);
+    const _pendCt = typeof _pendingBattleSwapByPartyId !== 'undefined' && _pendingBattleSwapByPartyId
+      ? Object.keys(_pendingBattleSwapByPartyId).length
+      : 0;
+    const _anyRetreating = allies.some(a => a && a.retreatingToStandby);
 
-    if (isBattle && liveAllies.length === 0 && !isPlacing) {
+    if (liveAllies.length > 0) {
+      if (_defeatGraceTimer) {
+        clearTimeout(_defeatGraceTimer);
+        _defeatGraceTimer = null;
+      }
+      // 후퇴/교체 진행 중에는 플래그 유지(필드에 아직 유닛이 있음). 배치 완료·일반 전투만 리셋
+      if (!_anyRetreating && _pendCt === 0) {
+        _defeatUiRetreatMode = false;
+      }
+    }
+
+    if (isBattle && liveAllies.length === 0) {
       if (!_defeatGraceTimer) {
         _defeatGraceTimer = setTimeout(() => {
           _defeatGraceTimer = null;
           const stillLive = allies.filter(a => a.isDeployed && !a.dead && a.hp > 0);
           if (isBattle && stillLive.length === 0) {
-            runBattleDefeatSequence('💀 부대가 전멸했습니다. 지휘관님, 정비가 필요합니다.');
+            const pend = typeof _pendingBattleSwapByPartyId !== 'undefined' && _pendingBattleSwapByPartyId
+              ? Object.keys(_pendingBattleSwapByPartyId).length
+              : 0;
+            const retreating = allies.some(a => a && a.retreatingToStandby);
+            const useRetreatUi = !!(_defeatUiRetreatMode || retreating || pend > 0);
+            const alogMsg = useRetreatUi
+              ? '↩ 전장에서 통솔 대원이 비었습니다. 교체·재배치가 필요합니다.'
+              : '💀 부대가 전멸했습니다. 지휘관님, 정비가 필요합니다.';
+            runBattleDefeatSequence(alogMsg, useRetreatUi);
           }
         }, 1000);
       }
       return;
-    } else if (liveAllies.length > 0 && _defeatGraceTimer) {
-      clearTimeout(_defeatGraceTimer); _defeatGraceTimer = null;
     }
   }
   if(isBattle&&!isPaused&&(_frameCount%300===0)){
@@ -10386,8 +10608,13 @@ function showDefeatModal(){
 
   // 재기 가능 조건: 거점/대기 대원이 있거나 신규 고용 가능
   if(hasGarrisonUnits||hasStandbyUnits||canHireNew){
-    // 전멸 모달 표시
-    let bodyHtml=`<div style="font-size:11px;color:#9ca3af;margin-bottom:12px">
+    const asRetreat=!!window._showDefeatAsRetreat;
+    // 전멸 또는 전투 중 후퇴(교체 등) 모달
+    let bodyHtml=asRetreat
+      ?`<div style="font-size:11px;color:#9ca3af;margin-bottom:12px">
+      전장에 통솔 대원이 없습니다. ↩ 후퇴·재배치가 필요합니다. 경험치는 보존됩니다.
+    </div>`
+      :`<div style="font-size:11px;color:#9ca3af;margin-bottom:12px">
       모두 쓰러졌습니다. 💀 경험치는 보존됩니다.
     </div>`;
     if(hasGarrisonUnits){
@@ -10411,8 +10638,13 @@ function showDefeatModal(){
     </div>`;
     document.getElementById('garrison-body').innerHTML=bodyHtml;
     const _defeatZoneName=(currentZone&&(currentZone.name||currentZone.id))||null;
-    document.getElementById('garrison-title').innerText=_defeatZoneName?`💀 '${_defeatZoneName}'에서 전멸하였습니다`:'💀 전멸하였습니다';
-    document.getElementById('garrison-sub').innerText='재기 시 대기·거점 통합 목록에서 통솔 파티 대원을 선택합니다.'+(_defeatZoneName?` (전멸 위치: ${_defeatZoneName})`:'');
+    if(asRetreat){
+      document.getElementById('garrison-title').innerText=_defeatZoneName?`↩ '${_defeatZoneName}'에서 후퇴하였습니다`:'↩ 후퇴하였습니다';
+      document.getElementById('garrison-sub').innerText='재편성 시 대기·거점 통합 목록에서 통솔 파티 대원을 선택합니다.'+(_defeatZoneName?` (후퇴 위치: ${_defeatZoneName})`:'');
+    }else{
+      document.getElementById('garrison-title').innerText=_defeatZoneName?`💀 '${_defeatZoneName}'에서 전멸하였습니다`:'💀 전멸하였습니다';
+      document.getElementById('garrison-sub').innerText='재기 시 대기·거점 통합 목록에서 통솔 파티 대원을 선택합니다.'+(_defeatZoneName?` (전멸 위치: ${_defeatZoneName})`:'');
+    }
     document.getElementById('garrison-modal').classList.add('show');
     window._defeatHireCount=0;
   }else{
@@ -10431,10 +10663,12 @@ window.defeatChangeHire=function(d){
 window.confirmDefeat = function(selectedIds) {
   selectedIds = Array.isArray(selectedIds) ? selectedIds : [];
   document.getElementById('garrison-modal').classList.remove('show');
+  window._showDefeatAsRetreat=false;
 
   // ── 전투 상태 즉시 해제 (battleTick의 전멸 재판정 방지) ──
   isBattle = false; isPaused = false; isPlacing = false;
   if(_defeatGraceTimer){clearTimeout(_defeatGraceTimer);_defeatGraceTimer=null;}
+  _defeatUiRetreatMode=false;
 
   // 전멸 직후 사망 처리된 통솔 대원을 재편성 가능하도록 회복
   healAlliesAfterBattle();
@@ -14095,12 +14329,17 @@ function gainExp(u,amount,opts={}){
   if(!amount||amount<=0)return;
   const MAX_LV=Math.max(1,getUnitLevelCap(u));
   if(u.lv>=MAX_LV)return;
+  const feastSilent=!!opts.feastSilent;
+  const suppressPromotionModal=!!opts.suppressPromotionModal;
+  const capAtFirstPromotion=!!opts.capAtFirstPromotion;
   const role=u.classKey||u.baseRole;
   const applyRoleBias=(opts.applyRoleBias!==false);
   const roleMult=applyRoleBias?((role==='Tank'||role==='Heal')?0.67:1.0):1.0;
   const actual=Math.max(1,Math.round(amount*roleMult*getPhaseExpMult()*getGarrisonLv3ExpMul()));
   u.exp+=actual;
   while(u.exp>=u.maxExp){
+    if(u.lv>=MAX_LV) break;
+    if(capAtFirstPromotion&&!u.classKey&&u.lv>=FIRST_PROMOTION_LV) break;
     u.exp-=u.maxExp; u.lv++;
     u.maxExp=getNeedExpForLv(u.lv);
 
@@ -14135,11 +14374,23 @@ function gainExp(u,amount,opts={}){
     const growSummary=`HP+${hpGrow+12} ATK+${atkGrow+1}${defGrow>0.005?` DEF+${Math.floor(defGrow*100)}%`:''}${spdGrow>0.01?` MOV+${spdGrow.toFixed(2)}`:''}${magGrow>0?` MAG+${magGrow}`:''}`;
     alog(`🎊 ${u.name} Lv.${u.lv}! ${growSummary}`);
 
-    if(u.lv===FIRST_PROMOTION_LV){u.maxSkillSlots=2;setTimeout(()=>showClassModal(u),300);}
-    if(u.lv===SECOND_PROMOTION_LV){u.maxSkillSlots=Math.max(u.maxSkillSlots||1,3);setTimeout(()=>showClassModal(u),300);}
+    if(u.lv===FIRST_PROMOTION_LV){
+      u.maxSkillSlots=2;
+      if(suppressPromotionModal){
+        if(!Array.isArray(_classPromoQueue)) _classPromoQueue=[];
+        _classPromoQueue.push(u);
+      }else setTimeout(()=>showClassModal(u),300);
+    }
+    if(u.lv===SECOND_PROMOTION_LV){
+      u.maxSkillSlots=Math.max(u.maxSkillSlots||1,3);
+      if(suppressPromotionModal){
+        if(!Array.isArray(_classPromoQueue)) _classPromoQueue=[];
+        _classPromoQueue.push(u);
+      }else setTimeout(()=>showClassModal(u),300);
+    }
     if(u.lv===SLOT4_UNLOCK_LV){u.maxSkillSlots=4;alog(`👑 ${u.name} Lv.${SLOT4_UNLOCK_LV} — 스킬 슬롯 4개!`);}
   }
-  addFloat(u.x>0?u.x:200,u.y>0?u.y:200,`+${actual}EXP`,'#3498db');
+  if(!feastSilent) addFloat(u.x>0?u.x:200,u.y>0?u.y:200,`+${actual}EXP`,'#3498db');
 }
 
 function closest(from,targets,maxR){
@@ -15462,6 +15713,9 @@ function renderAllyPanel() {
 
   const pc = document.getElementById('party-count');
   if(pc) pc.innerText = `(${activeAllies.length}/${PARTY_LIMIT})`;
+  const hasEligibleRefugee = allies.some(a => a && !a.dead && !a.permanentlyDead && !a.classKey && a.lv < FIRST_PROMOTION_LV && a.lv < getUnitLevelCap(a));
+  const feastBtnCls = hasEligibleRefugee ? '' : ' feast-btn-disabled';
+  const feastBtnTitle = hasEligibleRefugee ? '미전직 피난민에게 식량으로 단련을 베풀어 Lv.10까지 끌어올립니다' : '미전직 피난민(Lv10 미만)이 없습니다';
   const groupCnt=getPartyGroupCountByPhase();
   const groupBtnHtml=groupCnt>0
     ? `<button type="button" class="collapse-btn panel-ally-toolbar-btn" id="btn-party-group" onclick="event.stopPropagation();showPartyGroupModal(event)">파티 그룹</button>`
@@ -15475,6 +15729,7 @@ function renderAllyPanel() {
       </div>
       <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0">
         ${groupBtnHtml}
+        <button type="button" id="btn-refugee-feast" onclick="event.stopPropagation();feedRefugeesTrainingFeast()" title="${feastBtnTitle}" class="collapse-btn panel-ally-toolbar-btn${feastBtnCls}">🍖 훈련 만찬</button>
         <button type="button" class="collapse-btn panel-ally-toolbar-btn" id="btn-party-sort" onclick="event.stopPropagation();enableAutoSort();">유닛 정렬</button>
         <button type="button" class="collapse-btn panel-ally-toolbar-btn" id="btn-compact" onclick="toggleCompactView()">간략히</button>
       </div>
@@ -16510,8 +16765,22 @@ function finalizeBattleSwapAfterRetreat(job){
     const cleaned=arr.map(id=>Number(id)).filter(id=>id!==su);
     _partyGroups[gid]=cleaned.map(id=>id===pu?su:id);
   });
-  p.inStandby=true;
-  p.garrisoned=null;
+  const gsz=job.fromGarrisonZid!=null&&String(job.fromGarrisonZid).length?String(job.fromGarrisonZid):null;
+  if(gsz&&zoneRecords[gsz]){
+    p.inStandby=false;
+    p.garrisoned=gsz;
+    const rec=zoneRecords[gsz];
+    ensureGarrisonRecMeta(rec,gsz);
+    if(!rec.garrison) rec.garrison=[];
+    if(!rec.garrison.some(g=>Number(g.id)===Number(p.id))){
+      rec.garrison.push({id:p.id,name:p.name,lv:p.lv,classKey:p.classKey,baseRole:p.baseRole});
+    }
+    rec.lastTick=Date.now();
+    if(typeof startGarrisonTick==='function') startGarrisonTick();
+  }else{
+    p.inStandby=true;
+    p.garrisoned=null;
+  }
   p.isDeployed=false;
   p.retreatingToStandby=false;
   p.onHold=false;
@@ -16533,9 +16802,16 @@ function finalizeBattleSwapAfterRetreat(job){
     allies[pi]=s;
   }
   if(typeof sanitizePartyGroups==='function')sanitizePartyGroups();
-  addFloat(CW*0.22,42,'🔁 교체 — 보라 영역에 배치','#c084fc');
-  alog(`🔁 ${s.name} ↔ ${p.name} 통솔 교체 — 좌측 보라색 영역에 ${s.name}을(를) 배치하세요.`);
+  if(gsz&&zoneRecords[gsz]){
+    const zn=(ZONES[gsz]&&ZONES[gsz].name)||gsz;
+    addFloat(CW*0.22,42,`🔁 통솔 ↔ 거점 (${zn})`,'#f1c40f');
+    alog(`🏰 [${zn}] 후퇴한 ${p.name}(은)는 거점 주둔으로 배치했습니다. ${s.name}(은)는 보라 영역에 배치하세요.`);
+  }else{
+    addFloat(CW*0.22,42,'🔁 교체 — 보라 영역에 배치','#c084fc');
+    alog(`🔁 ${s.name} ↔ ${p.name} 통솔 교체 — 좌측 보라색 영역에 ${s.name}을(를) 배치하세요.`);
+  }
   isPlacing=true;
+  if(isBattle) _defeatUiRetreatMode=true;
   const pg=document.getElementById('pg');
   if(pg) pg.style.display='block';
   updatePG();
@@ -16547,6 +16823,7 @@ function finalizeBattleSwapAfterRetreat(job){
 function startRetreatToStandby(uid){
   const u=allies.find(a=>a.id===uid);
   if(!u||u.dead||u.garrisoned||u.inStandby||u.permanentlyDead||!u.isDeployed) return false;
+  if(isBattle) _defeatUiRetreatMode=true;
   u.retreatingToStandby=true;
   u.onHold=false;
   u.wx=null;
@@ -16880,16 +17157,29 @@ window.standbyToParty=function(uid){
   if(typeof refreshOpenUnitListModalsAfterRosterChange==='function') refreshOpenUnitListModalsAfterRosterChange();
 };
 
-window.swapStandbyWithPartyMember=function(standbyUid, partyUid, ev){
+window.swapStandbyWithPartyMember=function(standbyUid, partyUid, ev, hubGarrisonZidHint){
   if(ev){try{ev.stopPropagation();ev.preventDefault();}catch(_e){}}
   const s=allies.find(a=>a.id===standbyUid);
   const p=allies.find(a=>a.id===partyUid);
   if(!s||!p||p.inStandby||p.garrisoned)return;
-  if(!(s.inStandby||s.garrisoned))return;
+  let resolvedGz=null;
+  if(s.garrisoned) resolvedGz=String(s.garrisoned);
+  else if(hubGarrisonZidHint!=null&&String(hubGarrisonZidHint).length) resolvedGz=String(hubGarrisonZidHint);
+  else{
+    const zks=Object.keys(zoneRecords||{});
+    for(let zi=0;zi<zks.length;zi++){
+      const rec=zoneRecords[zks[zi]];
+      if(rec&&Array.isArray(rec.garrison)&&rec.garrison.some(g=>Number(g.id)===Number(s.id))){
+        resolvedGz=String(zks[zi]);
+        break;
+      }
+    }
+  }
+  if(!(s.inStandby||s.garrisoned||resolvedGz))return;
   if(s.inStandby&&s.garrisoned)return;
   if(s.dead||p.dead||s.permanentlyDead||p.permanentlyDead)return;
-  if(isBattle){
-    if(!p.isDeployed){alog('❌ 전투 중 교체 대상은 현재 전장에 있어야 합니다.');return;}
+  // 전투 중이어도 통솔 대원이 아직 전장에 없으면 후퇴 예약 없이 즉시 교체(아래 공통 블록)
+  if(isBattle&&p.isDeployed){
     if(p.retreatingToStandby){alog('⏳ 이미 좌측으로 후퇴 중입니다.');return;}
     const pend0=getPendingSwapJobForParty(partyUid);
     if(pend0){
@@ -16911,7 +17201,8 @@ window.swapStandbyWithPartyMember=function(standbyUid, partyUid, ev){
       partyUid:Number(partyUid),
       spawnX:Number.isFinite(p.x)?p.x:null,
       spawnY:Number.isFinite(p.y)?p.y:null,
-      partyHold:!!p.onHold
+      partyHold:!!p.onHold,
+      fromGarrisonZid:resolvedGz||null
     };
     if(!startRetreatToStandby(partyUid)){
       delete _pendingBattleSwapByPartyId[Number(partyUid)];
@@ -16949,7 +17240,8 @@ window.swapStandbyWithPartyMember=function(standbyUid, partyUid, ev){
       partyUid:Number(partyUid),
       spawnX:Number.isFinite(p.x)?p.x:null,
       spawnY:Number.isFinite(p.y)?p.y:null,
-      partyHold:!!p.onHold
+      partyHold:!!p.onHold,
+      fromGarrisonZid:resolvedGz||null
     };
     if(!startRetreatToStandby(partyUid)){
       delete _pendingBattleSwapByPartyId[Number(partyUid)];
@@ -16964,10 +17256,20 @@ window.swapStandbyWithPartyMember=function(standbyUid, partyUid, ev){
     return;
   }
 
+  if(isBattle&&!p.isDeployed){
+    const jobMine=getPendingSwapJobForStandby(standbyUid);
+    if(jobMine&&Number(jobMine.partyUid)!==Number(partyUid)){
+      alog('⏳ 이미 다른 통솔 동료와 교체를 진행 중입니다. 끝난 뒤 다시 시도하세요.');
+      return;
+    }
+    const n=Number(partyUid);
+    if(_pendingBattleSwapByPartyId&&_pendingBattleSwapByPartyId[n]) delete _pendingBattleSwapByPartyId[n];
+  }
+
   closeStandbyPopup();
   if(typeof sanitizePartyGroups==='function')sanitizePartyGroups();
 
-  const garrisonZid=(s&&s.garrisoned)?String(s.garrisoned):null;
+  const garrisonZid=resolvedGz;
 
   Object.values(zoneRecords).forEach(rec=>{
     if(rec.garrison)rec.garrison=rec.garrison.filter(g=>g.id!==standbyUid&&g.id!==partyUid);
@@ -16998,9 +17300,9 @@ window.swapStandbyWithPartyMember=function(standbyUid, partyUid, ev){
     if(typeof startGarrisonTick==='function')startGarrisonTick();
   }else{
     // 비전투 교체
-    if(s.garrisoned){
+    if(garrisonZid){
       // s가 거점 대원이면 p도 해당 거점으로 이동 (대기실 한계 초과 방지)
-      const toZid=String(s.garrisoned);
+      const toZid=String(garrisonZid);
       const rec=zoneRecords[toZid];
       if(rec&&Array.isArray(rec.garrison)){
         rec.garrison=rec.garrison.filter(g=>Number(g.id)!==Number(s.id));
@@ -17165,7 +17467,7 @@ window.cancelClassModal = function() {
     if(_mercHireSetupQueue.length&&typeof showClassModal==='function'){
       setTimeout(()=>showClassModal(_mercHireSetupQueue[0]),260);
     }else _mercHireSetupQueue=null;
-  }
+  }else if(typeof drainClassPromoQueueAfterFlow==='function') drainClassPromoQueueAfterFlow();
 };
 
 window.garrisonDrop=function(e,toZid){
