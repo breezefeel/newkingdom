@@ -2430,15 +2430,27 @@ window.hubSgCardDragLeave=function(e){
   const t=e.currentTarget;
   if(t&&t.classList) t.classList.remove('hub-sg-card-drag-over');
 };
-window.hubModalStandbyDrop=function(e){
+window.hubModalStandbyDrop = function(e) {
   e.preventDefault();
   e.stopPropagation();
-  if(typeof hubSgClearCardDragUi==='function') hubSgClearCardDragUi();
-  // 전투 중: 카드 간 스왑(통솔↔대기↔거점)은 허용, 빈 공간 드랍은 차단
-  const tgt=e.target.closest('.gz-standby-unit-card');
-  if(tgt&&hubTryHubCardSwap(e,tgt)) return;
-  if(isBattle){alog('❌ 전투 중에는 이동할 수 없습니다.');return;}
-  if(typeof standbyFrameDrop==='function') standbyFrameDrop(e);
+  if(typeof hubSgClearCardDragUi === 'function') hubSgClearCardDragUi();
+
+  const tgt = e.target.closest('.gz-standby-unit-card');
+
+  // 1. 다른 대원 카드 위에 정확히 놓았을 때 (교체 시도)
+  if (tgt && typeof hubTryHubCardSwap === 'function') {
+    if (hubTryHubCardSwap(e, tgt)) return;
+  }
+
+  // 2. 카드 사이 빈 공간에 놓았을 때
+  if (isBattle) {
+    // 전투 중에는 '단순 이동(빈자리 채우기)'이 아닌 '교체'만 가능하므로 안내 메시지 출력
+    alog('ℹ️ 다른 대원 카드 위에 정확히 놓아야 전투 중 교체 예약이 가능합니다.');
+    return;
+  }
+
+  // 3. 비전투 중 빈 공간 드롭 (정원 이동)
+  if (typeof standbyFrameDrop === 'function') standbyFrameDrop(e);
 };
 window.hubModalZoneDrop=function(e){
   e.preventDefault();
@@ -2848,7 +2860,7 @@ function getWildlifeEarlyDayDamageMul(e){
 const ANIMAL_ENEMIES={
   rabbit:{id:'rabbit',name:'🐇 토끼',role:null,baseHp:80,baseAtk:8,baseSpd:2.8,baseDef:0.02,behavior:'flee', animalType:'herbivore', color:'#4ade80',fleeRange:200},
   deer:{id:'deer',name:'🦌 사슴',role:null,baseHp:150,baseAtk:12,baseSpd:2.4,baseDef:0.03,behavior:'flee', animalType:'herbivore', color:'#4ade80',fleeRange:180},
-  boar:{id:'boar',name:'🐗 멧돼지',role:'Melee',baseHp:280,baseAtk:35,baseSpd:1.8,baseDef:0.10,behavior:'charge_if_cornered', animalType:'omnivore', color:'#fbbf24',fleeRange:120},
+  boar:{id:'boar',name:'🐗 멧돼지',role:'Melee',baseHp:280,baseAtk:35,baseSpd:1.8,baseDef:0.10,behavior:'null', animalType:'omnivore', color:'#fbbf24',flees: false,fleeRange:220},
   wolf:{id:'wolf',name:'🐺 늑대',role:'Melee',baseHp:220,baseAtk:45,baseSpd:2.2,baseDef:0.08,behavior:'pack_hunt', animalType:'predator', color:'#f87171'},
   wolf_alpha:{id:'wolf_alpha',name:'🐺 알파 늑대',role:'Warrior',baseHp:380,baseAtk:72,baseSpd:2.0,baseDef:0.12,behavior:'pack_hunt', animalType:'predator', color:'#f87171',isAlpha:true},
   bear:{id:'bear',name:'🐻 곰',role:'Tank',baseHp:600,baseAtk:80,baseSpd:1.3,baseDef:0.25,behavior:'territory', animalType:'predator', color:'#f87171',territoryRadius:180},
@@ -6997,10 +7009,13 @@ function getFormationLayerRank(u){
   // 피난민: 보유 스킬에 따라 라인 배정
   // Guard(몸으로막기) → 앞 라인 / Arrow(돌팔매) → 중간 / Mend(상처치유) → 뒷 라인
   if(r==='Refugee'){
-    const skills=u.availableSkills||[];
-    if(skills.includes('Guard')) return 0;   // 앞: 탱 역할
-    if(skills.includes('Arrow')) return 1;   // 중간: 원거리 딜
-    if(skills.includes('Mend'))  return 2;   // 뒤: 힐 역할
+    const active = u.activeSkills || [];    
+    // [전열 우선] '몸으로 막기'가 켜져 있으면 무조건 전열로 배치
+    if(active.includes('Guard')) return 0;       
+    // [후열 우선] '몸으로 막기'는 없고 '상처 처치'만 켜져 있으면 후열로 배치
+    if(active.includes('Mend'))  return 2;       
+    // [중열 기본] '돌팔매'만 있거나 그 외 상황은 중열 배치
+    return 1; 
   }
   return 2; // 나머지도 뒷 라인
 }
@@ -7053,11 +7068,15 @@ function resetAllyMoveIntent(u){
 function moveAllDeployedAlliesTo(x,y){
   const units=allies.filter(a=>a&&a.isDeployed&&!a.dead&&!a.permanentlyDead&&!a.garrisoned&&!a.inStandby&&!a.onHold)
     .sort((a,b)=>(a.id||0)-(b.id||0));
+    
   if(!units.length){
     alog('⚠️ 이동할 아군이 없습니다. (홀드 중이거나 배치된 유닛 없음)');
     return;
   }
+  
   const targets=computeFormationAnchorTargets(x,y,units);
+  
+  // 1. 비전투 중 이동 (배치 단계)
   if(!isBattle){
     let moved=0;
     for(let i=0;i<units.length;i++){
@@ -7076,31 +7095,35 @@ function moveAllDeployedAlliesTo(x,y){
       moved++;
     }
     if(moved>0){
-      addFloat(x,y-22,'📍 전열 이동','#38bdf8');
+      addFloat(x,y-22,'📍 전열 배치','#38bdf8');
       updatePG();
       renderAllyPanel();
       markDirty();
       if(autoStart&&getSortedUd().length===0){
-        updatePG(); // autoStart: 카운트다운 시작
+        updatePG(); 
       }
     }
     return;
   }
+  
+  // 2. 전투 중 이동 (지형을 고려한 실시간 경로 탐색 적용)
   let ok=0;
   for(let i=0;i<units.length;i++){
     const u=units[i];
-    resetAllyMoveIntent(u);
     const t=targets.get(u.id)||{x,y};
-    // 전투 중: wx/wy 직접 세팅 (Dijkstra 대기 없이 즉시 이동 시작)
-    const tx=Math.max(20,Math.min(CW-20,t.x));
-    const ty=Math.max(20,Math.min(CH-20,t.y));
-    clearAllyHexPath(u);
-    u.wx=tx; u.wy=ty;
-    u.onHold=false;
-    ok++;
+    
+    // 좌표가 맵 밖으로 나가지 않게 보정하고 지형 확인
+    const wp = resolveMoveCommandPoint(u, t.x, t.y);
+    if(wp) {
+      resetAllyMoveIntent(u); // 기존 이동 의도 초기화
+      applyWaypointPath(u, wp); // [중요] 지형 비용이 포함된 경로 탐색 실행
+      u.onHold = false; // 홀드 해제
+      ok++;
+    }
   }
+  
   if(ok>0){
-    addFloat(x,y-22,'📍 전열 이동','#f1c40f');
+    addFloat(x,y-22,'📍 전술 대형 이동','#f1c40f');
     renderAllyPanel();
     markDirty();
   }
@@ -10514,24 +10537,24 @@ function confirmGarrison() {
   const cnt = window._garrisonHireCount || 0;
   const cost = cnt * 30;
 
-  // 1. 자원 체크 및 최종 고용 인원 확정
+  // 1. 자원 체크 및 고용 확정
   if (res.food < cost) {
     window._garrisonHireCount = Math.max(0, Math.floor(res.food / 30));
   }
-  const famEmptyCap=getIntegratedFamilyEmptySlotCount(_garrisonZoneId);
+  const famEmptyCap = getIntegratedFamilyEmptySlotCount(_garrisonZoneId);
   let finalCnt = Math.min(window._garrisonHireCount || 0, famEmptyCap);
   finalCnt = Math.min(finalCnt, Math.floor(res.food / 30));
 
-  // 2. 실제 대원 생성 — 통합 거점 가문 내 빈 슬롯이 있는 구역에 순차 배치(방금 정복 구역 우선)
-  const _gr=zoneRecords&&zoneRecords[_garrisonZoneId];
-  const famKey=(_gr&&_gr.family)||getZoneFamily(_garrisonZoneId,ZONES[_garrisonZoneId]||{});
-  let placed=0;
-  for(let i = 0; i < finalCnt; i++) {
-    const targetZid=pickNextGarrisonZoneInFamily(famKey,_garrisonZoneId);
-    if(!targetZid) break;
-    const rec=zoneRecords[targetZid];
-    if(!rec) break;
-    ensureGarrisonRecMeta(rec,targetZid);
+  // 2. 대원 생성 및 배치 (통합 거점 가문 로직)
+  const _gr = zoneRecords && zoneRecords[_garrisonZoneId];
+  const famKey = (_gr && _gr.family) || getZoneFamily(_garrisonZoneId, ZONES[_garrisonZoneId] || {});
+  let placed = 0;
+  for (let i = 0; i < finalCnt; i++) {
+    const targetZid = pickNextGarrisonZoneInFamily(famKey, _garrisonZoneId);
+    if (!targetZid) break;
+    const rec = zoneRecords[targetZid];
+    if (!rec) break;
+    ensureGarrisonRecMeta(rec, targetZid);
     const name = "피난민" + ALP[allies.length % 26];
     const newUnit = mkAlly(name);
     newUnit.garrisoned = targetZid;
@@ -10539,32 +10562,72 @@ function confirmGarrison() {
     newUnit.inStandby = false;
     newUnit.x = -300; newUnit.y = -300;
     allies.push(newUnit);
-    if(!rec.garrison) rec.garrison=[];
-    rec.garrison.push({
-      id: newUnit.id,
-      name: newUnit.name,
-      lv: newUnit.lv,
-      classKey: newUnit.classKey,
-      baseRole: newUnit.baseRole
-    });
-    rec.lastTick=Date.now();
+    rec.garrison.push({ id: newUnit.id, name: newUnit.name, lv: newUnit.lv, classKey: newUnit.classKey, baseRole: newUnit.baseRole });
+    rec.lastTick = Date.now();
     placed++;
   }
-  if(placed>0&&typeof startGarrisonTick==='function')startGarrisonTick();
+  if (placed > 0) startGarrisonTick();
 
-  // 3. 자원 차감 (실제 배치 수만큼)
   res.food -= (placed * 30);
-  food = res.food; // 전역 변수와 동기화
+  food = res.food;
 
-  // 4. UI 갱신 및 모달 닫기
   document.getElementById('garrison-modal').classList.remove('show');
-  alog(`🚩 ${ZONES[_garrisonZoneId]?.name || _garrisonZoneId} 거점화 완료! (대원 ${placed}명 고용 및 배치)`);
+  alog(`🚩 ${ZONES[_garrisonZoneId]?.name || _garrisonZoneId} 거점화 완료!`);
 
-  renderGarrisonBar(); // 하단 거점 현황 즉시 갱신
-  markDirty();         // 화면 리렌더링 신호
+  renderGarrisonBar();
+  markDirty();
   
-  // 5. 다음 구역 자동 진행
-  autoStartNextZone(_garrisonZoneId);
+  // [수정 포인트] 다음 구역 자동 진행 대신, 전투지 선택 메뉴를 먼저 띄웁니다.
+  setTimeout(() => {
+    showZoneModalAfterConquest(_garrisonZoneId);
+  }, 500);
+}
+
+function showZoneModalAfterConquest(clearedZid) {
+  // 기존 전투지 선택 모달 활용
+  showZoneModal();
+  
+  const zoneModal = document.getElementById('zone-modal');
+  const subTitle = zoneModal.querySelector('.modal-sub');
+  
+  if (subTitle) {
+    let sec = 10; // 10초 대기
+    const originalText = subTitle.innerHTML;
+    
+    const updateCountdown = () => {
+      subTitle.innerHTML = `
+        <div style="color:#f87171; font-weight:bold; margin-bottom:5px;">
+          ⚠️ 선택하지 않으면 [${ZONES[clearedZid].name}]의 다음 단계가 자동 선택됩니다.
+        </div>
+        <div>새로운 전투 장소를 선택하세요. (${sec}초 후 자동 시작)</div>
+      `;
+    };
+    
+    updateCountdown();
+    
+    const chapterTimer = setInterval(() => {
+      sec--;
+      updateCountdown();
+      
+      // 이미 유저가 클릭해서 모달이 닫혔거나 전투가 시작되었다면 타이머 종료
+      if (!zoneModal.classList.contains('show') || isBattle) {
+        clearInterval(chapterTimer);
+        subTitle.innerHTML = originalText;
+        return;
+      }
+
+      if (sec <= 0) {
+        clearInterval(chapterTimer);
+        closeZoneModal();
+        subTitle.innerHTML = originalText;
+        
+        // 아무것도 선택하지 않았을 때만 다음 레벨로 자동 진행
+        if (!isBattle) {
+          autoStartNextZone(clearedZid);
+        }
+      }
+    }, 1000);
+  }
 }
 
 function closeGarrisonModal(){
@@ -11238,105 +11301,93 @@ function autoStartNextZone(clearedZid) {
   const cleared = ZONES[clearedZid];
   if (!cleared) return;
 
-  // 1. 진행 단계: 최종일 정복 시 이미 _autoZoneSeq가 증가한 상태(모달·한도와 동일). 여기서는 중복 증가하지 않음.
-  let seq=Number(_autoZoneSeq[clearedZid])||0;
-  if(seq<1){ seq=1; _autoZoneSeq[clearedZid]=1; }
-  const prevSeq=Math.max(0,seq-1);
-  const prevCap=Math.max(6,Math.max(1,prevSeq)*6);
-  const nextCap=Math.max(6,Math.max(1,seq)*6);
-  const capDelta=Math.max(0,nextCap-prevCap);
-  if(capDelta>0){
-    autoHireRefugeesByGarrisonCapDelta(capDelta,clearedZid);
-  }
-
-  // 2. 난이도 티어: II → III → IV → V, V 이후에는 이름 V 유지·diffMult만 소폭(5%) 상승
-  const prevTier=Math.min(5,Number(cleared.diffTier)||1);
-  const newTier=Math.min(5,prevTier+1);
-  const baseName=cleared.name.replace(/\s[IVX]+$/g,'').trim();
-  const label=(ZONE_DIFF_MULTS[newTier]||ZONE_DIFF_MULTS[1]).label;
-  const newName=`${baseName} ${label}`;
-  let newDiffMult=1.0;
-  if(newTier>=5){
-    newDiffMult=+((Number(cleared.diffMult)||1.0)*1.05).toFixed(2);
-  }
-
-  const rewardStep = 0.2; // 단계당 보상 20% 증가
-  const expStep = 0.35;   // 단계당 경험치 35% 증가 (성장 가속)
-
-  // 3. 같은 전투지 ID를 재사용해 이름/난이도만 단계 상승 (메뉴 중복 생성 방지)
-  const up=Math.max(0,Math.min(3,Number(cleared.unlockPhase)||0));
-  const mul=1+seq*rewardStep;
-  const rw={
-    name:newName,
-    diffTier:newTier,
-    diffMult:newDiffMult,
-    expMult:+(1 + seq * expStep).toFixed(2),
-    desc:`${baseName}의 더 깊은 곳, ${label} 단계 도전!`,
-    finalStage:15,
-  };
-  if(up<=0){
-    rw.rFood=Math.max(0,Math.floor((Number(cleared.rFood)||0)*mul));
-    rw.rGold=Math.max(0,Math.floor((Number(cleared.rGold)||0)*mul));
-    rw.rWood=Math.min((Number(cleared.rWood)||0)+Math.floor((seq+1)/2),12);
-    rw.rStone=Math.min((Number(cleared.rStone)||0)+Math.floor((seq+1)/2),12);
-    rw.rIron=0; rw.rCopper=0; rw.rHerb=0; rw.rDiamond=0; rw.rWarSupply=0; rw.rManaCrystal=0;
-  }else if(up===1){
-    rw.rGold=Math.max(0,Math.floor((Number(cleared.rGold)||0)*mul));
-    rw.rCopper=Math.min((Number(cleared.rCopper)||0)+Math.floor((seq+1)/3),14);
-    rw.rHerb=Math.min((Number(cleared.rHerb)||0)+Math.floor((seq+1)/3),12);
-    rw.rFood=0; rw.rWood=0; rw.rStone=0; rw.rIron=0; rw.rDiamond=0; rw.rWarSupply=0; rw.rManaCrystal=0;
-  }else if(up===2){
-    rw.rGold=Math.max(0,Math.floor((Number(cleared.rGold)||0)*mul));
-    rw.rIron=Math.min((Number(cleared.rIron)||0)+Math.floor((seq+1)/3),10);
-    rw.rWarSupply=Math.min((Number(cleared.rWarSupply)||0)+Math.floor((seq+1)/4),12);
-    rw.rFood=0; rw.rWood=0; rw.rStone=0; rw.rCopper=0; rw.rHerb=0; rw.rDiamond=0; rw.rManaCrystal=0;
-  }else{
-    rw.rGold=Math.max(0,Math.floor((Number(cleared.rGold)||0)*mul));
-    rw.rDiamond=Math.min((Number(cleared.rDiamond)||0)+Math.floor((seq+1)/2),25);
-    rw.rManaCrystal=Math.min((Number(cleared.rManaCrystal)||0)+Math.floor((seq+1)/3),15);
-    rw.rFood=0; rw.rWood=0; rw.rStone=0; rw.rIron=0; rw.rCopper=0; rw.rHerb=0; rw.rWarSupply=0;
-  }
-  Object.assign(cleared,rw);
-
-  currentZone = cleared;
-  zoneStage = 1; 
-  stage = 1;
-  _battleStartTime = 0;
-  const nextMapKey=isCityMobaZone()?`${clearedZid}__citymoba`:`${clearedZid}__base`;
-  delete _fixedMaps[nextMapKey]; // 매 단계 새로운 무작위 지형 생성
-  window._terrainRerollSeed = (Math.random() * 0x7fffffff) | 0;
-  window._prevBattleTime = 0;
+  // 1. 진행 단계 및 데이터 동기화 보정
+  if (!_autoZoneSeq[clearedZid]) _autoZoneSeq[clearedZid] = 1;
+  let seq = Number(_autoZoneSeq[clearedZid]) || 1;
   
-  applyZoneMapSize(cleared,false);
-  buildMap(); 
+  const prevSeq = Math.max(0, seq - 1);
+  const prevCap = Math.max(6, Math.max(1, prevSeq) * 6);
+  const nextCap = Math.max(6, Math.max(1, seq) * 6);
+  const capDelta = Math.max(0, nextCap - prevCap);
+  
+  if (capDelta > 0) {
+    autoHireRefugeesByGarrisonCapDelta(capDelta, clearedZid);
+  }
+
+  // 2. 난이도 티어 상승 로직
+  const prevTier = Math.min(5, Number(cleared.diffTier) || 1);
+  const newTier = Math.min(5, prevTier + 1);
+  const baseName = cleared.name.replace(/\s[IVX]+$/g, '').trim();
+  const label = (ZONE_DIFF_MULTS[newTier] || ZONE_DIFF_MULTS[1]).label;
+  const newName = `${baseName} ${label}`;
+  let newDiffMult = 1.0;
+  if (newTier >= 5) {
+    newDiffMult = +((Number(cleared.diffMult) || 1.0) * 1.05).toFixed(2);
+  }
+
+  const rewardStep = 0.2; 
+  const expStep = 0.35;   
+
+  // 3. 보상 재설정
+  const up = Math.max(0, Math.min(3, Number(cleared.unlockPhase) || 0));
+  const mul = 1 + seq * rewardStep;
+  const rw = {
+    name: newName,
+    diffTier: newTier,
+    diffMult: newDiffMult,
+    expMult: +(1 + seq * expStep).toFixed(2),
+    desc: `${baseName}의 더 깊은 곳, ${label} 단계 도전!`,
+    finalStage: 15,
+  };
+  
+  if(up <= 0) {
+    rw.rFood = Math.max(0, Math.floor((Number(cleared.rFood) || 0) * mul));
+    rw.rGold = Math.max(0, Math.floor((Number(cleared.rGold) || 0) * mul));
+    rw.rWood = Math.min((Number(cleared.rWood) || 0) + Math.floor((seq + 1) / 2), 12);
+    rw.rStone = Math.min((Number(cleared.rStone) || 0) + Math.floor((seq + 1) / 2), 12);
+  } else if(up === 1) {
+    rw.rGold = Math.max(0, Math.floor((Number(cleared.rGold) || 0) * mul));
+    rw.rCopper = Math.min((Number(cleared.rCopper) || 0) + Math.floor((seq + 1) / 3), 14);
+    rw.rHerb = Math.min((Number(cleared.rHerb) || 0) + Math.floor((seq + 1) / 3), 12);
+  } else if(up === 2) {
+    rw.rGold = Math.max(0, Math.floor((Number(cleared.rGold) || 0) * mul));
+    rw.rIron = Math.min((Number(cleared.rIron) || 0) + Math.floor((seq + 1) / 3), 10);
+    rw.rWarSupply = Math.min((Number(cleared.rWarSupply) || 0) + Math.floor((seq + 1) / 4), 12);
+  } else {
+    rw.rGold = Math.max(0, Math.floor((Number(cleared.rGold) || 0) * mul));
+    rw.rDiamond = Math.min((Number(cleared.rDiamond) || 0) + Math.floor((seq + 1) / 2), 25);
+    rw.rManaCrystal = Math.min((Number(cleared.rManaCrystal) || 0) + Math.floor((seq + 1) / 3), 15);
+  }
+  Object.assign(cleared, rw);
+
+  // 4. 전장 초기화
+  currentZone = cleared;
+  zoneStage = 1; stage = 1; _battleStartTime = 0;
+  const nextMapKey = isCityMobaZone() ? `${clearedZid}__citymoba` : `${clearedZid}__base`;
+  delete _fixedMaps[nextMapKey];
+  window._terrainRerollSeed = (Math.random() * 0x7fffffff) | 0;
+  
+  applyZoneMapSize(cleared, true); 
   spawnEnemies();
 
-  // 5. 이전 배치 유지 로직
+  // 5. 배치 유지
   allies.forEach(a => {
     if (a.permanentlyDead) return;
-    a.dead = false; 
-    a.deathTime = null; 
-    a.atkCd = 0;
-    
+    a.dead = false; a.deathTime = null; a.atkCd = 0;
     if (savedPositions[a.id]) {
-      a.x = savedPositions[a.id].x;
-      a.y = savedPositions[a.id].y;
+      a.x = savedPositions[a.id].x; a.y = savedPositions[a.id].y;
       a.isDeployed = true;
     } else {
-      a.isDeployed = false;
-      a.x = -300;
-      a.y = -300;
+      a.isDeployed = false; a.x = -300; a.y = -300;
     }
   });
 
-  alog(`🗺 구역 확장: ${newName} (난이도 ×${newDiffMult})`);
+  alog(`🗺 구역 확장: ${newName}`);
   
-  // 자동 진행 처리
   autoStart = true;
   const abtn = document.getElementById('btn-auto');
   if (abtn) {
-    abtn.innerText = '자동: ON';
-    abtn.style.background = '#1a5c32';
+    abtn.innerText = '자동: ON'; abtn.style.background = '#1a5c32';
   }
   
   setChronicleAreaLabel(currentZone);
@@ -11344,26 +11395,32 @@ function autoStartNextZone(clearedZid) {
   renderGarrisonBar(); 
   markDirty();
 
-  // 5초 카운트다운 후 자동 시작 가이드 표시
-  let sec = 5;
+  // 6. 카운트다운 제어 (버그 방지 강화)
   const pg = document.getElementById('pg');
   if (pg) {
     pg.style.display = 'block';
-    pg.style.background = 'rgba(15, 23, 42, 0.94)';
-    pg.style.color = '#e2e8f0';
-    pg.style.border = '1px solid rgba(251, 191, 36, 0.45)';
-    pg.style.pointerEvents = 'none';
-    pg.innerHTML = `${newName} 준비!<br><span style="font-size:10px">${sec}초 후 자동 사냥 시작...</span>`;
+    let sec = 5;
     
-    const tid = setInterval(() => {
-      sec--;
-      if (pg && pg.style.display !== 'none') {
-        pg.innerHTML = `${newName} 준비!<br><span style="font-size:10px">${sec}초 후 자동 사냥 시작...</span>`;
+    if (window._autoStartInterval) clearInterval(window._autoStartInterval);
+    
+    window._autoStartInterval = setInterval(() => {
+      // 이미 전투 중이거나 수동으로 껐다면 타이머 즉시 종료
+      if (isBattle || pg.style.display === 'none') {
+        clearInterval(window._autoStartInterval);
+        return;
       }
-      if (sec <= 0 || isBattle) {
-        clearInterval(tid);
+
+      pg.innerHTML = `
+        <div style="color:#fbbf24; font-size:16px; margin-bottom:5px;">⚔️ ${newName} 준비!</div>
+        <div style="font-size:12px;">${sec}초 후 자동 사냥 시작...</div>
+      `;
+      
+      if (sec <= 0) {
+        clearInterval(window._autoStartInterval);
+        pg.style.display = 'none';
         if (autoStart && !isBattle) toggleBattle();
       }
+      sec--;
     }, 1000);
   }
 }
