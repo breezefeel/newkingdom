@@ -1509,12 +1509,12 @@ canvas {
     <span id="day-label">1일차</span>
     <span class="top-restart-wrap">
       <span class="top-quickstart-scroll">
-        <button type="button" class="cb top-quickstart-btn" onclick="event.stopPropagation();quickStartFromPhase('kingdom')" title="왕국 단계부터 테스트 시작">왕국부터</button>
-        <button type="button" class="cb top-quickstart-btn" onclick="event.stopPropagation();quickStartFromPhase('city')" title="도시 단계부터 테스트 시작">도시부터</button>
-        <button type="button" class="cb top-quickstart-btn" onclick="event.stopPropagation();quickStartFromPhase('village')" title="마을 단계부터 테스트 시작">마을부터</button>
+        <button type="button" class="cb top-quickstart-btn" id="btn-qs-village" title="마을 단계부터 (빠르게 3번 클릭)">마을부터</button>
+        <button type="button" class="cb top-quickstart-btn" id="btn-qs-city" title="도시 단계부터 (빠르게 3번 클릭)">도시부터</button>
+        <button type="button" class="cb top-quickstart-btn" id="btn-qs-kingdom" title="왕국 단계부터 (빠르게 3번 클릭)">왕국부터</button>
       </span>
       <span class="top-restart-actions">
-        <button type="button" class="cb top-restart-btn" id="btn-restart-top" onclick="event.stopPropagation();restartFromFirstScreen()" title="저장 초기화 후 첫 화면부터 시작">↻ 처음부터</button>
+        <button type="button" class="cb top-restart-btn" id="btn-restart-top" id="btn-qs-first" title="처음부터 (빠르게 3번 클릭)">↻ 처음부터</button>
         <button type="button" class="cb help-guide-btn top-game-help-btn" id="btn-game-help" onclick="event.stopPropagation();openGameHelpModal()" title="게임 안내·조작 요약">설명</button>
       </span>
     </span>
@@ -1577,8 +1577,8 @@ canvas {
       </div>
       <div class="garrison-header-actions">
         <div class="garrison-header-recruit">
-          <button type="button" class="cb cb-recruit-main" onclick="event.stopPropagation(); showRecruitChoiceModal()">대원 영입</button>
           <button type="button" class="btn-hub-all-units" id="btn-hub-sg-list" onclick="event.stopPropagation();openHubStandbyGarrisonModal()" title="통솔·대기실·거점 주둔 전체 목록">전체 대원</button>
+          <button type="button" class="cb cb-recruit-main" onclick="event.stopPropagation(); showRecruitChoiceModal()">대원 영입</button>
           <span id="garrison-bar-toggle" class="garrison-expand-btn" role="button" tabindex="0" onclick="event.stopPropagation();toggleGarrisonBar()">▼ 펼치기</span>
         </div>
       </div>
@@ -2225,7 +2225,6 @@ window.openHubStandbyGarrisonModal=function(){
         ${mkBtn('tier','등급별 정렬')}
         ${mkBtn('lv','레벨별 정렬')}
       </div>
-      <div style="font-size:9px;color:#64748b;margin-top:8px;margin-bottom:2px;line-height:1.45">통솔·대기·거점 카드를 드래그해 <b>통솔 ↔ 대기 ↔ 거점</b> 간 교체·이동할 수 있습니다.</div>
       <div class="hub-sg-section" ondragover="event.preventDefault()" ondrop="hubModalStandbyDrop(event)">
         <div class="hub-sg-section-title" data-hub-sg-party-section-title style="color:#4ade80">⚔️ 통솔 파티</div>
         <div class="standby-list-grid" data-hub-sg-party-grid style="min-height:36px"></div>
@@ -2238,6 +2237,7 @@ window.openHubStandbyGarrisonModal=function(){
         <div class="hub-sg-section-title" style="color:#f1c40f">🏕 거점 주둔 (구역별)</div>
         <div data-hub-sg-garrison-zones></div>
       </div>
+      <div style="font-size:9px;color:#64748b;margin-top:8px;line-height:1.45">통솔·대기·거점 카드를 드래그해 <b>통솔 ↔ 대기 ↔ 거점</b> 간 교체·이동할 수 있습니다. (전투 중에도 교체 가능)</div>
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend',html);
@@ -2502,6 +2502,7 @@ window.openStandbyListModal=function(standbyOnly){
         <div data-standby-modal-title style="color:#a855f7;font-weight:bold;font-size:15px">${only?'유닛 목록':'전체 유닛 목록'}</div>
         <button type="button" class="cb" style="padding:4px 10px;background:#374151;touch-action:manipulation" onclick="closeStandbyListModal()">닫기</button>
       </div>
+      <div style="font-size:9px;color:#94a3b8;margin-bottom:8px;line-height:1.6;background:#0f1923;border-radius:6px;padding:6px 8px">${only?'대기실 대원만 표시됩니다. 통솔·거점 이동은 상단 <b style="color:#c4b5fd">전체 대원</b>에서 할 수 있습니다.':`<b style="color:#c4b5fd">↑↓ 버튼</b>으로 이동 메뉴 열기 &nbsp;·&nbsp; <b style="color:#c4b5fd">이름 탭</b>으로 기본 능력치 확인<br>카드를 <b style="color:#4ade80">드래그</b>해 통솔 ↔ 대기 ↔ 거점 간 교체 가능 (전투 중에도 교체 가능)`}</div>
       <div class="standby-sort-bar" style="margin-bottom:8px" data-standby-sort-bar>
         ${mkBtn('tier','등급별 정렬')}
         ${mkBtn('lv','레벨별 정렬')}
@@ -3774,7 +3775,9 @@ function chronicleZoneText(name){
 function setChronicleAreaLabel(z){
   const el=document.getElementById('area-label');
   if(!el||!z)return;
-  el.innerText=chronicleZoneText(z.name);
+  const seq=Number((_autoZoneSeq&&_autoZoneSeq[z.id])||0);
+  const seqLabel=seq>0?` ${toRomanNumeral(seq+1)}`:'';
+  el.innerText=chronicleZoneText(z.name)+seqLabel;
   el.style.color=z.color||'#a855f7';
 }
 window.tryOpenZoneModal=function(){
@@ -3823,7 +3826,7 @@ function showZoneModal(){
     return `
     <div class="zone-btn" onclick="event.stopPropagation(); ${unlock?`selectZone('${z.id}')`:''}"
       style="border-color:${currentZone.id===z.id?z.color:'#1e2d3d'};opacity:${unlock?1:0.5};cursor:${unlock?'pointer':'not-allowed'}">
-      <div class="zn" style="color:${z.color}"><span style="font-size:10px;color:#9ca3af;margin-right:6px">[${pzLabel}]</span>${z.name}</div>
+      <div class="zn" style="color:${z.color}"><span style="font-size:10px;color:#9ca3af;margin-right:6px">[${pzLabel}]</span>${z.name}${(_autoZoneSeq&&_autoZoneSeq[z.id])?` ${toRomanNumeral((_autoZoneSeq[z.id]||0)+1)}`:''}</div>
       <div class="zd">${z.desc}</div>
       <div style="font-size:9px;color:#2ecc71;margin:3px 0">${rPartsStr}</div>
       <div style="font-size:9px;color:#6b7280">${z.finalStage}일차 달성시 거점화 ${cleared}${garr}</div>
@@ -6883,11 +6886,10 @@ function updatePG() {
   // ── 전투 중 ──
   if (isBattle) {
     if (ud.length === 0) {
-      // 배치 완료 → 배너 숨김
       pg.style.display = 'none';
       _pgStopAutoTimer();
     } else {
-      // 배치 대기 대원 있음 → 배치 안내 표시 (n초 후 자동출발 없음)
+      // 전투 중 신규 대원 배치 안내 (카운트다운 없음)
       const slotIdx2 = getPartySlotIndices();
       const total2 = slotIdx2.filter(i => { const a = allies[i]; return a && !a.dead && !a.permanentlyDead; }).length;
       const placed2 = Math.max(0, total2 - ud.length);
@@ -6905,17 +6907,15 @@ function updatePG() {
   }
 
   // ── 비전투 ──
-  _pgStopAutoTimer(); // 기존 타이머 정리 후 재시작
+  if (!isPlacing) {
+    pg.style.display = 'none';
+    _pgStopAutoTimer();
+    return;
+  }
 
   const slotIdx = getPartySlotIndices();
   const totalToDeploy = slotIdx.filter(i => { const a = allies[i]; return a && !a.dead && !a.permanentlyDead; }).length;
   const placedCount = Math.max(0, totalToDeploy - ud.length);
-
-  if (!isPlacing) {
-    // 배치 단계가 아님 → 숨김
-    pg.style.display = 'none';
-    return;
-  }
 
   if (autoStart) {
     // ── 자동 ON ──
@@ -6923,49 +6923,26 @@ function updatePG() {
 
     if (ud.length === 0) {
       // 배치 완료 → 즉시 전투 시작
+      _pgStopAutoTimer();
       pg.style.display = 'none';
-      toggleBattle();
+      if (!isBattle && autoStart) toggleBattle();
       return;
-    }
-
-    // 배치 미완료 → 5초 카운트다운 후 전투 시작
-    if (!_pgAutoTimer) {
-      _pgAutoCountdown = 5;
-      const _tick = () => {
-        if (isBattle) { _pgStopAutoTimer(); return; } // 이미 전투 시작됨
-        const curUd = getSortedUd();
-        if (curUd.length === 0) {
-          // 배치 완료 → 즉시 시작
-          _pgStopAutoTimer();
-          pg.style.display = 'none';
-          toggleBattle();
-          return;
-        }
-        // 배치 중 카운트다운 표시
-        const nu = curUd[0];
-        const nRoleKey = nu.classKey || nu.baseRole;
-        const nColor = BASE_ROLES[nRoleKey]?.color || '#f1c40f';
-        const nPlaced = Math.max(0, totalToDeploy - curUd.length);
-        pg.style.display = 'block';
-        pg.style.border = '1px solid rgba(251,191,36,0.45)';
-        pg.innerHTML = `
-          <div style="color:#fbbf24;white-space:nowrap">📍 배치 중 (${nPlaced}/${totalToDeploy}명)</div>
-          <div style="white-space:nowrap;margin-top:4px"><b style="color:${nColor};text-shadow:1px 1px 2px #000">${nu.name}</b></div>
-          <div style="margin-top:4px;white-space:nowrap;font-size:14px"><span style="color:#a78bfa">보라색 영역</span> <span style="color:#fbbf24">클릭!</span></div>
-          <div style="font-size:11px;color:#f87171;white-space:nowrap;margin-top:3px"><b>${_pgAutoCountdown}초</b> 후 자동 출발</div>`;
-        if (_pgAutoCountdown <= 0) {
-          _pgStopAutoTimer();
-          toggleBattle(); // 배치 미완료여도 전투 시작
-          return;
-        }
-        _pgAutoCountdown--;
-      };
-      _tick();
-      _pgAutoTimer = setInterval(_tick, 1000);
+    } else {
+      // 배치 미완료 → 배치 안내만 표시 (카운트다운 없음)
+      _pgStopAutoTimer();
+      const u = ud[0];
+      const roleKey = u.classKey || u.baseRole;
+      const classColor = BASE_ROLES[roleKey]?.color || '#f1c40f';
+      pg.style.border = '1px solid rgba(251,191,36,0.45)';
+      pg.innerHTML = `
+        <div style="color:#fbbf24;white-space:nowrap">📍 배치 중 (${placedCount}/${totalToDeploy}명)</div>
+        <div style="white-space:nowrap;margin-top:4px"><b style="color:${classColor};text-shadow:1px 1px 2px #000">${u.name}</b></div>
+        <div style="margin-top:4px;white-space:nowrap;font-size:14px"><span style="color:#a78bfa">보라색 영역</span> <span style="color:#fbbf24">클릭!</span></div>`;
     }
 
   } else {
     // ── 자동 OFF ──
+    _pgStopAutoTimer();
     pg.style.display = 'block';
 
     if (ud.length === 0) {
@@ -7745,7 +7722,7 @@ function applyBattleUnitSeparation(){
         const opt=getEnemyMinEngageCenterDist(en,al);
         let pushMul=dist(en,al)<=opt+45?0.5:1;
         if(d<minR-0.5) pushMul=Math.max(pushMul,0.82);
-        const push=(minR-d)*0.1*pushMul;
+        const push=(minR-d)*0.5*pushMul;
         en.x+=ux*push;
         en.y+=uy*push;
         clampToMap(en);
@@ -9631,30 +9608,22 @@ function battleTick(){
     }, 300);
     return;
   } else {
-    // [수정] 아군 전멸 판정 정밀 로직
-    // 1. 현재 전장에서 싸울 수 있는 아군이 있는지 확인
+    // 아군 전멸 판정: 필드에 살아있는 대원 없으면 1초(60프레임) 유예 후 전멸
     const liveAllies = allies.filter(a => a.isDeployed && !a.dead && a.hp > 0);
-    // 배치 진행 중이거나 대기 대원 있으면 전멸 판정 보류
-    const hasPendingDeploy = getSortedUd().length > 0;
-    const hasStandbyAlly = allies.some(a => a.inStandby && !a.dead && !a.permanentlyDead);
-    // 통솔 파티에 살아있는 대원이 있으면 (배치 대기 포함) 전멸 아님
-    const hasPartyAlive = allies.some(a => !a.inStandby && !a.garrisoned && !a.dead && !a.permanentlyDead);
 
-    if (isBattle && liveAllies.length === 0 && !isPlacing && !hasPendingDeploy && !hasPartyAlive) {
-      // 대기 대원이 있으면 전멸 전에 배치 기회 부여 (3초 유예)
-      if(hasStandbyAlly && !_defeatGraceTimer){
-        _defeatGraceTimer=setTimeout(()=>{
-          _defeatGraceTimer=null;
-          const stillLive=allies.filter(a=>a.isDeployed&&!a.dead&&a.hp>0);
-          if(isBattle&&stillLive.length===0) runBattleDefeatSequence('💀 부대가 전멸했습니다. 지휘관님, 정비가 필요합니다.');
-        },3000);
-      } else if(!hasStandbyAlly&&!_defeatGraceTimer){
-        runBattleDefeatSequence('💀 부대가 전멸했습니다. 지휘관님, 정비가 필요합니다.');
-        return;
+    if (isBattle && liveAllies.length === 0 && !isPlacing) {
+      if (!_defeatGraceTimer) {
+        _defeatGraceTimer = setTimeout(() => {
+          _defeatGraceTimer = null;
+          const stillLive = allies.filter(a => a.isDeployed && !a.dead && a.hp > 0);
+          if (isBattle && stillLive.length === 0) {
+            runBattleDefeatSequence('💀 부대가 전멸했습니다. 지휘관님, 정비가 필요합니다.');
+          }
+        }, 1000);
       }
       return;
-    } else if(liveAllies.length>0&&_defeatGraceTimer){
-      clearTimeout(_defeatGraceTimer); _defeatGraceTimer=null;
+    } else if (liveAllies.length > 0 && _defeatGraceTimer) {
+      clearTimeout(_defeatGraceTimer); _defeatGraceTimer = null;
     }
   }
   if(isBattle&&!isPaused&&(_frameCount%300===0)){
@@ -16474,13 +16443,31 @@ window.swapStandbyWithPartyMember=function(standbyUid, partyUid, ev){
     rec.lastTick=Date.now();
     if(typeof startGarrisonTick==='function')startGarrisonTick();
   }else{
-    p.inStandby=true;
-    p.isDeployed=false;
-    p.garrisoned=null;
-    p.x=-300;p.y=-300;
-    p.onHold=false;
-    p.wx=p.wy=null;
-    p.retreatingToStandby=false;
+    // 비전투 교체
+    if(s.garrisoned){
+      // s가 거점 대원이면 p도 해당 거점으로 이동 (대기실 한계 초과 방지)
+      const toZid=String(s.garrisoned);
+      const rec=zoneRecords[toZid];
+      if(rec&&Array.isArray(rec.garrison)){
+        rec.garrison=rec.garrison.filter(g=>Number(g.id)!==Number(s.id));
+        rec.garrison.push({id:p.id});
+      }
+      p.garrisoned=toZid;
+      p.inStandby=false;
+      p.isDeployed=false;
+      p.x=-300;p.y=-300;
+      p.onHold=false;
+      p.wx=p.wy=null;
+      p.retreatingToStandby=false;
+    } else {
+      p.inStandby=true;
+      p.isDeployed=false;
+      p.garrisoned=null;
+      p.x=-300;p.y=-300;
+      p.onHold=false;
+      p.wx=p.wy=null;
+      p.retreatingToStandby=false;
+    }
   }
 
   s.inStandby=false;
@@ -17251,6 +17238,31 @@ window.onload = function() {
   window.addEventListener('beforeunload',()=>{ stopLoopWatchdog(); if(!_skipAutoSaveOnUnload) saveGameState(true); });
 };
 
+
+// ── 트리플클릭 핸들러 (빠르게 3번 = 300ms 이내) ──
+(function(){
+  const _tc={};
+  function _addTriple(id, fn){
+    const el=document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('click', function(e){
+      e.stopPropagation();
+      const now=Date.now();
+      _tc[id]=(_tc[id]||[]).filter(t=>now-t<400);
+      _tc[id].push(now);
+      if(_tc[id].length>=3){
+        _tc[id]=[];
+        fn();
+      }
+    });
+  }
+  window.addEventListener('load', function(){
+    _addTriple('btn-qs-first',   function(){ if(typeof restartFromFirstScreen==='function') restartFromFirstScreen(); });
+    _addTriple('btn-qs-village', function(){ if(typeof quickStartFromPhase==='function') quickStartFromPhase('village'); });
+    _addTriple('btn-qs-city',    function(){ if(typeof quickStartFromPhase==='function') quickStartFromPhase('city'); });
+    _addTriple('btn-qs-kingdom', function(){ if(typeof quickStartFromPhase==='function') quickStartFromPhase('kingdom'); });
+  });
+})();
 </script>
 
 <!-- ── API 키 입력 모달 ── -->
