@@ -908,7 +908,7 @@ canvas {
 .gz-unit.standby { border-color:#5b2d82; color:#a855f7; }
 /* 대기 유닛 카드 좌측 ⇅ — 파티창 순서 버튼과 동일 마크업·스타일(collapse-btn + U+21C5) */
 .gz-standby-open-menu { cursor: pointer; touch-action: manipulation; align-self: center; }
-/* 대기 바·유닛 목록·배치 인원 보기 — 동일 카드 수치(패딩·gap·flex) */
+/* 대기 바·유닛 목록·배치 대원 보기 — 동일 카드 수치(패딩·gap·flex) */
 .gz .gz-unit.standby,
 .standby-list-pop .standby-list-grid .gz-unit.standby,
 .integrated-members-pop .standby-list-grid .gz-unit.standby,
@@ -927,7 +927,7 @@ canvas {
   width: 100%;
   max-width: none;
 }
-/* 유닛 목록·배치 인원: 카드는 내용만큼만 넓힘(셀 안에서 우측 빈 여백 방지), 열 폭은 max-content 그리드가 결정 */
+/* 유닛 목록·배치 대원: 카드는 내용만큼만 넓힘(셀 안에서 우측 빈 여백 방지), 열 폭은 max-content 그리드가 결정 */
 .standby-list-pop .standby-list-grid .gz-unit.standby,
 .integrated-members-pop .standby-list-grid .gz-unit.standby,
 .hub-sg-pop .standby-list-grid .gz-unit.standby {
@@ -1069,7 +1069,7 @@ canvas {
   font-weight: 700;
   color: #e2e8f0;
 }
-/* 거점 바「대기 인원」2열 — 카드 폭 유지, 좁으면 1열 */
+/* 거점 바「대기 대원」2열 — 카드 폭 유지, 좁으면 1열 */
 .gz-standby-bar-grid {
   display: grid;
   grid-template-columns: repeat(2, max-content);
@@ -1763,7 +1763,7 @@ canvas {
       <div id="recruit-unified-sub-line2" style="margin-top:4px"></div>
     </div>
     <div class="recruit-unified-section">
-      <div class="recruit-unified-label">🍖 피난민 (인원당 식량 30)</div>
+      <div class="recruit-unified-label">🍖 피난민 (대원당 식량 30)</div>
       <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap">
         <button type="button" class="cb" style="background:#374151;font-size:1.2em;padding:6px 16px" onclick="unifiedRecruitChangeRef(-1)">−</button>
         <div style="text-align:center;min-width:56px">
@@ -1775,7 +1775,7 @@ canvas {
       </div>
     </div>
     <div class="recruit-unified-section" style="margin-top:12px">
-      <div class="recruit-unified-label">💰 용병 <span style="font-weight:600;color:#93c5fd">(인원당 금화 100 · 전직 레벨 지원자)</span></div>
+      <div class="recruit-unified-label">💰 용병 <span style="font-weight:600;color:#93c5fd">(대원당 금화 100 · 전직 레벨 지원자)</span></div>
       <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap">
         <button type="button" class="cb" style="background:#374151;font-size:1.2em;padding:6px 16px" onclick="unifiedRecruitChangeMerc(-1)">−</button>
         <div style="text-align:center;min-width:56px">
@@ -2987,7 +2987,7 @@ const SPEECH_API_KEY = getApiKey; // 하위 호환: getApiKey() 로 호출
 const SPEECH_API_ENABLED = false;
 let _speechBubbles = [];
 let _speechCooldowns = {};
-const SPEECH_COOLDOWN_FRAMES = 240;
+const SPEECH_COOLDOWN_FRAMES = 60;
 
 let isBattle=false,isPaused=false,isPlacing=false;
 let autoStart=false;
@@ -3003,7 +3003,7 @@ function isFarFromActionUnitPoint(x,y){
   }
   return true;
 }
-let PARTY_LIMIT=6; // 파티 최대 인원(Phase별 동적)
+let PARTY_LIMIT=6; // 파티 최대 대원(Phase별 동적)
 let uid=1,pendingClass=null;
 let isAutoSortEnabled = false; // 자동 정렬 비활성화(수동 버튼 정렬만)
 let _partyGroups={1:[],2:[]};  // 도시: G1 / 왕국: G1,G2
@@ -5922,7 +5922,7 @@ async function triggerSpeech(unit, trigger, forceAPI){
   if(!unit||!unit.isDeployed||unit.dead||unit.permanentlyDead) return;
   const lastFrame=_speechCooldowns[unit.id]||0;
   if((_frameCount||0)-lastFrame<SPEECH_COOLDOWN_FRAMES) return;
-  if(_speechBubbles.length>=2) return;
+  if(_speechBubbles.length>=5) return;
   _speechCooldowns[unit.id]=_frameCount||0;
   const apiTriggers=['battle_start','battle_win','low_hp','ally_died','boss_appear','healed','kill_enemy'];
   const useAPI=SPEECH_API_ENABLED&&(forceAPI||(apiTriggers.includes(trigger)));
@@ -6828,17 +6828,31 @@ function enterPlacement() {
   _speechBubbles=[];
   _speechCooldowns={};
   allies.forEach(a=>{ if(a) a._lowHpSpeechDone=false; });
+  // 배고픔 디버프 해제 (새 배치 단계 시작 시)
+  allies.forEach(a=>{
+    if(a&&a._hungerDebuff){
+      a._hungerDebuff=false;
+      // 최대 체력 원복 (기존 계산값으로)
+      const baseMaxHp=calcUnitMaxHp(a);
+      if(baseMaxHp>0){ a.maxHp=baseMaxHp; }
+    }
+  });
   isPlacing = true; isBattle = false; isPaused = false;
   setBadge(currentZone.tier === 'hunt' || currentZone.tier === 'pred' ? '출발 준비' : '전투 준비', 'b-pl');
   
   document.getElementById('btn-go').style.display = 'inline-block';
   document.getElementById('btn-pa').style.display = 'none';
 
-  // [수정 포인트] 무조건 안내창을 보이게 하고 상태를 업데이트합니다.
+  // [수정 포인트] 배치할 대원이 없으면 안내창 숨김
   const pg = document.getElementById('pg');
   if (pg) {
-    pg.style.display = 'block'; 
-    updatePG(); 
+    const _ud = getSortedUd();
+    if (_ud.length === 0) {
+      pg.style.display = 'none';
+    } else {
+      pg.style.display = 'block';
+      updatePG();
+    }
   }
   
   markDirty();
@@ -8186,7 +8200,7 @@ function setRefugeeHireMax(){
   _updateRefModal();
 }
 window.setRefugeeHireMax=setRefugeeHireMax;
-// [수정] 자원·대기 정원에 맞춰 영입 인원 조절
+// [수정] 자원·대기 정원에 맞춰 영입 대원 조절
 window.changeRefCount = function(delta) {
   const mx=getMaxRefugeeHireBatch();
   if(mx<1){
@@ -8406,7 +8420,7 @@ function confirmUnifiedRecruit(){
           defeatMerc.isDeployed=false;
           defeatMerc.x=-300; defeatMerc.y=-300;
         }else{
-          alog(`⚠️ 대기 인원 한도(${getStandbyCapacity()}명)로 ${defeatMerc.name}을(를) 대기에 둘 수 없습니다.`);
+          alog(`⚠️ 대기 대원 한도(${getStandbyCapacity()}명)로 ${defeatMerc.name}을(를) 대기에 둘 수 없습니다.`);
         }
         mercList.push(defeatMerc);
       }
@@ -8518,7 +8532,7 @@ function spawnRefugee(opts={}) {
   if(forceStandby){
     if(!canAddToStandby()){
       allies.pop();
-      if(!silent) alog(`❌ 대기 인원 한도(${getStandbyCapacity()}명)로 ${u.name} 합류를 취소했습니다.`);
+      if(!silent) alog(`❌ 대기 대원 한도(${getStandbyCapacity()}명)로 ${u.name} 합류를 취소했습니다.`);
       markDirty();
       renderGarrisonBar();
       return;
@@ -8613,8 +8627,19 @@ function toggleBattle(){
 
   res.food -= cost;
   food = res.food;
-  
-  isPlacing = false;
+  // 식량 소비 안내
+  alog(`🍖 식량 ${cost} 소비 (대원 ${currentParty.length}명 × 2) → 잔여 ${Math.floor(res.food)}`);
+  // 배고픔 디버프: 식량 0이면 전 대원 최대 체력 20% 감소
+  if(res.food<=0){
+    alog('😤 식량 부족! 배고픔 디버프 발동 — 전 대원 최대 체력 -20%');
+    currentParty.forEach(a=>{
+      if(!a._hungerDebuff){
+        a._hungerDebuff=true;
+        a.maxHp=Math.max(1,Math.floor(a.maxHp*0.8));
+        a.hp=Math.min(a.hp,a.maxHp);
+      }
+    });
+  }
   isBattle = true;
   isPaused = false;
   resetBattleContributionStats(currentParty);
@@ -8918,6 +8943,28 @@ function battleTick(){
       a.garrisoned=null;
       a.x=-999; a.y=-999;
       alog(`⚰️ ${a.name} 무덤으로...`);
+      // 전투 중 빈자리 → 대기 대원 중 레벨 높은 순서로 파티 슬롯에 투입
+      if(isBattle){
+        const standbyPool=allies.filter(x=>x&&x.inStandby&&!x.dead&&!x.permanentlyDead&&!x.garrisoned);
+        if(standbyPool.length>0){
+          standbyPool.sort((x,y)=>(y.lv||0)-(x.lv||0));
+          const candidate=standbyPool[0];
+          // 대기실에서 꺼내 파티 슬롯으로 이동 (배치 대기 상태)
+          candidate.inStandby=false;
+          // getSortedUd()가 파티 슬롯 기준이므로, 사망한 a 위치를 candidate로 교체
+          const aIdx=allies.indexOf(a);
+          const cIdx=allies.indexOf(candidate);
+          if(aIdx>=0&&cIdx>=0){
+            allies[aIdx]=candidate;
+            allies[cIdx]=a;
+          }
+          candidate.isDeployed=false;
+          candidate.x=-300; candidate.y=-300;
+          alog(`📍 ${candidate.name} → 배치 대기 (보라색 영역 클릭)`);
+          updatePG();
+          markDirty();
+        }
+      }
       markDirty();
       needGarrisonRender=true;
     }
@@ -9575,9 +9622,9 @@ function battleTick(){
       return;
     }
   }
-  if(isBattle&&!isPaused&&(_frameCount%300===0)){
+  if(isBattle&&!isPaused&&(_frameCount%180===0)){
     const idleCands=allies.filter(a=>a.isDeployed&&!a.dead&&!a.permanentlyDead);
-    if(idleCands.length&&Math.random()<0.55){
+    if(idleCands.length&&Math.random()<0.75){
       triggerSpeech(idleCands[Math.floor(Math.random()*idleCands.length)],'idle_random');
     }
   }
@@ -9649,10 +9696,10 @@ function openDefeatStandbyPicker(){
   const roster=sortDefeatRecoveryRoster(getDefeatRecoveryRoster(),_defeatRecoverySortMode);
   const standbyCnt=roster.filter(r=>r.source==='standby').length;
   const garrisonCnt=roster.filter(r=>r.source==='garrison').length;
-  document.getElementById('garrison-title').innerText='💀 재기 — 통합 인원 선택';
+  document.getElementById('garrison-title').innerText='💀 재기 — 통합 대원 선택';
   document.getElementById('garrison-sub').innerText=roster.length>0
     ? `통솔 최대 ${lim}명 선택 · 대기 ${standbyCnt}명 + 거점 ${garrisonCnt}명`
-    : '선택 가능한 생존 인원이 없습니다. 아래에서 피난민·용병을 고용하세요.';
+    : '선택 가능한 생존 대원이 없습니다. 아래에서 피난민·용병을 고용하세요.';
   if(roster.length>0){
     const mkSortBtn=(m,label)=>{
       const on=_defeatRecoverySortMode===m;
@@ -9758,7 +9805,7 @@ window.defeatEmptyHireMerc=function(){
       newcomer.isDeployed=false;
       newcomer.x=-300; newcomer.y=-300;
     }else{
-      alog(`⚠️ 대기 인원 한도(${getStandbyCapacity()}명)로 ${newcomer.name}을(를) 대기에 둘 수 없습니다.`);
+      alog(`⚠️ 대기 대원 한도(${getStandbyCapacity()}명)로 ${newcomer.name}을(를) 대기에 둘 수 없습니다.`);
     }
   }
   renderGarrisonBar();
@@ -9782,7 +9829,7 @@ function showDefeatModal(){
   const hasGarrisonUnits=garrisonAllies.length>0;
   const hasStandbyUnits=standbyAllies.length>0;
 
-  // 재기 가능 조건: 거점/대기 인원이 있거나 신규 고용 가능
+  // 재기 가능 조건: 거점/대기 대원이 있거나 신규 고용 가능
   if(hasGarrisonUnits||hasStandbyUnits||canHireNew){
     // 전멸 모달 표시
     let bodyHtml=`<div style="font-size:11px;color:#9ca3af;margin-bottom:12px">
@@ -9790,17 +9837,17 @@ function showDefeatModal(){
     </div>`;
     if(hasGarrisonUnits){
       bodyHtml+=`<div style="font-size:10px;color:#2ecc71;margin-bottom:8px">
-        🏕 거점 대원 ${garrisonAllies.length}명과 대기 인원을 통합 목록에서 바로 선택할 수 있습니다.
+        🏕 거점 대원 ${garrisonAllies.length}명과 대기 대원을 통합 목록에서 바로 선택할 수 있습니다.
       </div>`;
     }
     if(hasStandbyUnits){
       bodyHtml+=`<div style="font-size:10px;color:#a78bfa;margin-bottom:8px">
-        ⏳ 현재 대기 인원 ${standbyAllies.length}명도 함께 선택할 수 있습니다.
+        ⏳ 현재 대기 대원 ${standbyAllies.length}명도 함께 선택할 수 있습니다.
       </div>`;
     }
     if(canHireNew){
       bodyHtml+=`<div style="font-size:10px;color:#f1c40f;margin-bottom:8px">
-        🍖 재기 후 통솔 인원이 비면 식량 ${HIRE_COST}으로 피난민 1명을 자동 보강할 수 있습니다. (보유: ${Math.floor(res.food)})
+        🍖 재기 후 통솔 대원이 비면 식량 ${HIRE_COST}으로 피난민 1명을 자동 보강할 수 있습니다. (보유: ${Math.floor(res.food)})
       </div>`;
     }
     bodyHtml+=`<div style="display:flex;gap:8px">
@@ -9808,8 +9855,8 @@ function showDefeatModal(){
       <button type="button" onclick="event.stopPropagation();restartFromFirstScreen()" style="flex:1;min-width:0;padding:10px;background:#7b1d1d;border:none;border-radius:5px;color:#fff;font-weight:bold;cursor:pointer;touch-action:manipulation">↻ 재시작</button>
     </div>`;
     document.getElementById('garrison-body').innerHTML=bodyHtml;
-    document.getElementById('garrison-title').innerText='💀 전멸 — 재기하겠습니까?';
     const _defeatZoneName=(currentZone&&(currentZone.name||currentZone.id))||null;
+    document.getElementById('garrison-title').innerText=_defeatZoneName?`💀 '${_defeatZoneName}'에서 전멸하였습니다`:'💀 전멸하였습니다';
     document.getElementById('garrison-sub').innerText='재기 시 대기·거점 통합 목록에서 통솔 파티 대원을 선택합니다.'+(_defeatZoneName?` (전멸 위치: ${_defeatZoneName})`:'');
     document.getElementById('garrison-modal').classList.add('show');
     window._defeatHireCount=0;
@@ -9833,7 +9880,7 @@ window.confirmDefeat = function(selectedIds) {
   // 전멸 직후 사망 처리된 통솔 대원을 재편성 가능하도록 회복
   healAlliesAfterBattle();
 
-  // 1. 통솔·대기 인원 전원 대기실로 정리 (거점 주둔 제외)
+  // 1. 통솔·대기 대원 전원 대기실로 정리 (거점 주둔 제외)
   allies.forEach(u => {
     if (!u.permanentlyDead && !u.garrisoned) {
       u.inStandby = true;
@@ -9865,7 +9912,7 @@ window.confirmDefeat = function(selectedIds) {
     }
   });
 
-  // 3. 통솔 인원이 한 명도 없으면 식량으로 1명 자동 보강 (기존 완화 규칙)
+  // 3. 통솔 대원이 한 명도 없으면 식량으로 1명 자동 보강 (기존 완화 규칙)
   const activeCount = allies.filter(a => !a.permanentlyDead && !a.garrisoned && !a.inStandby).length;
   if (activeCount === 0 && res.food >= 30) {
     res.food -= 30; food = res.food;
@@ -10457,7 +10504,7 @@ function showGarrisonModal(zid) {
   window._garrisonHireCount=maxHire;
 
   document.getElementById('garrison-title').innerText = `🚩 ${zone.name} — 정복 완료!`;
-  document.getElementById('garrison-sub').innerText = `이 지역을 거점으로 구축합니다. 통합 거점 가문 기준 남은 주둔 슬롯 ${famEmpty}명(이 구역 단계 한도 ${slotCap}명). ${Math.round(GARRISON_AUTO_CONFIRM_MS/1000)}초간 선택이 없으면 현재 인원으로 자동 고용·배치됩니다.`;
+  document.getElementById('garrison-sub').innerText = `이 지역을 거점으로 구축합니다. 통합 거점 가문 기준 남은 주둔 슬롯 ${famEmpty}명(이 구역 단계 한도 ${slotCap}명). ${Math.round(GARRISON_AUTO_CONFIRM_MS/1000)}초간 선택이 없으면 현재 대원으로 자동 고용·배치됩니다.`;
 
   // 2. 내부 렌더링 로직 (이미지 속 숫자와 식량 소모량 표시)
   const renderBody = () => {
@@ -10476,7 +10523,7 @@ function showGarrisonModal(zid) {
     const limSlot=(famEmpty<byFood);
     let hint='';
     if(mh>=famEmpty && famEmpty>0) hint=`<div style="font-size:10px;color:#6ee7b7;margin-top:6px;line-height:1.45">통합 거점·식량 한도 내에서 <b>최대 ${famEmpty}명</b>까지 고용할 수 있습니다.</div>`;
-    else if(mh===0) hint=`<div style="font-size:10px;color:#fca5a5;margin-top:6px;line-height:1.45">${(res.food||0)<30?'식량이 <b>30</b> 미만이어서 고용할 수 없습니다. (1명당 🍖30)':'제한으로 이번에 고용 가능 인원이 <b>0</b>명입니다.'}</div>`;
+    else if(mh===0) hint=`<div style="font-size:10px;color:#fca5a5;margin-top:6px;line-height:1.45">${(res.food||0)<30?'식량이 <b>30</b> 미만이어서 고용할 수 없습니다. (1명당 🍖30)':'제한으로 이번에 고용 가능 대원이 <b>0</b>명입니다.'}</div>`;
     else{
       const parts=[];
       if(limFood) parts.push(`식량: 보유로는 최대 <b>${byFood}</b>명분 (1명당 🍖30, 통합 가문 남은 슬롯 ${famEmpty}명)`);
@@ -10513,7 +10560,7 @@ function showGarrisonModal(zid) {
   }, GARRISON_AUTO_CONFIRM_MS);
 }
 
-// 인원 조절 시 타이머 해제 (수동 조작 시 자동 진행 멈춤)
+// 대원 조절 시 타이머 해제 (수동 조작 시 자동 진행 멈춤)
 window.garrisonChangeHire = function(delta) {
   clearTimeout(_garrisonTimer); // 유저가 클릭하면 자동 타이머 취소
   const maxH=Math.max(0,Number(window._garrisonMaxHire)||0);
@@ -11560,13 +11607,13 @@ window.selectNextChapter=function(idx){
   } else {
     window._terrainRerollSeed = 0;
   }
-  // 통솔 인원 6명 초과 시 초과분 대기로
+  // 통솔 대원 6명 초과 시 초과분 대기로
   const activeParty=allies.filter(a=>!a.dead&&!a.permanentlyDead&&!a.garrisoned&&!a.inStandby);
   if(activeParty.length>PARTY_LIMIT){
     activeParty.slice(PARTY_LIMIT).forEach(a=>{
       a.inStandby=true; a.isDeployed=false; a.x=-300; a.y=-300;
     });
-    alog(`⚠️ 파티 ${PARTY_LIMIT}명 초과 — 초과 인원 대기로 이동`);
+    alog(`⚠️ 파티 ${PARTY_LIMIT}명 초과 — 초과 대원 대기로 이동`);
   }
   buildMap(); spawnEnemies();
   setChronicleAreaLabel(ZONES[ch.id]||{name:ch.name,color:ch.color});
@@ -13320,11 +13367,11 @@ window.openGameHelpModal=function(){
       </div>
     </details>
     <details class="game-help-details" id="gh-strat">
-      <summary>전략·생존 · 편성·인원 이동</summary>
+      <summary>전략·생존 · 편성·대원 이동</summary>
       <div class="game-help-panel">
-        <div style="color:#e2e8f0;line-height:1.65;font-size:11px">문명 단계마다 <b>통솔 인원 상한</b>이 달라집니다(예: 마을 단계 최대 8명). 탱·힐·딜 균형을 맞추면 장기전에서 유리합니다.</div>
+        <div style="color:#e2e8f0;line-height:1.65;font-size:11px">문명 단계마다 <b>통솔 대원 상한</b>이 달라집니다(예: 마을 단계 최대 8명). 탱·힐·딜 균형을 맞추면 장기전에서 유리합니다.</div>
         <div style="margin-top:10px;color:#e2e8f0;line-height:1.65;font-size:11px">체력이 0이 되면 빈사가 되며, <b style="color:#fb923c">7초</b> 내 회복하지 못하면 <b style="color:#f87171">영구 사망</b>합니다 — 힐러 스킬·전열 배치를 미리 익혀 두세요.</div>
-        <div style="margin-top:10px;color:#e2e8f0;line-height:1.65;font-size:11px">상단 <b>전체 유닛 목록</b>에서 통솔·대기·거점 카드를 <b>드래그</b>해 인원을 옮길 수 있습니다. 동료 패널에서 통솔 카드를 <b>좌측으로 스와이프</b>하면 대기실로 보낼 수 있습니다.</div>
+        <div style="margin-top:10px;color:#e2e8f0;line-height:1.65;font-size:11px">상단 <b>전체 유닛 목록</b>에서 통솔·대기·거점 카드를 <b>드래그</b>해 대원을 옮길 수 있습니다. 동료 패널에서 통솔 카드를 <b>좌측으로 스와이프</b>하면 대기실로 보낼 수 있습니다.</div>
         <div style="margin-top:10px;color:#e2e8f0;line-height:1.65;font-size:11px">상단 <b>퀵스타트</b>(마을/도시/왕국)으로 단계별 플레이를 바로 시험해 볼 수 있습니다.</div>
       </div>
     </details>
@@ -14827,7 +14874,7 @@ function renderAllyPanel() {
     activeAllies.sort(comparePartyUnitOrder);
   }
 
-  // 3. 파티 인원 제한: 초과분은 대기로 보낸 뒤 단계별 대기 한도(enforce)와 재조정
+  // 3. 파티 대원 제한: 초과분은 대기로 보낸 뒤 단계별 대기 한도(enforce)와 재조정
   if (activeAllies.length > PARTY_LIMIT) {
     let guard = 0;
     while (guard++ < 48 && activeAllies.length > PARTY_LIMIT) {
@@ -15482,7 +15529,7 @@ function renderGarrisonBar(){
 
   const container=document.getElementById('garrison-zones-container');
 
-  // ① 대기 인원 프레임 — 2열 그리드, 패널에는 최대 6명만 표시 (한도는 문명 단계별)
+  // ① 대기 대원 프레임 — 2열 그리드, 패널에는 최대 6명만 표시 (한도는 문명 단계별)
   const standby=allies.filter(a=>!a.dead&&!a.permanentlyDead&&!a.garrisoned&&a.inStandby);
   const sbCap=getStandbyCapacity();
   const standbySorted=sortStandbyListForModal(standby,'lv');
@@ -15490,7 +15537,7 @@ function renderGarrisonBar(){
   const listBtn=`<button type="button" class="cb" style="padding:3px 8px;font-size:9px;flex-shrink:0;touch-action:manipulation;background:#1b1530;border-color:#7c3aed;color:#c4b5fd" onclick="event.stopPropagation();openStandbyListModal(true)">유닛 목록</button>`;
   const standbyHtml=`<div class="gz" ondragover="event.preventDefault()" ondrop="standbyFrameDrop(event)">
     <div class="gz-standby-head">
-      <div class="gz-title" style="color:#a855f7">⏳ 대기 인원 (${standby.length}/${sbCap})</div>
+      <div class="gz-title" style="color:#a855f7">⏳ 대기 대원 (${standby.length}/${sbCap})</div>
       ${listBtn}
     </div>
     <div class="gz-standby-bar-grid">
@@ -15552,7 +15599,7 @@ function renderGarrisonBar(){
           <div class="gz-income" style="margin:0;font-size:9px">${incomeHtmlRow2}</div>
           <div class="gz-income" style="margin:0;font-size:9px">${incomeHtmlRow3}</div>
         </div>
-        <button type="button" class="cb gz-garrison-members-btn" style="position:absolute;top:50%;right:0;transform:translateY(-50%);width:76px;height:26px;margin:0;padding:1px 2px;font-size:9px;background:#1a3d5c;border:1px solid #60a5fa;color:#93c5fd;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:0;line-height:1.05;text-align:center;white-space:normal;overflow:hidden" onclick="event.stopPropagation();showIntegratedMembersPopup('${item.family}')"><span style="display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis">배치 인원</span><span style="display:block;font-size:9px;font-weight:700;line-height:1">${members.length}/${memberCap}명</span></button>
+        <button type="button" class="cb gz-garrison-members-btn" style="position:absolute;top:50%;right:0;transform:translateY(-50%);width:76px;height:26px;margin:0;padding:1px 2px;font-size:9px;background:#1a3d5c;border:1px solid #60a5fa;color:#93c5fd;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:0;line-height:1.05;text-align:center;white-space:normal;overflow:hidden" onclick="event.stopPropagation();showIntegratedMembersPopup('${item.family}')"><span style="display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis">배치 대원</span><span style="display:block;font-size:9px;font-weight:700;line-height:1">${members.length}/${memberCap}명</span></button>
       </div>
     </div>`;
   }).join('');
@@ -15633,7 +15680,7 @@ window.standbyFrameDrop=function(e){
   const allyId=parseInt(e.dataTransfer.getData('ally-id'),10);
   if(gzid&&guid){
     if(!canAddToStandby()){
-      alog(`❌ 대기 인원 한도(${getStandbyCapacity()}명)입니다.`);
+      alog(`❌ 대기 대원 한도(${getStandbyCapacity()}명)입니다.`);
       return;
     }
     const rec=zoneRecords[gzid];
@@ -15652,7 +15699,7 @@ window.standbyFrameDrop=function(e){
   }
   if(allyId){
     if(!canAddToStandby()){
-      alog(`❌ 대기 인원 한도(${getStandbyCapacity()}명)입니다.`);
+      alog(`❌ 대기 대원 한도(${getStandbyCapacity()}명)입니다.`);
       return;
     }
     removeUnitFromAllGroups(allyId);
@@ -15779,7 +15826,7 @@ function sendToStandbyCore(uid){
   const pendingSwap=resolvePendingBattleSwapJobByPartyUid(uid);
   const u=allies.find(a=>a.id===uid);
   if(u&&!u.inStandby&&!pendingSwap&&!canAddToStandby()){
-    alog(`❌ 대기 인원 한도(${getStandbyCapacity()}명)입니다.`);
+    alog(`❌ 대기 대원 한도(${getStandbyCapacity()}명)입니다.`);
     return;
   }
   removeUnitFromAllGroups(uid);
@@ -15966,7 +16013,7 @@ function commitStandbySlideFromCard(el, uid){
   const u=allies.find(a=>a.id===uid);
   if(!u||u.dead||u.garrisoned||u.inStandby||u.permanentlyDead)return;
   if(!resolvePendingBattleSwapJobByPartyUid(uid)&&!canAddToStandby()){
-    alog(`❌ 대기 인원 한도(${getStandbyCapacity()}명)입니다.`);
+    alog(`❌ 대기 대원 한도(${getStandbyCapacity()}명)입니다.`);
     return;
   }
   el.dataset.standbyAnim='1';
@@ -16255,7 +16302,7 @@ window.standbyToParty=function(uid){
   removeUnitFromAllGroups(uid);
   const u=allies.find(a=>a.id===uid);if(!u)return;
   u.inStandby=false;
-  // 대기 인원에서 새로 통솔에 합류한 대원은 항상 수동 배치 대상으로 둔다.
+  // 대기 대원에서 새로 통솔에 합류한 대원은 항상 수동 배치 대상으로 둔다.
   u.isDeployed=false;
   u.x=-300; u.y=-300;
   u.onHold=false;
@@ -16435,7 +16482,7 @@ window.standbyToZone=function(uid,zid){
 window.releaseFromGarrison=function(zid,uid,target){
   closeStandbyPopup();
   if(target==='standby'&&!canAddToStandby()){
-    alog(`❌ 대기 인원 한도(${getStandbyCapacity()}명)입니다.`);
+    alog(`❌ 대기 대원 한도(${getStandbyCapacity()}명)입니다.`);
     return;
   }
   removeUnitFromAllGroups(uid);
@@ -16556,7 +16603,7 @@ window.allyDropToStandby=function(e){
   const u=allies.find(a=>a.id===id);
   if(!u)return;
   if(!u.inStandby&&!canAddToStandby()){
-    alog(`❌ 대기 인원 한도(${getStandbyCapacity()}명)입니다.`);
+    alog(`❌ 대기 대원 한도(${getStandbyCapacity()}명)입니다.`);
     return;
   }
   u.isDeployed=false; u.x=-300; u.y=-300;
