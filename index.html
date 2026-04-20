@@ -402,33 +402,24 @@ body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #cc
   border: 1px solid #60a5fa !important;
   color: #93c5fd !important;
 }
-.top-restart-btn {
-  font-size: 9px !important;       /* [조정] 글자 크기를 10px -> 9px로 줄임 */
-  padding: 2px 6px !important;    /* [조정] 패딩을 줄여서 버튼 몸집을 슬림하게 */
-  min-width: fit-content !important; /* [변경] 내용물에 딱 맞게 강제 설정 */
-  width: auto !important;
-  white-space: nowrap !important;
-  background: #3f1a1a !important;
-  border: 1px solid #ef4444 !important;
-  color: #fecaca !important;
-  display: inline-flex !important;
-  align-items: center;
-  gap: 2px;                       /* [조정] 아이콘과 글자 사이 간격을 최소화 */
+/* 버튼 스타일 강제 보정 */
+.top-quickstart-btn, .top-restart-btn {
+    min-width: 75px !important;    /* 최소 너비를 넉넉히 설정 */
+    width: auto !important;
+    padding: 4px 8px !important;   /* 좌우 여백 확보 */
+    white-space: nowrap !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 4px !important;           /* 아이콘과 글자 사이 간격 */
+    font-size: 10px !important;
+    overflow: visible !important;  /* 글자가 잘리지 않게 함 */
 }
-
-.top-quickstart-btn {
-  font-size: 9px !important;
-  padding: 2px 6px !important;    /* [조정] 패딩 축소 */
-  min-width: fit-content !important; /* [변경] 내용물에 딱 맞게 강제 설정 */
-  width: auto !important;
-  white-space: nowrap !important;
-  border-radius: 4px !important;
-  border: 1px solid #374151 !important;
-  background: #1e293b !important;
-  color: #cbd5e1 !important;
-  display: inline-flex !important;
-  align-items: center;
-  gap: 2px;                       /* [조정] 아이콘과 글자 사이 간격 최소화 */
+.top-quickstart-scroll {
+    display: flex !important;
+    gap: 6px !important;
+    padding: 0 5px !important;
+    align-items: center;
 }
 #day-label {
   font-size: 0.85em;
@@ -3769,48 +3760,53 @@ function init(){
   if(hasG) startGarrisonTick();
   resizeCanvas();      // 자원바 레이아웃에 맞춰 캔버스 크기 최종 조정
 
-  // === [여기에 추가] 시작 관련 버튼 자물쇠 및 3회 클릭 로직 ===
-  const startButtons = [
-    { selector: '.top-quickstart-btn:nth-child(1)', name: '왕국부터', phase: 'kingdom' },
-    { selector: '.top-quickstart-btn:nth-child(2)', name: '도시부터', phase: 'city' },
-    { selector: '.top-quickstart-btn:nth-child(3)', name: '마을부터', phase: 'village' },
-    { selector: '#btn-restart-top', name: '처음부터', phase: 'origin' }
-  ];
-
-  startButtons.forEach(btnInfo => {
-    const btn = document.querySelector(btnInfo.selector);
-    if (btn) {
-      // 1. 자물쇠 아이콘 추가
-      const originalText = btnInfo.name;
-      btn.innerHTML = `🔒 ${originalText}`;
+  // === 시작 관련 버튼 자물쇠 로직 (강화 버전) ===
+  const allTopBtns = document.querySelectorAll('.top-quickstart-btn, .top-restart-btn');
+  
+  allTopBtns.forEach(btn => {
+    const txt = btn.innerText;
+    let phase = "";
+    
+    // 버튼의 텍스트 내용으로 정확히 판별 (순서 상관 없음)
+    if(txt.includes("왕국")) phase = "kingdom";
+    else if(txt.includes("도시")) phase = "city";
+    else if(txt.includes("마을")) phase = "village";
+    else if(txt.includes("처음")) phase = "origin";
+    
+    if (phase !== "") {
+      // 아이콘과 텍스트 정리 (중복 방지)
+      const label = txt.replace('↻', '').replace('🔒', '').replace('🔓', '').trim();
+      btn.innerHTML = `🔒 ${label}`;
       btn.dataset.clickCount = "0";
 
-      // 2. 기존 클릭 이벤트 덮어쓰기
+      // 버튼 크기가 깨지지 않도록 스타일 보정
+      btn.style.minWidth = "80px";
+      btn.style.display = "inline-flex";
+      btn.style.alignItems = "center";
+      btn.style.justifyContent = "center";
+      btn.style.gap = "4px";
+
       btn.onclick = function(e) {
         e.stopPropagation();
-        
         let count = parseInt(this.dataset.clickCount) + 1;
         this.dataset.clickCount = count.toString();
 
         if (count < 3) {
-          // 3회 미만 클릭 시 안내 (화면 중앙 근처에 띄움)
           const remaining = 3 - count;
           if(typeof addFloat === 'function') {
-            addFloat(window.innerWidth / 2, 100, `잠금 해제까지 ${remaining}번 더!`, '#f1c40f');
+            addFloat(window.innerWidth / 2, 80, `잠금 해제까지 ${remaining}번!`, '#f1c40f');
           }
-          // 살짝 흔들리는 시각 효과
-          this.style.transition = "0.1s";
-          this.style.transform = "translateX(5px)";
-          setTimeout(() => { this.style.transform = "translateX(0)"; }, 100);
+          // 클릭 시 작아지는 효과 (흔들림보다 깔끔함)
+          this.style.transform = "scale(0.95)";
+          setTimeout(() => { this.style.transform = "scale(1)"; }, 100);
         } else {
-          // 3회 클릭 시 실제 실행
           this.dataset.clickCount = "0";
-          this.innerHTML = `🔓 ${originalText}`;
+          this.innerHTML = `🔓 ${label}`;
           
-          if (btnInfo.phase === 'origin') {
+          if (phase === 'origin') {
             if(typeof restartFromFirstScreen === 'function') restartFromFirstScreen();
           } else {
-            if(typeof quickStartFromPhase === 'function') quickStartFromPhase(btnInfo.phase);
+            if(typeof quickStartFromPhase === 'function') quickStartFromPhase(phase);
           }
         }
       };
