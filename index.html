@@ -402,24 +402,22 @@ body { font-family: 'Malgun Gothic', sans-serif; background: #080c10; color: #cc
   border: 1px solid #60a5fa !important;
   color: #93c5fd !important;
 }
-/* 버튼 스타일 강제 보정 */
-.top-quickstart-btn, .top-restart-btn {
-    min-width: 75px !important;    /* 최소 너비를 넉넉히 설정 */
-    width: auto !important;
-    padding: 4px 8px !important;   /* 좌우 여백 확보 */
-    white-space: nowrap !important;
-    display: inline-flex !important;
-    align-items: center;
-    justify-content: center;
-    gap: 4px !important;           /* 아이콘과 글자 사이 간격 */
-    font-size: 10px !important;
-    overflow: visible !important;  /* 글자가 잘리지 않게 함 */
+.top-restart-btn {
+  font-size: 10px !important;
+  padding: 3px 8px !important;
+  min-width: 0 !important;
+  background: #3f1a1a !important;
+  border: 1px solid #ef4444 !important;
+  color: #fecaca !important;
 }
-.top-quickstart-scroll {
-    display: flex !important;
-    gap: 6px !important;
-    padding: 0 5px !important;
-    align-items: center;
+.top-quickstart-btn {
+  font-size: 9px !important;
+  padding: 2px 6px !important;
+  min-width: 0 !important;
+  border-radius: 4px !important;
+  border: 1px solid #374151 !important;
+  background: #1e293b !important;
+  color: #cbd5e1 !important;
 }
 #day-label {
   font-size: 0.85em;
@@ -1511,13 +1509,13 @@ canvas {
     <span id="day-label">1일차</span>
     <span class="top-restart-wrap">
       <span class="top-quickstart-scroll">
-        <button type="button" class="cb top-restart-btn" id="btn-restart-top" onclick="event.stopPropagation();restartFromFirstScreen()" title="저장 초기화 후 첫 화면부터 시작">↻ 처음부터</button>
-        <button type="button" class="cb top-quickstart-btn" onclick="event.stopPropagation();quickStartFromPhase('village')" title="마을 단계부터 테스트 시작">마을부터</button>
-        <button type="button" class="cb top-quickstart-btn" onclick="event.stopPropagation();quickStartFromPhase('city')" title="도시 단계부터 테스트 시작">도시부터</button>        
         <button type="button" class="cb top-quickstart-btn" onclick="event.stopPropagation();quickStartFromPhase('kingdom')" title="왕국 단계부터 테스트 시작">왕국부터</button>
+        <button type="button" class="cb top-quickstart-btn" onclick="event.stopPropagation();quickStartFromPhase('city')" title="도시 단계부터 테스트 시작">도시부터</button>
+        <button type="button" class="cb top-quickstart-btn" onclick="event.stopPropagation();quickStartFromPhase('village')" title="마을 단계부터 테스트 시작">마을부터</button>
       </span>
       <span class="top-restart-actions">
-        <button type="button" class="cb help-guide-btn top-game-help-btn" id="btn-game-help" onclick="event.stopPropagation();openGameHelpModal()" title="게임 안내·조작 요약">게임 설명</button>
+        <button type="button" class="cb top-restart-btn" id="btn-restart-top" onclick="event.stopPropagation();restartFromFirstScreen()" title="저장 초기화 후 첫 화면부터 시작">↻ 처음부터</button>
+        <button type="button" class="cb help-guide-btn top-game-help-btn" id="btn-game-help" onclick="event.stopPropagation();openGameHelpModal()" title="게임 안내·조작 요약">설명</button>
       </span>
     </span>
   </div>
@@ -1688,7 +1686,10 @@ canvas {
 <!-- 거점·재건 요약 모달 (헤더 🚩 거점 현황 클릭) -->
 <div id="garrison-summary-modal" class="overlay">
   <div class="modal-box" style="max-width:440px">
-    <div class="modal-title" style="color:#f1c40f">🚩 거점·문명 현황</div>    
+    <div class="modal-title" style="color:#f1c40f">🚩 거점·문명 현황</div>
+    <div class="modal-sub" style="margin-bottom:10px;font-size:11px;color:#9ca3af">
+      상위 재건일수록 이전 단계 자원(식량·나무·돌 등)도 함께 요구되어 잉여를 줄입니다. 주요 채집: 마을→집합소, 도시→마을+집합소, 왕국→도시+이전 단계.
+    </div>
     <div id="garrison-summary-body" style="font-size:11px;color:#d1d5db;line-height:1.55;max-height:55vh;overflow-y:auto"></div>
     <button type="button" class="cb" style="width:100%;margin-top:14px;padding:10px;background:#374151" onclick="document.getElementById('garrison-summary-modal').classList.remove('show')">닫기</button>
   </div>
@@ -2219,13 +2220,13 @@ window.openHubStandbyGarrisonModal=function(){
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
         <div data-hub-sg-title style="color:#93c5fd;font-weight:bold;font-size:15px">전체 유닛 목록</div>
         <button type="button" class="cb" style="padding:4px 10px;background:#374151;touch-action:manipulation" onclick="closeHubStandbyGarrisonModal()">닫기</button>
-      </div>      
+      </div>
       <div class="standby-sort-bar">
         ${mkBtn('tier','등급별 정렬')}
         ${mkBtn('lv','레벨별 정렬')}
       </div>
-      <div style="font-size:9px;color:#64748b;margin-top:8px;margin-bottom:5px;line-height:1.45">통솔·대기·거점 카드를 드래그해 <b>통솔 ↔ 대기 ↔ 거점</b> 간 교체·이동할 수 있습니다.</div>
-      <div class="hub-sg-section"ondragover="event.preventDefault()" ondrop="hubModalStandbyDrop(event)">
+      <div style="font-size:9px;color:#64748b;margin-top:8px;margin-bottom:2px;line-height:1.45">통솔·대기·거점 카드를 드래그해 <b>통솔 ↔ 대기 ↔ 거점</b> 간 교체·이동할 수 있습니다.</div>
+      <div class="hub-sg-section" ondragover="event.preventDefault()" ondrop="hubModalStandbyDrop(event)">
         <div class="hub-sg-section-title" data-hub-sg-party-section-title style="color:#4ade80">⚔️ 통솔 파티</div>
         <div class="standby-list-grid" data-hub-sg-party-grid style="min-height:36px"></div>
       </div>
@@ -2236,7 +2237,7 @@ window.openHubStandbyGarrisonModal=function(){
       <div class="hub-sg-section">
         <div class="hub-sg-section-title" style="color:#f1c40f">🏕 거점 주둔 (구역별)</div>
         <div data-hub-sg-garrison-zones></div>
-      </div>      
+      </div>
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend',html);
@@ -2500,7 +2501,7 @@ window.openStandbyListModal=function(standbyOnly){
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
         <div data-standby-modal-title style="color:#a855f7;font-weight:bold;font-size:15px">${only?'유닛 목록':'전체 유닛 목록'}</div>
         <button type="button" class="cb" style="padding:4px 10px;background:#374151;touch-action:manipulation" onclick="closeStandbyListModal()">닫기</button>
-      </div>      
+      </div>
       <div class="standby-sort-bar" style="margin-bottom:8px" data-standby-sort-bar>
         ${mkBtn('tier','등급별 정렬')}
         ${mkBtn('lv','레벨별 정렬')}
@@ -3759,59 +3760,6 @@ function init(){
   const hasG=Object.values(zoneRecords).some(r=>r&&r.cleared&&r.garrison&&r.garrison.length>0);
   if(hasG) startGarrisonTick();
   resizeCanvas();      // 자원바 레이아웃에 맞춰 캔버스 크기 최종 조정
-
-  // === 시작 관련 버튼 자물쇠 로직 (강화 버전) ===
-  const allTopBtns = document.querySelectorAll('.top-quickstart-btn, .top-restart-btn');
-  
-  allTopBtns.forEach(btn => {
-    const txt = btn.innerText;
-    let phase = "";
-    
-    // 버튼의 텍스트 내용으로 정확히 판별 (순서 상관 없음)
-    if(txt.includes("왕국")) phase = "kingdom";
-    else if(txt.includes("도시")) phase = "city";
-    else if(txt.includes("마을")) phase = "village";
-    else if(txt.includes("처음")) phase = "origin";
-    
-    if (phase !== "") {
-      // 아이콘과 텍스트 정리 (중복 방지)
-      const label = txt.replace('↻', '').replace('🔒', '').replace('🔓', '').trim();
-      btn.innerHTML = `🔒 ${label}`;
-      btn.dataset.clickCount = "0";
-
-      // 버튼 크기가 깨지지 않도록 스타일 보정
-      btn.style.minWidth = "80px";
-      btn.style.display = "inline-flex";
-      btn.style.alignItems = "center";
-      btn.style.justifyContent = "center";
-      btn.style.gap = "4px";
-
-      btn.onclick = function(e) {
-        e.stopPropagation();
-        let count = parseInt(this.dataset.clickCount) + 1;
-        this.dataset.clickCount = count.toString();
-
-        if (count < 3) {
-          const remaining = 3 - count;
-          if(typeof addFloat === 'function') {
-            addFloat(window.innerWidth / 2, 80, `잠금 해제까지 ${remaining}번!`, '#f1c40f');
-          }
-          // 클릭 시 작아지는 효과 (흔들림보다 깔끔함)
-          this.style.transform = "scale(0.95)";
-          setTimeout(() => { this.style.transform = "scale(1)"; }, 100);
-        } else {
-          this.dataset.clickCount = "0";
-          this.innerHTML = `🔓 ${label}`;
-          
-          if (phase === 'origin') {
-            if(typeof restartFromFirstScreen === 'function') restartFromFirstScreen();
-          } else {
-            if(typeof quickStartFromPhase === 'function') quickStartFromPhase(phase);
-          }
-        }
-      };
-    }
-  });
 }
 
 // ══════════════════════════════════════════════════════
@@ -6931,80 +6879,111 @@ function updatePG() {
   if (!pg) return;
 
   const ud = getSortedUd();
-  const slotIdx = getPartySlotIndices();
-  const totalToDeploy = slotIdx.filter(i => { 
-    const a = allies[i]; return a && !a.dead && !a.permanentlyDead; 
-  }).length;
-  const placedCount = Math.max(0, totalToDeploy - ud.length);
 
-  // 1. 전투 중 상황: 기존 기능 그대로 유지 (중간 고용 시 5초 후 자동 시작 등)
+  // ── 전투 중 ──
   if (isBattle) {
     if (ud.length === 0) {
+      // 배치 완료 → 배너 숨김
       pg.style.display = 'none';
       _pgStopAutoTimer();
     } else {
-      // 기존과 동일한 '전투 중 배치 안내' 로직
+      // 배치 대기 대원 있음 → 배치 안내 표시 (n초 후 자동출발 없음)
+      const slotIdx2 = getPartySlotIndices();
+      const total2 = slotIdx2.filter(i => { const a = allies[i]; return a && !a.dead && !a.permanentlyDead; }).length;
+      const placed2 = Math.max(0, total2 - ud.length);
       const u2 = ud[0];
       const roleKey2 = u2.classKey || u2.baseRole;
       const color2 = BASE_ROLES[roleKey2]?.color || '#f1c40f';
       pg.style.display = 'block';
       pg.style.border = '1px solid rgba(251,191,36,0.45)';
       pg.innerHTML = `
-        <div style="color:#fbbf24;white-space:nowrap">📍 배치 중 (${placedCount}/${totalToDeploy}명)</div>
+        <div style="color:#fbbf24;white-space:nowrap">📍 배치 중 (${placed2}/${total2}명)</div>
         <div style="white-space:nowrap;margin-top:4px"><b style="color:${color2};text-shadow:1px 1px 2px #000">${u2.name}</b></div>
         <div style="margin-top:4px;white-space:nowrap;font-size:14px"><span style="color:#a78bfa">보라색 영역</span> <span style="color:#fbbf24">클릭!</span></div>`;
     }
     return;
   }
 
-  // 2. 비전투 상황 (첫 시작, 전멸 후, 전투지 변경)
-  _pgStopAutoTimer(); 
+  // ── 비전투 ──
+  _pgStopAutoTimer(); // 기존 타이머 정리 후 재시작
+
+  const slotIdx = getPartySlotIndices();
+  const totalToDeploy = slotIdx.filter(i => { const a = allies[i]; return a && !a.dead && !a.permanentlyDead; }).length;
+  const placedCount = Math.max(0, totalToDeploy - ud.length);
 
   if (!isPlacing) {
+    // 배치 단계가 아님 → 숨김
     pg.style.display = 'none';
     return;
   }
 
   if (autoStart) {
+    // ── 자동 ON ──
     pg.style.display = 'block';
 
     if (ud.length === 0) {
-      // 전원 배치 완료 시 즉시 시작
+      // 배치 완료 → 즉시 전투 시작
       pg.style.display = 'none';
       toggleBattle();
       return;
     }
 
-    // [핵심 수정 부분] 
-    // 전멸/시작/이동 상황에서 미배치 인원이 있다면 카운트다운을 시작하지 않고 대기합니다.
-    const nu = ud[0];
-    const nRoleKey = nu.classKey || nu.baseRole;
-    const nColor = BASE_ROLES[nRoleKey]?.color || '#f1c40f';
-    
-    pg.style.border = '1px solid rgba(251,191,36,0.45)';
-    pg.innerHTML = `
-      <div style="color:#fbbf24;white-space:nowrap">📍 부대 재편성 중 (${placedCount}/${totalToDeploy}명)</div>
-      <div style="white-space:nowrap;margin-top:4px"><b style="color:${nColor};text-shadow:1px 1px 2px #000">${nu.name}</b></div>
-      <div style="margin-top:4px;white-space:nowrap;font-size:14px"><span style="color:#a78bfa">보라색 영역</span>을 클릭해 <span style="color:#fbbf24">모두 배치</span>하세요</div>
-      <div style="font-size:11px;color:#94a3b8;margin-top:5px">모든 대원이 배치되면 자동 출발합니다</div>`;
+    // 배치 미완료 → 5초 카운트다운 후 전투 시작
+    if (!_pgAutoTimer) {
+      _pgAutoCountdown = 5;
+      const _tick = () => {
+        if (isBattle) { _pgStopAutoTimer(); return; } // 이미 전투 시작됨
+        const curUd = getSortedUd();
+        if (curUd.length === 0) {
+          // 배치 완료 → 즉시 시작
+          _pgStopAutoTimer();
+          pg.style.display = 'none';
+          toggleBattle();
+          return;
+        }
+        // 배치 중 카운트다운 표시
+        const nu = curUd[0];
+        const nRoleKey = nu.classKey || nu.baseRole;
+        const nColor = BASE_ROLES[nRoleKey]?.color || '#f1c40f';
+        const nPlaced = Math.max(0, totalToDeploy - curUd.length);
+        pg.style.display = 'block';
+        pg.style.border = '1px solid rgba(251,191,36,0.45)';
+        pg.innerHTML = `
+          <div style="color:#fbbf24;white-space:nowrap">📍 배치 중 (${nPlaced}/${totalToDeploy}명)</div>
+          <div style="white-space:nowrap;margin-top:4px"><b style="color:${nColor};text-shadow:1px 1px 2px #000">${nu.name}</b></div>
+          <div style="margin-top:4px;white-space:nowrap;font-size:14px"><span style="color:#a78bfa">보라색 영역</span> <span style="color:#fbbf24">클릭!</span></div>
+          <div style="font-size:11px;color:#f87171;white-space:nowrap;margin-top:3px"><b>${_pgAutoCountdown}초</b> 후 자동 출발</div>`;
+        if (_pgAutoCountdown <= 0) {
+          _pgStopAutoTimer();
+          toggleBattle(); // 배치 미완료여도 전투 시작
+          return;
+        }
+        _pgAutoCountdown--;
+      };
+      _tick();
+      _pgAutoTimer = setInterval(_tick, 1000);
+    }
 
   } else {
-    // 자동 OFF 상태: 기존 기능 유지
+    // ── 자동 OFF ──
     pg.style.display = 'block';
+
     if (ud.length === 0) {
+      // 배치 완료 → 출발 버튼 안내
       pg.style.border = '1px solid rgba(74,222,128,0.5)';
       pg.innerHTML = `
         <div style="white-space:nowrap"><b style="color:#4ade80">✅ 배치 완료! (${placedCount}/${totalToDeploy}명)</b></div>
-        <div style="font-size:11px;color:#cbd5e1;white-space:nowrap;margin-top:4px">좌측 상단 <b style="color:#ffffff;background:#8b0000;padding:1px 3px;border-radius:4px">▶출발</b> 버튼을 누르세요</div>`;
+        <div style="font-size:11px;color:#cbd5e1;white-space:nowrap;margin-top:4px">좌측 상단 <b style="color:#ffffff;background:#8b0000;padding:1px 3px;border-radius:4px;border:1px solid #8b0000">▶출발</b> 버튼<br>또는 <b style="color:#818cf8">스페이스 바</b>를 누르세요.</div>`;
     } else {
+      // 배치 진행 중 안내
       const u = ud[0];
       const roleKey = u.classKey || u.baseRole;
       const classColor = BASE_ROLES[roleKey]?.color || '#f1c40f';
       pg.style.border = '1px solid rgba(251,191,36,0.45)';
       pg.innerHTML = `
         <div style="color:#fbbf24;white-space:nowrap">📍 배치 중 (${placedCount}/${totalToDeploy}명)</div>
-        <div style="white-space:nowrap;margin-top:4px"><b style="color:${classColor}">${u.name}</b></div>
-        <div style="margin-top:4px;font-size:14px">보라색 영역 클릭!</div>`;
+        <div style="white-space:nowrap;margin-top:4px"><b style="color:${classColor};text-shadow:1px 1px 2px #000">${u.name}</b></div>
+        <div style="margin-top:4px;white-space:nowrap;font-size:14px"><span style="color:#a78bfa">보라색 영역</span> <span style="color:#fbbf24">클릭!</span></div>`;
     }
   }
 }
@@ -7357,7 +7336,6 @@ function onDown(e){
   const targetCell = nearestCell(x, y);
   const isPurpleZone = isDeployZoneCell(targetCell);
 
-  // [수정] 유닛 배치 로직 (onDown 함수 내부)
   if(ud.length > 0 && isPurpleZone){
     let finalCell = targetCell;
     if(isDeployCellOccupied(finalCell,null)) {
@@ -7366,7 +7344,7 @@ function onDown(e){
       else { alog("⚠️ 배치 가능한 빈 공간이 없습니다!"); return; }
     }
 
-    // 최종 확정된 칸에 유닛 배치
+    // 최종 확정된 칸에 배치
     const u = ud[0];
     u.x = finalCell.x; u.y = finalCell.y;
     u.isDeployed = true; u.wx = null; u.wy = null;
@@ -7375,27 +7353,18 @@ function onDown(e){
     initialPositions[u.id] = {x: u.x, y: u.y};
     
     _selectedUnitId = u.id;
+    updatePG(); 
+    renderAllyPanel();
+    markDirty();
 
-    // 배치 직후 남은 미배치 유닛 수를 다시 계산
-    const remainingUd = getSortedUd(); 
-
-    // [핵심 로직 변경] 
-    // 미배치 유닛이 0명일 때(모두 배치했을 때)만 자동 시작 조건 검사
-    if (autoStart && remainingUd.length === 0) {
+    // [핵심 추가] 배치가 끝났고 자동 시작이 ON이면 즉시 출발! (전투 중 교체 배치는 출발 버튼 불필요)
+    if (autoStart && getSortedUd().length === 0) {
       if (!isBattle) {
-        updatePG(); // "배치 완료" 상태로 안내창 갱신
-        // 유저가 마지막 배치를 인지할 수 있도록 약간의 지연 후 출발
-        setTimeout(() => { 
-          if(!isBattle && autoStart && getSortedUd().length === 0) toggleBattle(); 
-        }, 1200);
+        updatePG(); // autoStart: 카운트다운 시작
       } else if (isPaused) {
         togglePause();
       }
     }
-    
-    updatePG(); // 배치 인원수(0/3 -> 1/3 등) 실시간 갱신 
-    renderAllyPanel();
-    markDirty();
     return;
   }
 
@@ -9997,21 +9966,12 @@ window.confirmDefeat = function(selectedIds) {
   };
   gold = res.gold; food = res.food;
 
-  // [추가] 명시적으로 모든 유닛의 배치 상태를 초기화
-  allies.forEach(u => {
-    if(!u.permanentlyDead && !u.garrisoned) {
-      u.isDeployed = false; // 강제로 미배치 상태로 만듦
-    }
-  });
-
-  isBattle = false;
-  isPlacing = true; // 배치 모드 활성화
-  _pgStopAutoTimer(); // 카운트다운 리셋
-  
-  alog('🌅 부대를 재편성했습니다. 대원을 다시 배치하세요!');
-  renderAllyPanel();
+  alog('🌅 부대를 재편성하여 다시 일어섭니다!');
+  resetDeploymentForReorg();
+  buildMap();
+  spawnEnemies();
+  setTimeout(enterPlacement, 300);
   renderGarrisonBar();
-  updatePG(); // 안내창 갱신 (0/N명 표시)
   markDirty();
 };
 
@@ -13419,13 +13379,13 @@ window.openGameHelpModal=function(){
           <div style="color:#fde68a;margin-bottom:6px;font-weight:600">전투지별 아우라 (Lv.3 해금 · Lv.4~10 강화)</div>
           <div><b style="color:#86efac">집합소</b> 근처 들판 — 들녘 식량로 · 재생 · 🍖🌲</div>
           <div>얕은 강가 — 유수 기동선 · 이속·감피 · 🍖🌲</div>
-          <div>얕은 숲 — 침엽 은신 · 감피·공속 · 🌲🔘</div></br>
+          <div>얕은 숲 — 침엽 은신 · 감피·공속 · 🌲🔘</div>
           <div><b style="color:#a7f3d0">마을</b> 깊은 들판 — 깊은 골목 무역 · 공격 · 💰🟠</div>
           <div>안개 강변 — 안개 비전 · 마증 · 🌿💰</div>
-          <div>울창한 숲 — 동혈 채굴망 · 치명·공속 · 🟠🌿</div></br>
+          <div>울창한 숲 — 동혈 채굴망 · 치명·공속 · 🟠🌿</div>
           <div><b style="color:#fcd34d">도시</b> 폐허 들판 — 폐허 공병 · 감피·방어 · ⚒️📦</div>
           <div>산적 협곡 — 협곡 돌격 · 공격·치명 · 💰📦</div>
-          <div>고원 요새 — 고원 성문 · 쿨감·감피 · ⚒️💰</div></br>
+          <div>고원 요새 — 고원 성문 · 쿨감·감피 · ⚒️💰</div>
           <div><b style="color:#e9d5ff">왕국</b> 황폐한 평야 — 황무 결전 · 마증·쿨감 · 💎💰</div>
           <div>저주받은 강곡 — 저주 절단 · 마관·공격 · 💎🔮</div>
           <div>영원의 숲 — 심연 숲 서약 · 마증·재생 · 🔮💎</div>
@@ -13455,7 +13415,8 @@ window.openGameHelpModal=function(){
       <div class="game-help-panel">
         <div style="color:#e2e8f0;line-height:1.65;font-size:11px">문명 단계마다 <b>통솔 대원 상한</b>이 달라집니다(예: 마을 단계 최대 8명). 탱·힐·딜 균형을 맞추면 장기전에서 유리합니다.</div>
         <div style="margin-top:10px;color:#e2e8f0;line-height:1.65;font-size:11px">체력이 0이 되면 빈사가 되며, <b style="color:#fb923c">7초</b> 내 회복하지 못하면 <b style="color:#f87171">영구 사망</b>합니다 — 힐러 스킬·전열 배치를 미리 익혀 두세요.</div>
-        <div style="margin-top:10px;color:#e2e8f0;line-height:1.65;font-size:11px">상단 <b>전체 유닛 목록</b>에서 통솔·대기·거점 카드를 <b>드래그</b>해 대원을 옮길 수 있습니다. 동료 패널에서 통솔 카드를 <b>좌측으로 스와이프</b>하면 대기실로 보낼 수 있습니다.</div>        
+        <div style="margin-top:10px;color:#e2e8f0;line-height:1.65;font-size:11px">상단 <b>전체 유닛 목록</b>에서 통솔·대기·거점 카드를 <b>드래그</b>해 대원을 옮길 수 있습니다. 동료 패널에서 통솔 카드를 <b>좌측으로 스와이프</b>하면 대기실로 보낼 수 있습니다.</div>
+        <div style="margin-top:10px;color:#e2e8f0;line-height:1.65;font-size:11px">상단 <b>퀵스타트</b>(마을/도시/왕국)으로 단계별 플레이를 바로 시험해 볼 수 있습니다.</div>
       </div>
     </details>
     <div class="game-help-footbox">한 단계씩 영토와 문명을 넓혀 가면 새로운 전투지와 시스템이 열립니다. 기록을 갱신할 때마다 거점이 든든해지는 느낌을 느껴 보세요.</div>`;
