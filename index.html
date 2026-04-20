@@ -2225,6 +2225,7 @@ window.openHubStandbyGarrisonModal=function(){
         ${mkBtn('tier','등급별 정렬')}
         ${mkBtn('lv','레벨별 정렬')}
       </div>
+      <div style="font-size:9px;color:#64748b;margin-top:8px;margin-bottom:2px;line-height:1.45">통솔·대기·거점 카드를 드래그해 <b>통솔 ↔ 대기 ↔ 거점</b> 간 교체·이동할 수 있습니다. (전투 중에도 교체 가능)</div>
       <div class="hub-sg-section" ondragover="event.preventDefault()" ondrop="hubModalStandbyDrop(event)">
         <div class="hub-sg-section-title" data-hub-sg-party-section-title style="color:#4ade80">⚔️ 통솔 파티</div>
         <div class="standby-list-grid" data-hub-sg-party-grid style="min-height:36px"></div>
@@ -2236,8 +2237,7 @@ window.openHubStandbyGarrisonModal=function(){
       <div class="hub-sg-section">
         <div class="hub-sg-section-title" style="color:#f1c40f">🏕 거점 주둔 (구역별)</div>
         <div data-hub-sg-garrison-zones></div>
-      </div>
-      <div style="font-size:9px;color:#64748b;margin-top:8px;line-height:1.45">통솔·대기·거점 카드를 드래그해 <b>통솔 ↔ 대기 ↔ 거점</b> 간 교체·이동할 수 있습니다. (전투 중에도 교체 가능)</div>
+      </div>      
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend',html);
@@ -2501,8 +2501,7 @@ window.openStandbyListModal=function(standbyOnly){
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
         <div data-standby-modal-title style="color:#a855f7;font-weight:bold;font-size:15px">${only?'유닛 목록':'전체 유닛 목록'}</div>
         <button type="button" class="cb" style="padding:4px 10px;background:#374151;touch-action:manipulation" onclick="closeStandbyListModal()">닫기</button>
-      </div>
-      <div style="font-size:9px;color:#94a3b8;margin-bottom:8px;line-height:1.6;background:#0f1923;border-radius:6px;padding:6px 8px">${only?'대기실 대원만 표시됩니다. 통솔·거점 이동은 상단 <b style="color:#c4b5fd">전체 대원</b>에서 할 수 있습니다.':`<b style="color:#c4b5fd">↑↓ 버튼</b>으로 이동 메뉴 열기 &nbsp;·&nbsp; <b style="color:#c4b5fd">이름 탭</b>으로 기본 능력치 확인<br>카드를 <b style="color:#4ade80">드래그</b>해 통솔 ↔ 대기 ↔ 거점 간 교체 가능 (전투 중에도 교체 가능)`}</div>
+      </div>      
       <div class="standby-sort-bar" style="margin-bottom:8px" data-standby-sort-bar>
         ${mkBtn('tier','등급별 정렬')}
         ${mkBtn('lv','레벨별 정렬')}
@@ -2614,10 +2613,10 @@ const TERRAIN={
 };
 
 const BASE_SKILLS={
-  Guard:  {name:'몸으로 막기', desc:'방어도에 비례해 자신/인근 동료 방어 강화', type:'passive_def',   range:80},
+  Guard:  {name:'몸으로 막기', desc:'방어도에 비례해 자신/인근 동료 방어 강화', type:'passive_def',   range:110},
   Strike: {name:'주먹질',      desc:'근접 강타+15, 숲에서+25',            type:'active_melee',  range:65, cooldown:80},
   Arrow:  {name:'돌팔매',      desc:'돌을 던져 원거리 공격, 산 위+40%',  type:'active_ranged', range:200,cooldown:75},
-  Mend:   {name:'상처 처치',   desc:'가장 체력 낮은 동료 치료',            type:'active_heal',   range:210,cooldown:92},
+  Mend:   {name:'상처 처치',   desc:'가장 체력 낮은 동료 치료',            type:'active_heal',   range:210,cooldown:60},
   Fireball:{name:'화염구',     desc:'강력한 마법 원거리 공격',             type:'active_magic',  range:200,cooldown:120},
   Slash:  {name:'난도질',      desc:'빠른 근접 연속 베기',                 type:'active_warrior',range:70,cooldown:85},
   Revive: {name:'응급 소생',   desc:'5초 내 빈사 동료 소생 (힐러 전용)', type:'active_revive', range:200,cooldown:300},
@@ -3774,11 +3773,22 @@ function chronicleZoneText(name){
 }
 function setChronicleAreaLabel(z){
   const el=document.getElementById('area-label');
-  if(!el||!z)return;
-  const seq=Number((_autoZoneSeq&&_autoZoneSeq[z.id])||0);
-  const seqLabel=seq>0?` ${toRomanNumeral(seq+1)}`:'';
-  el.innerText=chronicleZoneText(z.name)+seqLabel;
-  el.style.color=z.color||'#a855f7';
+  if(!el||!z) return;
+
+  // 1. 현재 구역의 진행 단계를 가져옵니다 (기본값 0)
+  const seq = Number((_autoZoneSeq && _autoZoneSeq[z.id]) || 0);
+
+  // 2. 아이콘 제거 (예: "🌿 근처 들판 I" -> "근처 들판 I")
+  let displayName = chronicleZoneText(z.name);
+
+  // 3. [핵심] 기존 이름 뒤에 붙은 로마자(I, II, III 등)를 깨끗하게 지웁니다.
+  // 이 정규식이 "근처 들판 I"에서 " I"만 쏙 골라 지워줍니다.
+  displayName = displayName.replace(/\s[IVX]+$/g, '').trim();
+
+  // 4. 현재 단계에 맞는 숫자 하나만 새로 붙여서 출력합니다.
+  // toRomanNumeral 함수를 사용하여 중복 없이 깔끔하게 표시됩니다.
+  el.innerText = displayName + " " + toRomanNumeral(seq + 1);
+  el.style.color = z.color || '#a855f7';
 }
 window.tryOpenZoneModal=function(){
   showZoneModal();
@@ -3822,11 +3832,19 @@ function showZoneModal(){
     const lockMsg=!unlock?`<div style="color:#e74c3c;font-size:8px">🔒 총레벨 ${z.minLv} 필요 (현재 ${totalLv})</div>`:'';
     const pz=Math.max(0,Math.min(3,Number(z.unlockPhase)||0));
     const rPartsStr=zoneRewardPreviewLine(z);
-    const pzLabel=phaseLabel[pz]||'집합소';
+    const pzLabel = phaseLabel[pz] || '집합소';
+    
+    // 로마자 중복을 방지하기 위한 변수 생성
+    const seq = (_autoZoneSeq && _autoZoneSeq[z.id]) || 0;
+    const baseName = z.name.replace(/\s[IVX]+$/g, '').trim(); // 기존 이름 뒤의 로마자 제거
+    const displayName = `${baseName} ${toRomanNumeral(seq + 1)}`; // 현재 단계에 맞는 숫자만 부여
+
     return `
-    <div class="zone-btn" onclick="event.stopPropagation(); ${unlock?`selectZone('${z.id}')`:''}"
-      style="border-color:${currentZone.id===z.id?z.color:'#1e2d3d'};opacity:${unlock?1:0.5};cursor:${unlock?'pointer':'not-allowed'}">
-      <div class="zn" style="color:${z.color}"><span style="font-size:10px;color:#9ca3af;margin-right:6px">[${pzLabel}]</span>${z.name}${(_autoZoneSeq&&_autoZoneSeq[z.id])?` ${toRomanNumeral((_autoZoneSeq[z.id]||0)+1)}`:''}</div>
+    <div class="zone-btn" onclick="event.stopPropagation(); ${unlock ? `selectZone('${z.id}')` : ''}"
+      style="border-color:${currentZone.id === z.id ? z.color : '#1e2d3d'};opacity:${unlock ? 1 : 0.5};cursor:${unlock ? 'pointer' : 'not-allowed'}">
+      <div class="zn" style="color:${z.color}">
+        <span style="font-size:10px;color:#9ca3af;margin-right:6px">[${pzLabel}]</span>${displayName}
+      </div>
       <div class="zd">${z.desc}</div>
       <div style="font-size:9px;color:#2ecc71;margin:3px 0">${rPartsStr}</div>
       <div style="font-size:9px;color:#6b7280">${z.finalStage}일차 달성시 거점화 ${cleared}${garr}</div>
@@ -11994,17 +12012,20 @@ function autoStartNextZone(clearedZid) {
     pg.style.display = 'block';
     let sec = 5;
     
+    // [추가] 안내창에 표시될 이름을 상단 바와 동일한 로직으로 생성
+    const displaySeqName = newName.replace(/\s[IVX]+$/g, '').trim() + " " + toRomanNumeral(seq + 1);
+    
     if (window._autoStartInterval) clearInterval(window._autoStartInterval);
     
     window._autoStartInterval = setInterval(() => {
-      // 이미 전투 중이거나 수동으로 껐다면 타이머 즉시 종료
       if (isBattle || pg.style.display === 'none') {
         clearInterval(window._autoStartInterval);
         return;
       }
 
+      // [수정] ${newName} 대신 ${displaySeqName}을 사용하여 중복 방지
       pg.innerHTML = `
-        <div style="color:#fbbf24; font-size:16px; margin-bottom:5px;">⚔️ ${newName} 준비!</div>
+        <div style="color:#fbbf24; font-size:16px; margin-bottom:5px;">⚔️ ${displaySeqName} 준비!</div>
         <div style="font-size:12px;">${sec}초 후 자동 사냥 시작...</div>
       `;
       
