@@ -2617,7 +2617,7 @@ function _buildFeastCards(candidates, sortMode){
     const cost=getFeastCostForUnit(u);
     const costColor=cost<=(res.food||0)?'#fbbf24':'#f87171';
     return `<label class="feast-card" data-uid="${u.id}" style="border:2px solid ${tc};background:#0f1923;border-radius:8px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background 0.12s">
-      <input type="checkbox" name="feast-pick" value="${u.id}" data-cost="${cost}" checked style="width:16px;height:16px;accent-color:#fbbf24;flex-shrink:0">
+      <input type="checkbox" name="feast-pick" value="${u.id}" data-cost="${cost}" ${loc === '통솔' ? 'checked' : ''} style="width:16px;height:16px;accent-color:#fbbf24;flex-shrink:0">
       <div style="min-width:0;flex:1">
         <div style="font-weight:700;color:${tc};font-size:13px">${u.name} <span style="font-size:10px;color:#64748b;font-weight:400">${clsLabel}</span></div>
         <div style="font-size:10px;color:#94a3b8;margin-top:2px">Lv.${u.lv}→${cap} · <span style="color:${locColor}">${loc}</span></div>
