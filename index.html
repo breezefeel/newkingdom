@@ -1898,7 +1898,7 @@ canvas {
         <span style="flex-shrink:0">👥 함께하는 동료 <b id="party-count" style="color:#f1c40f"></b></span>
       </div>
       <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0">
-        <button type="button" id="btn-refugee-feast" onclick="event.stopPropagation();feedRefugeesTrainingFeast()" title="미전직 피난민에게 식량으로 단련을 베풀어 Lv.10까지 끌어올립니다" class="collapse-btn panel-ally-toolbar-btn">🍖 훈련 만찬</button>
+        <button type="button" id="btn-refugee-feast" onclick="event.stopPropagation();feedRefugeesTrainingFeast()" title="미전직 대원에게 식량으로 단련을 베풀어 전투 레벨 Lv.10까지만 끌어올립니다" class="collapse-btn panel-ally-toolbar-btn">🍖 훈련 만찬</button>
         <button type="button" class="collapse-btn panel-ally-toolbar-btn" id="btn-party-sort" onclick="event.stopPropagation();enableAutoSort();">유닛 정렬</button>
         <button type="button" class="collapse-btn panel-ally-toolbar-btn" id="btn-compact" onclick="toggleCompactView()">간략히</button>
       </div>
@@ -2112,19 +2112,20 @@ const HW=Math.sqrt(3)*HR;
 let COLS=20,ROWS=12;
 let CW=Math.ceil(COLS*HW+HW*0.5+10);
 let CH=Math.ceil(ROWS*HR*1.5+HR+10);
-const MOVE_FEEL_MUL=0.77;
+const MOVE_FEEL_MUL=0.5;
 
 // ── Phase 시스템(모듈 1) ──
 const PHASE_CONFIG={
-  0:{name:'떠돌이',   partyLimit:6,  unitMaxLv:30, map:{cols:20,rows:12}},
-  1:{name:'촌장',   partyLimit:8,  unitMaxLv:50, map:{cols:28,rows:16}},
-  2:{name:'영주',   partyLimit:6,  unitMaxLv:70, map:{cols:36,rows:20}},
-  3:{name:'군주',   partyLimit:6,  unitMaxLv:80, map:{cols:45,rows:25}},
+  0:{name:'떠돌이',   partyLimit:6,  unitMaxLv:32, map:{cols:20,rows:12}},
+  1:{name:'촌장',   partyLimit:8,  unitMaxLv:48, map:{cols:28,rows:16}},
+  2:{name:'영주',   partyLimit:6,  unitMaxLv:58, map:{cols:36,rows:20}},
+  3:{name:'군주',   partyLimit:6,  unitMaxLv:60, map:{cols:45,rows:25}},
 };
+const MAX_LEVEL=60;
 const PHASE_UNLOCK_REQ={
-  1:{needClears:1, needTotalLv:30},
-  2:{needClears:3, needTotalLv:120},
-  3:{needClears:6, needTotalLv:260},
+  1:{needClears:1, needTotalLv:24},
+  2:{needClears:3, needTotalLv:96},
+  3:{needClears:6, needTotalLv:210},
 };
 // 도시 단계용 MOBA 전투지 역할 분리
 // - lane: 1:1·2:2 기본 라인전(훈련장)
@@ -2983,17 +2984,19 @@ window.openCemeteryListModal=function(){
 window.refreshCemeteryListModal=function(){
   if(document.getElementById('cemetery-list-modal')) _renderCemeteryListGrids();
 };
-function getCurrentLevelCap(){ return getCurrentPhaseCfg().unitMaxLv||30; }
+function getCurrentLevelCap(){ return Math.min(MAX_LEVEL,getCurrentPhaseCfg().unitMaxLv||30); }
 function getUnitLevelCap(u){
   const phaseCap=getCurrentLevelCap();
-  const tierCap=(u&&u.tierMaxLv)?u.tierMaxLv:phaseCap;
-  // 왕국 단계부터는 등급별 상한(80~84)을 적용
-  if(civPhase>=3) return Math.max(phaseCap,tierCap);
+  const tierRaw=(u&&u.tierMaxLv)?u.tierMaxLv:phaseCap;
+  const tierCap=Math.min(MAX_LEVEL,tierRaw);
+  // 왕국 단계: 등급별 상한과 문명 상한(MAX_LEVEL)을 함께 적용 (레벨 디자인 가이드)
+  if(civPhase>=3) return Math.min(MAX_LEVEL,Math.max(phaseCap,tierCap));
   return Math.min(phaseCap,tierCap);
 }
 function getTotalAllyLevel(){ return allies.reduce((s,a)=>s+Math.max(0,a.lv||0),0); }
 function getClearedZoneCount(){ return Object.values(zoneRecords).filter(r=>r&&r.cleared).length; }
-const PHASE_EXP_MULT=[1.0,1.4,1.9,2.65];
+// Phase별 경험 배율 (성장 시스템 v2: Phase 0 의도적 감속)
+const PHASE_EXP_MULT=[0.76,0.96,1.00,1.05];
 function getPhaseExpMult(){ return PHASE_EXP_MULT[civPhase]||1.0; }
 
 // ══ v10: 경험치·난이도 DB (kingdom_update_guide.md) ══
@@ -3004,6 +3007,325 @@ const ZONE_TO_V10_ID={
   warzone:'magic_01', citadel:'ruin_ancient', void:'border_01',
 };
 function getZoneV10Id(zid){ return ZONE_TO_V10_ID[zid]||'plain_01'; }
+
+// ── v2 ini: 전투지별 타일 건설 5단계(보라 배치 구역) + 15일 후 집합소 연출 ──
+const CONSTRUCTION_TILES={
+  hunt:{3:['ground_clear','wood_pole','small_tent'],7:['wood_palisade','small_field'],11:['small_warehouse','field_draft'],14:['wood_barrack','flag'],15:['completed_farm']},
+  river:{3:['riverside_pole','small_tent'],7:['low_stone_dam','wood_palisade'],11:['water_wheel','stone_warehouse'],14:['stone_reinforce','small_tower'],15:['completed_river_post']},
+  wilds:{3:['forest_clearing','small_tent'],7:['log_palisade','cleared_ground'],11:['lumber_mill','wood_storage'],14:['large_log_house','flag'],15:['completed_forest_base']},
+  bandit:{3:['hill_tent','herb_marker'],7:['wood_fence','herb_garden_start'],11:['potion_workbench','small_garden'],14:['herb_warehouse','simple_lab'],15:['completed_herb_garden']},
+  mine:{3:['mine_entrance','tent'],7:['wood_support','fence'],11:['small_smelter','ore_pile'],14:['stone_reinforce','mine_expansion'],15:['completed_mine']},
+  ruins:{3:['ruin_clear','tent'],7:['wood_stockade','debris_remove'],11:['small_hut','plaza_draft'],14:['stone_base','flag'],15:['rebuilt_plaza']},
+  raider:{3:['mountain_entrance','tent'],7:['wood_support','fence'],11:['blast_furnace_base','ore_warehouse'],14:['stone_reinforce','large_smelter'],15:['completed_iron_mine']},
+  castle:{3:['fort_ruin_clear','tent'],7:['wood_stockade','watch_post'],11:['barrack','supply_warehouse'],14:['wall_restore','tower'],15:['restored_fort']},
+  crystal:{3:['ancient_stone_clean','tent'],7:['fence','foundation_clear'],11:['ancient_building_restore'],14:['magic_circle','stone_structure'],15:['kingdom_foundation']},
+  warzone:{3:['magic_forest_clear','magic_circle'],7:['magic_fence','crystal_stone'],11:['magic_tower_base'],14:['mana_crystal','tower_reinforce'],15:['completed_magic_tower']},
+  citadel:{3:['ruin_clean','tent'],7:['seal_stone','fence'],11:['inner_passage_open'],14:['ancient_tablet','treasure_base'],15:['unsealed_ruin']},
+  void:{3:['fort_ruin_clean','tent'],7:['wall_repair_start'],11:['tower','barrack'],14:['large_wall','flag'],15:['completed_border_fortress']},
+};
+// 집합소.ini — 단계별 타일(중앙 모닥불은 화면에서 별도 강조, 링에는 주변 타일만)
+const HUB_TILES_BY_PHASE=[
+  ['big_campfire','tent_1','tent_2','wood_pole_cluster','simple_fence','ground_clear'],
+  ['big_campfire','small_hut','herb_patch','wood_stack','potion_tent','small_market_stall','farm_plot'],
+  ['big_campfire','stone_building_base','blacksmith_forge','workshop','market_stall_row','stone_road','building_under_construction','fountain'],
+  ['big_campfire','throne_base','castle_wall_segment','tower','grand_flag','magic_tower_small','knight_training_ground','administrative_tent','large_fountain'],
+];
+const SETTLEMENT_HUB_SPEECH=['오늘은 숨부터 고르자.','거점이 생기니 마음이 놓인다.','다음 전장은 더 험할 거다.','상처 괜찮은가?','식량 나눠 먹자.','불 옆이 제일 따뜻하네.','이번엔 무사히 돌아왔군.','밤엔 초병을 세우자.'];
+let _settlementHubTimer=null;
+function getSettlementHubAutoAdvanceMs(zid){
+  const s=(typeof constructionLayoutSeed==='function'?constructionLayoutSeed(String(zid||''),99,14,7):2166136261)|0;
+  return 12000+(Math.abs(s)%3001);
+}
+function constructionKeyToEmoji(key){
+  const k=String(key||'').toLowerCase();
+  if(/tent|hut/.test(k)) return '⛺';
+  if(/campfire|fire/.test(k)) return '🔥';
+  if(/magic|mana|crystal|seal|tablet/.test(k)) return '✨';
+  if(/wall|palisade|stockade|fence|dam|reinforce/.test(k)) return '🧱';
+  if(/tower|turret/.test(k)) return '🗼';
+  if(/flag/.test(k)) return '🚩';
+  if(/field|farm|garden|herb_patch|clear/.test(k)) return '🌾';
+  if(/water|wheel|river/.test(k)) return '💧';
+  if(/warehouse|storage|pile/.test(k)) return '📦';
+  if(/barrack/.test(k)) return '⚔️';
+  if(/smelter|forge|furnace|blast/.test(k)) return '🔥';
+  if(/mine|ore|mountain/.test(k)) return '⛏️';
+  if(/wood|log|lumber|pole/.test(k)) return '🪵';
+  if(/stone|plaza|foundation|throne|castle/.test(k)) return '🏛️';
+  if(/lab|potion|workbench/.test(k)) return '⚗️';
+  if(/ruin|passage|treasure|completed|restore/.test(k)) return '🏚️';
+  if(/forest|clearing|wild/.test(k)) return '🌲';
+  return '🏗️';
+}
+function constructionHubTileEmoji(k){
+  const m={
+    big_campfire:'🔥',tent_1:'⛺',tent_2:'⛺',wood_pole:'🪵',wood_pole_cluster:'🪵',simple_fence:'🪜',ground_clear:'🟫',small_hut:'🛖',
+    herb_patch:'🌿',wood_stack:'🪵',potion_tent:'⚗️',small_market:'🏪',small_market_stall:'🏪',farm_plot:'🌾',
+    stone_building_base:'🏗️',blacksmith:'⚒️',blacksmith_forge:'⚒️',workshop:'🔧',market_stall:'🏬',market_stall_row:'🏬',
+    stone_road:'🛤️',building_under_construction:'🚧',fountain:'⛲',
+    throne_base:'👑',royal_plaza:'🏛️',castle_wall:'🏰',castle_wall_segment:'🧱',tower:'🗼',grand_flag:'🚩',flag_pole:'🚩',
+    magic_tower:'🗼',magic_tower_small:'✨',knight_training_ground:'🏇',administrative_tent:'📜',large_fountain:'⛲',grand_plaza:'🏛️',
+    cemetery:'🪦',garrison_marker:'🚩',grave:'🪦',tomb:'🪦',
+  };
+  return m[k]||constructionKeyToEmoji(k);
+}
+function getConstructionMilestoneKey(day){
+  const d=Math.min(15,Math.max(1,Number(day)||1));
+  if(d<=3) return 3;
+  if(d<=7) return 7;
+  if(d<=11) return 11;
+  if(d<=14) return 14;
+  return 15;
+}
+function getConstructionTilesForZone(zid,day){
+  const map=CONSTRUCTION_TILES[zid]||CONSTRUCTION_TILES.hunt;
+  const mk=getConstructionMilestoneKey(day);
+  const keys=[3,7,11,14,15];
+  let pick=3;
+  for(let i=0;i<keys.length;i++) if(mk>=keys[i]) pick=keys[i];
+  return map[pick]||map[3];
+}
+function _constructionKeyCategory(key){
+  const k=String(key||'').toLowerCase();
+  if(/palisade|stockade|fence|wall_restore|large_wall|magic_fence|wall_repair|foundation_clear/.test(k)) return 'fence';
+  if(/\bwall\b/.test(k)&&!/tower/.test(k)) return 'fence';
+  if(/dam|reinforce|stone_reinforce/.test(k)) return 'stone';
+  if(/tower/.test(k)) return 'tower';
+  if(/flag/.test(k)) return 'flag';
+  if(/pole|support|marker|seal|riverside/.test(k)) return 'pole';
+  if(/tent|hill_tent/.test(k)) return 'tent';
+  if(/field|farm|garden|clearing|ground_clear|cleared|plaza|draft|completed/.test(k)) return 'plot';
+  if(/warehouse|storage|mill|barrack|workbench|lab|smelter|forge|entrance|water_wheel|wheel/.test(k)) return 'shed';
+  return 'decor';
+}
+function _layoutRnd(zid,day,rows,lim){
+  let s=(constructionLayoutSeed(zid,day,rows,lim)|0)>>>0;
+  return function(){s=(s*1664525+1013904223)>>>0;return s/4294967296;};
+}
+function constructionLayoutSeed(zid,day,rows,lim){
+  let h=2166136261;
+  const str=`${zid}|${day}|${rows}|${lim}|v2`;
+  for(let i=0;i<str.length;i++) h=Math.imul(h^str.charCodeAt(i),16777619);
+  return h>>>0;
+}
+function computeConstructionOverlayPlacements(zid,day,rows,lim){
+  const mk=getConstructionMilestoneKey(day);
+  const keys=getConstructionTilesForZone(zid,day)||['plain'];
+  const rnd=_layoutRnd(zid,day,rows,lim);
+  const mr=Math.floor(rows/2), mc=Math.floor(lim/2);
+  const used=new Set();
+  const out=[];
+  const add=(r,c,key,sz)=>{
+    if(r<0||r>=rows||c<0||c>=lim||!key) return;
+    const id=r+','+c;
+    if(used.has(id)) return;
+    used.add(id);
+    out.push({r,c,key,sz:sz||1});
+  };
+  const fillUFence=(fenceKey,dStep,openTop)=>{
+    const dk=Math.max(1,dStep);
+    for(let c=0;c<lim;c+=dk) add(rows-1,c,fenceKey);
+    for(let r=1;r<rows-1;r+=dk){ add(r,0,fenceKey); add(r,lim-1,fenceKey); }
+    if(!openTop) for(let c=dk;c<lim-dk;c+=dk*2) add(0,c,fenceKey);
+    else { add(0,0,fenceKey); add(0,lim-1,fenceKey); }
+  };
+  const fillFullFence=(fenceKey,dStep)=>{
+    for(let c=0;c<lim;c+=dStep) add(0,c,fenceKey);
+    for(let c=0;c<lim;c+=dStep) add(rows-1,c,fenceKey);
+    for(let r=1;r<rows-1;r+=dStep){ add(r,0,fenceKey); add(r,lim-1,fenceKey); }
+  };
+  const spineC=Math.min(lim-2, Math.max(1, Math.floor(lim*0.28)));
+
+  if(zid==='hunt'){
+    const K=(re)=>keys.find(k=>new RegExp(re,'i').test(k))||keys[0];
+    if(mk===3){
+      add(mr,mc,K('tent'),1.12);
+      add(mr-1,mc,K('pole|wood_pole'));
+      add(mr+1,mc,K('pole|wood_pole'));
+      add(mr,Math.max(0,mc-1),K('pole|wood_pole'));
+      add(mr,Math.min(lim-1,mc+1),K('pole|wood_pole'));
+      const g=K('ground|clear');
+      if(g&&g!==K('tent')) add(mr+1,Math.max(0,mc-2),g,0.92);
+    }else if(mk===7){
+      fillUFence(K('palisade|stockade|fence'),2,true);
+      add(mr,mc,K('field|farm|draft|plot|clear|ground'),1.18);
+    }else if(mk===11){
+      fillUFence(K('palisade|stockade|fence'),2,false);
+      add(mr,mc,K('field|draft|farm|plot'),1.05);
+      add(Math.min(rows-2,mr+1),Math.min(lim-2,mc+1),K('warehouse|storage'),1.05);
+      const fd=K('field|draft');
+      if(fd) add(Math.max(1,mr-1),Math.max(0,mc-2),fd,0.95);
+    }else if(mk===14){
+      fillFullFence(K('palisade|stockade|fence'),2);
+      add(0,lim-1,K('barrack|shed|warehouse'),1.05);
+      add(0,mc,K('flag'),1.15);
+      add(mr,mc,K('field|tower|barrack'),1.02);
+    }else{
+      fillFullFence(K('palisade|stockade|fence'),1);
+      add(mr,mc,K('completed|farm|plot'),1.28);
+      const wh=K('warehouse|storage');
+      if(wh) add(rows-2,1,wh,1.05);
+      add(0,mc,K('flag'),1.12);
+    }
+  }else if(zid==='river'){
+    const K=(re)=>keys.find(k=>new RegExp(re,'i').test(k))||keys[0];
+    if(mk===3){
+      add(mr,spineC,K('tent'),1.1);
+      for(let r=0;r<rows;r+=2) add(r,spineC,K('pole|riverside|river'));
+    }else if(mk<=7){
+      for(let r=0;r<rows;r+=1+(mk===3?2:1)) add(r,spineC,K('dam|stone|river|pole'));
+      fillUFence(K('palisade|fence'),3,true);
+      add(mr,Math.min(lim-1,spineC+2),K('field|plot|clear'),1.05);
+    }else if(mk<=11){
+      for(let r=0;r<rows;r++) if(r%2===0) add(r,spineC,K('wheel|water|dam'));
+      add(mr,lim-2,K('warehouse|storage'),1.12);
+      fillUFence(K('palisade|stone|reinforce'),2,false);
+    }else if(mk<=14){
+      for(let r=1;r<rows-1;r+=2) add(r,spineC,K('reinforce|dam|stone'));
+      add(Math.max(1,mr-1),Math.min(lim-1,spineC+1),K('tower'),1.2);
+      fillFullFence(K('palisade|fence|stone'),2);
+    }else{
+      for(let r=0;r<rows;r++) add(r,spineC,K('completed|river|wheel'),1.05);
+      add(mr,lim-2,K('warehouse|completed'),1.15);
+      fillFullFence(K('palisade|stone'),2);
+    }
+  }else if(zid==='wilds'){
+    const K=(re)=>keys.find(k=>new RegExp(re,'i').test(k))||keys[0];
+    if(mk===3){
+      add(mr,mc,K('tent'),1.12);
+      [ [mr-1,mc-1],[mr+1,mc+1],[mr-1,mc+1],[mr+1,mc-1] ].forEach(([r,c])=>add(r,c,K('clearing|forest|ground'),0.95));
+    }else if(mk===7){
+      fillUFence(K('palisade|log|fence'),2,true);
+      add(mr,mc,K('clear|ground|cleared'),1.15);
+    }else if(mk===11){
+      fillUFence(K('palisade|log'),2,false);
+      add(1,lim-2,K('mill|lumber'),1.1);
+      add(2,lim-3,K('storage|wood'),1.02);
+    }else if(mk===14){
+      fillFullFence(K('palisade|log'),2);
+      add(0,Math.floor(lim/2),K('log|house|large'),1.18);
+      add(mr,mc,K('flag'),1.1);
+    }else{
+      fillFullFence(K('palisade|log'),1);
+      add(mr,mc,K('completed|forest|base'),1.25);
+      add(rows-2,1,K('mill|storage'),1.05);
+    }
+  }else if(zid==='bandit'||zid==='mine'||zid==='ruins'||zid==='raider'||zid==='castle'||zid==='crystal'||zid==='warzone'||zid==='citadel'||zid==='void'){
+    const K=(re)=>keys.find(k=>new RegExp(re,'i').test(k))||keys[0];
+    if(mk===3){
+      add(mr,mc,K('tent|hut|clear|entrance|clean'),1.1);
+      const deco=K('marker|pole|support|seal|forest|stone|circle');
+      const offs=[[-1,-1],[1,1],[-1,1],[1,-1]];
+      for(let t=0;t<offs.length;t++){
+        const rr=Math.max(0,Math.min(rows-1,mr+offs[t][0]));
+        const cc=Math.max(0,Math.min(lim-1,mc+offs[t][1]));
+        add(rr,cc,deco,0.9);
+      }
+    }else if(mk===7){
+      fillUFence(K('fence|palisade|stockade|wall|support'),2,true);
+      add(mr,mc,K('garden|field|plaza|draft|ground|start|remove|slope'),1.12);
+    }else if(mk===11){
+      fillUFence(K('fence|palisade|stockade|wall'),2,false);
+      add(1,lim-2,K('workbench|warehouse|mill|smelter|barrack|building|restore|wheel'),1.06);
+      add(mr,mc,K('garden|small|draft|ore|pile|hut'),1.02);
+    }else if(mk===14){
+      fillFullFence(K('fence|palisade|wall|stone|reinforce|magic'),2);
+      add(0,lim-1,K('warehouse|tower|lab|tablet|crystal|mana'),1.06);
+      add(0,mc,K('flag'),1.12);
+    }else{
+      fillFullFence(K('fence|wall|palisade|stone|large'),1);
+      add(mr,mc,K('completed|fort|plaza|mine|garden|tower|ruin|foundation|border|magic'),1.26);
+      const side=K('warehouse|storage|barrack');
+      if(side) add(rows-2,1,side,1.04);
+    }
+  }else{
+    const cap={3:0.34,7:0.48,11:0.54,14:0.57,15:0.62}[mk]||0.45;
+    let budget=Math.max(5,Math.floor(rows*lim*cap));
+    const border=[]; const inner=[];
+    for(let r=0;r<rows;r++)for(let c=0;c<lim;c++){
+      (r===0||r===rows-1||c===0||c===lim-1?border:inner).push({r,c});
+    }
+    for(let i=border.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1));[border[i],border[j]]=[border[j],border[i]]; }
+    for(let i=inner.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1));[inner[i],inner[j]]=[inner[j],inner[i]]; }
+    const fenceKeys=keys.filter(k=>{ const cat=_constructionKeyCategory(k); return cat==='fence'||cat==='stone'; });
+    const fenceK=fenceKeys[0]||keys.find(k=>/palisade|fence|stockade|wall_restore|large_wall|dam|reinforce|magic_fence/.test(k))||keys[0];
+    const tentK=keys.find(k=>_constructionKeyCategory(k)==='tent')||keys[0];
+    const plotK=keys.find(k=>_constructionKeyCategory(k)==='plot')||keys.find(k=>k!==tentK)||tentK;
+    const poleK=keys.find(k=>/pole|marker|support|seal|riverside|entrance/.test(String(k||'')))||keys.find(k=>_constructionKeyCategory(k)==='pole')||tentK;
+    const nonFence=keys.filter(k=>!fenceKeys.includes(k));
+    if(mk===3){
+      add(mr,mc,tentK,1.1);
+      let pn=0;
+      for(const b of border){
+        if(pn>=4) break;
+        add(b.r,b.c,poleK,0.92);
+        pn++; budget--;
+      }
+    }else{
+      if(mk>=7){
+        const step=mk>=14?1:2;
+        for(const b of border){
+          if(budget<=0) break;
+          if((b.r+b.c)%step===0||mk>=15){ add(b.r,b.c,fenceK); budget--; }
+        }
+      }
+      if(mk>=7&&mk<=10) add(mr,mc,plotK,1.1);
+      else if(mk>=11){
+        const major=keys.find(k=>{ const c=_constructionKeyCategory(k); return c==='shed'||c==='tower'; })||plotK;
+        add(mr,mc,mk>=15?plotK:major, mk>=15?1.24:1.06);
+      }
+      let ii=0;
+      while(budget>0&&ii<inner.length){
+        const {r,c}=inner[ii++];
+        if(used.has(r+','+c)) continue;
+        const pool=(nonFence.length?nonFence:keys).filter(k=>k!==tentK||mk>3);
+        const k=pool[ii%Math.max(1,pool.length)]||keys[ii%keys.length];
+        if(mk<7&&rnd()>0.52){ budget--; continue; }
+        add(r,c,k,0.94); budget--;
+      }
+    }
+  }
+  return out;
+}
+function shouldDrawConstructionTiles(){
+  if(!currentZone||!hexMap) return false;
+  if(typeof isCityMobaZone==='function'&&isCityMobaZone()) return false;
+  if(typeof isKingdomRaidZone==='function'&&isKingdomRaidZone()) return false;
+  if(!(isBattle||isPlacing)) return false;
+  return true;
+}
+function drawConstructionProgressOverlay(){
+  if(typeof ctx==='undefined'||!ctx||!hexMap||!currentZone) return;
+  if(typeof shouldDrawConstructionTiles==='function'&&!shouldDrawConstructionTiles()) return;
+  const zid=currentZone.id;
+  const day=(typeof zoneStage!=='undefined'?zoneStage:1);
+  const limit=Math.min(7,typeof COLS!=='undefined'?COLS:7);
+  const rows=(typeof ROWS!=='undefined'?ROWS:0);
+  const hr=Number(typeof HR!=='undefined'?HR:18);
+  const placements=(typeof computeConstructionOverlayPlacements==='function')
+    ?computeConstructionOverlayPlacements(zid,day,rows,limit)
+    :[];
+  if(!placements||!placements.length) return;
+  for(let i=0;i<placements.length;i++){
+    const p=placements[i];
+    const h=hexMap[p.r]&&hexMap[p.r][p.c];
+    if(!h) continue;
+    const em=constructionKeyToEmoji(p.key);
+    const sz=Math.min(1.35,Math.max(0.85,Number(p.sz)||1));
+    const fs=Math.round(14*sz);
+    ctx.save();
+    ctx.font=`${fs}px "Segoe UI Emoji",Segoe UI Symbol,sans-serif`;
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    const dy=hr*(0.26+(sz>1.15?-0.02:0));
+    ctx.fillStyle='rgba(15,23,42,0.5)';
+    ctx.fillText(em,h.x+1,h.y+dy+1);
+    ctx.fillStyle='rgba(248,250,252,0.94)';
+    ctx.fillText(em,h.x,h.y+dy);
+    ctx.restore();
+  }
+}
+
 function getZoneStageDifficultyTier(st){
   const s=Math.min(15,Math.max(1,Number(st)||1));
   return Math.min(5,Math.max(1,Math.ceil(s/3)));
@@ -3017,14 +3339,15 @@ function getV10EnemyFamilyLabel(zid,st){
 }
 
 const EXP_SYSTEM={
+  // 레벨업 필요량은 getNeedExpForLv()가 담당(만령 Lv.60 곡선). 아래는 구버전 참고용.
   levelExpRequirements:[
     0,120,260,430,640,900,1220,1600,2050,2580,3200,3920,4750,5700,6800,8050,
     9500,11100,12900,15000,17400,20100,23200,26800,31000,36000,42000,49000,57000,67000,80000
   ],
   base:{
-    kill:35,
-    bossKillBonus:2.5,
-    dayMultiplier:[1.00,1.08,1.18,1.30,1.45],
+    kill:18,
+    bossKillBonus:2.2,
+    dayMultiplier:[1.00,1.06,1.12,1.20,1.28],
   },
   zoneDifficultyMul:{
     plain_01:{1:1.00,2:1.15,3:1.35,4:1.55,5:1.80},
@@ -3047,43 +3370,106 @@ function calculateExpGain(enemy, zoneId, currentDay, isBoss){
   const zoneMul=(EXP_SYSTEM.zoneDifficultyMul[zKey]&&EXP_SYSTEM.zoneDifficultyMul[zKey][tier])||1.0;
   const dm=EXP_SYSTEM.base.dayMultiplier;
   const dayMul=dm[Math.min(dm.length,Math.max(1,Number(currentDay)||1))-1]||1.0;
-  let exp=EXP_SYSTEM.base.kill+(Number(enemy&&enemy.lv)||5)*8;
+  let exp=EXP_SYSTEM.base.kill+(Number(enemy&&enemy.lv)||5)*5;
   exp*=zoneMul*dayMul;
   if(isBoss) exp*=EXP_SYSTEM.base.bossKillBonus;
   return Math.floor(exp);
 }
 
-function getNeedExpForLv(lv){
-  const req=EXP_SYSTEM.levelExpRequirements;
-  if(Array.isArray(req)&&req.length>1){
-    const L=Math.max(1,Math.floor(lv||1));
-    if(L>=req.length-1){
-      const last=req[req.length-1], prev=req[req.length-2];
-      const step=Math.max(80,Math.floor(last-prev));
-      return Math.max(100,Math.floor(step*Math.pow(1.12,L-(req.length-2))));
-    }
-    const nextTotal=req[L+1]!==undefined?req[L+1]:req[req.length-1];
-    const curTotal=req[L]!==undefined?req[L]:0;
-    return Math.max(100,Math.floor(nextTotal-curTotal));
-  }
-  return Math.max(100,Math.floor(130*Math.pow(1.285,Math.max(0,(lv||1)-1))));
+// ── 게임 레벨 디자인 통합 가이드: 12전투지 권장 레벨(I·II·III) ──
+// 스테이지 1~5 → I, 6~10 → II, 11~15 → III
+const ZONE_GUIDE_REFS={
+  hunt:[3,6,10], river:[13,16,20], wilds:[23,26,30],
+  bandit:[32,34,36], ruins:[37,39,41], mine:[42,43,45],
+  raider:[46,47,48], castle:[49,50,51], crystal:[52,53,55],
+  warzone:[59,60,60], citadel:[60,60,60], void:[60,60,60],
+};
+function getZoneRomanStageIndex(zoneStage){
+  const s=Math.min(15,Math.max(1,Number(zoneStage)||1));
+  if(s<=5) return 1;
+  if(s<=10) return 2;
+  return 3;
 }
-const FIRST_PROMOTION_LV=10;   // 1차 보직 전직
-const SECOND_PROMOTION_LV=30;  // 2차 전문 전직
+function getZoneGuideRefLv(zid,zoneStage){
+  const zid0=zid||(typeof currentZone!=='undefined'&&currentZone&&currentZone.id)||'hunt';
+  const roman=getZoneRomanStageIndex(zoneStage)-1;
+  const row=ZONE_GUIDE_REFS[zid0]||ZONE_GUIDE_REFS.hunt;
+  return row[roman];
+}
+function getRecommendedEnemyLvForZoneStage(zid,zoneStage){
+  const base=getZoneGuideRefLv(zid,zoneStage);
+  return Math.max(1,base+Math.floor(Math.random()*3)-1);
+}
+function _expTuneStepPlain(lv, refLv){
+  const L=Math.floor(Number(lv)||1);
+  const R=Math.floor(Number(refLv)||1);
+  if(L>R) return 0.5;
+  if(L<R) return 1.5;
+  return 1.0;
+}
+function _expTuneLinearClamped(lv, refLv, div){
+  const L=Math.floor(Number(lv)||1);
+  const R=Number(refLv)||1;
+  const d=Math.max(1,Number(div)||10);
+  return Math.min(1.5,Math.max(0.5,1+(R-L)/d));
+}
+/** 가이드 권장 레벨 기반 전투지·일차별 경험 배율 */
+function getZoneLevelExpTuneMult(unitLv,zid,zoneStage){
+  const zid0=zid||(typeof currentZone!=='undefined'&&currentZone&&currentZone.id)||'hunt';
+  const roman=getZoneRomanStageIndex(zoneStage);
+  const lv=Math.floor(Number(unitLv)||1);
+  const row=ZONE_GUIDE_REFS[zid0]||ZONE_GUIDE_REFS.hunt;
+  const ref=row[roman-1];
+  if(zid0==='hunt'||zid0==='river'||zid0==='wilds') return _expTuneStepPlain(lv,ref);
+  if(zid0==='bandit'||zid0==='ruins'||zid0==='mine'||zid0==='raider'||zid0==='castle'||zid0==='crystal'){
+    return _expTuneLinearClamped(lv,ref,10);
+  }
+  if(zid0==='warzone'||zid0==='citadel'||zid0==='void'){
+    let m=_expTuneLinearClamped(lv,ref,10);
+    if(lv>=MAX_LEVEL) m=0.1;
+    return m;
+  }
+  return 1.0;
+}
+/** 유저 vs 몬스터 레벨차에 따른 경험 배율 (가이드 §2) */
+function getLevelDiffExpMult(unitLv,enemyLv){
+  const u=Math.floor(Number(unitLv)||1);
+  const e=Math.floor(Number(enemyLv)||1);
+  const d=u-e;
+  const ad=Math.abs(d);
+  if(ad<=2) return 1.0;
+  if(ad<=4) return 0.70;
+  if(d>=5) return 0.15;
+  if(d<=-5) return 1.50;
+  return 1.0;
+}
+
+function getNeedExpForLv(lv){
+  const L=Math.floor(Number(lv)||1);
+  if(L>=MAX_LEVEL) return 1e9;
+  let step=Math.floor(20*Math.pow(L,2.18)+16*L+50);
+  if(L>=45&&L<=55) step=Math.floor(step*1.42);
+  if(L>55) step=Math.floor(step*1.12);
+  return Math.max(35,step);
+}
+const FIRST_PROMOTION_LV=10;   // 1차 보직 전직 (들판 III 목표)
+const SECOND_PROMOTION_LV=30;  // 2차 전문 전직 (얕은 숲 III 목표)
+/** 훈련 만찬으로 올릴 수 있는 최대 전투 레벨 (미전직 단련 상한) */
+const TRAINING_FEAST_MAX_LV=10;
 /** 만찬으로 연속 전직 모달 시 순차 표시 */
 let _classPromoQueue=[];
 // 훈련 만찬 비용: 대원의 Lv→10까지 필요 EXP 기준 차등 계산
 // Lv1→10 총 EXP(3898) 기준 240 식량
 const _FEAST_FOOD_PER_EXP = 0.061570;
 function getFeastCostForUnit(u){
-  const cap=Math.min(FIRST_PROMOTION_LV, getUnitLevelCap(u)||FIRST_PROMOTION_LV);
+  const cap=Math.min(TRAINING_FEAST_MAX_LV, getUnitLevelCap(u)||TRAINING_FEAST_MAX_LV);
   if(u.lv>=cap) return 0;
   let expNeeded=getNeedExpForLv(u.lv)-(u.exp||0);
   for(let lv=u.lv+1;lv<cap;lv++) expNeeded+=getNeedExpForLv(lv);
   return Math.max(10,Math.round(expNeeded*_FEAST_FOOD_PER_EXP));
 }
 function getRefugeeTrainingFeastCost(){
-  const targets=allies.filter(a=>a&&!a.dead&&!a.permanentlyDead&&a.lv<FIRST_PROMOTION_LV&&a.lv<(getUnitLevelCap(a)||30));
+  const targets=allies.filter(a=>a&&!a.dead&&!a.permanentlyDead&&a.lv<TRAINING_FEAST_MAX_LV&&a.lv<(getUnitLevelCap(a)||30));
   if(!targets.length) return 240;
   return targets.reduce((s,u)=>s+getFeastCostForUnit(u),0);
 }
@@ -3103,7 +3489,7 @@ function _buildFeastCards(candidates, sortMode){
     const loc=u.garrisoned?'거점':u.inStandby?'대기':'통솔';
     const locColor=u.garrisoned?'#f1c40f':u.inStandby?'#a855f7':'#4ade80';
     const defaultChecked=!u.garrisoned&&!u.inStandby;
-    const cap=Math.min(FIRST_PROMOTION_LV, getUnitLevelCap(u)||FIRST_PROMOTION_LV);
+    const cap=Math.min(TRAINING_FEAST_MAX_LV, getUnitLevelCap(u)||TRAINING_FEAST_MAX_LV);
     const pct=Math.min(100,Math.round(((u.exp||0)/(u.maxExp||1))*100));
     const clsLabel=u.classKey||'피난민';
     const cost=getFeastCostForUnit(u);
@@ -3122,9 +3508,9 @@ function _buildFeastCards(candidates, sortMode){
 
 window.openTrainingFeastModal=function(){
   const allAlive=allies.filter(a=>a&&!a.dead&&!a.permanentlyDead);
-  const candidates=allAlive.filter(a=>a.lv<Math.min(FIRST_PROMOTION_LV, getUnitLevelCap(a)||FIRST_PROMOTION_LV));
+  const candidates=allAlive.filter(a=>a.lv<Math.min(TRAINING_FEAST_MAX_LV, getUnitLevelCap(a)||TRAINING_FEAST_MAX_LV));
   if(!candidates.length){
-    alog('🍖 훈련 만찬 대상이 없습니다. (모든 대원이 Lv.'+FIRST_PROMOTION_LV+' 이상)');
+    alog('🍖 훈련 만찬 대상이 없습니다. (모든 대원이 Lv.'+TRAINING_FEAST_MAX_LV+' 이상)');
     return;
   }
   const food=Math.floor(res.food||0);
@@ -3142,7 +3528,7 @@ window.openTrainingFeastModal=function(){
         <button onclick="document.getElementById('feast-modal-overlay').remove()" style="background:none;border:none;color:#64748b;font-size:18px;cursor:pointer;padding:2px 6px">✕</button>
       </div>
       <div style="font-size:11px;color:#94a3b8;line-height:1.5">
-        초대할 대원을 선택하세요. 보유: <b style="color:#4ade80">${food}🍖</b> · 각 대원의 비용은 Lv.${FIRST_PROMOTION_LV}까지 필요 경험치 기준
+        초대할 대원을 선택하세요. 보유: <b style="color:#4ade80">${food}🍖</b> · 각 대원의 비용은 Lv.${TRAINING_FEAST_MAX_LV}까지 필요 경험치 기준
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
         <button id="feast-sort-tier" onclick="window._feastResort('tier')" style="font-size:10px;padding:3px 8px;border-radius:4px;border:1px solid ${_feastSortMode==='tier'?'#fbbf24':'#334155'};background:${_feastSortMode==='tier'?'#3d2a00':'#1e293b'};color:${_feastSortMode==='tier'?'#fbbf24':'#e2e8f0'};cursor:pointer;font-weight:${_feastSortMode==='tier'?'700':'400'}">등급별 정렬</button>
@@ -3202,7 +3588,7 @@ window.confirmTrainingFeast=function(){
   ids.forEach(id=>{
     const u=allies.find(a=>a&&a.id===id);
     if(!u||u.dead||u.permanentlyDead) return;
-    gainExp(u,999999,{applyRoleBias:false,feastSilent:true,suppressPromotionModal:true,capAtFirstPromotion:true});
+    gainExp(u,999999,{applyRoleBias:false,feastSilent:true,suppressPromotionModal:true,capAtFirstPromotion:true,feastMaxLv:TRAINING_FEAST_MAX_LV,skipZoneLevelTune:true,skipEnemyDiffTune:true});
     leveled++;
   });
   const qAdded=((_classPromoQueue&&_classPromoQueue.length)||0)-qBefore;
@@ -3224,7 +3610,7 @@ function drainClassPromoQueueAfterFlow(){
   const next=_classPromoQueue.shift();
   if(next&&typeof showClassModal==='function') setTimeout(()=>showClassModal(next),260);
 }
-const SLOT4_UNLOCK_LV=40;      // 4번째 스킬 슬롯 해금
+const SLOT4_UNLOCK_LV=45;      // 4번째 스킬 슬롯·파티 시스템 타이밍 (성장 v2)
 function canUnitPromote(u){
   if(!u) return false;
   return (u.lv>=FIRST_PROMOTION_LV&&!u.classKey) || (u.lv>=SECOND_PROMOTION_LV&&u.classKey&&!u.class10Key);
@@ -3579,37 +3965,37 @@ const ZONES={
            desc:'초원의 초식동물. 집합소 전투지 — 식량·나무·돌·금.', finalStage:15, minLv:0, unlockPhase:0},
   river:  {id:'river',  name:'🌊 얕은 강가', diffTier:1, conceptPhase:0, diffMult:1.0, tier:'hunt',   terrain:'hunt',  color:'#2d5a7a',
            rFood:4, rWood:3, rStone:1, rGold:1, rIron:0, rHerb:0, rDiamond:0,
-           desc:'강가의 초식동물. 식량·나무·돌·금화.', finalStage:15, minLv:0, unlockPhase:0},
+           desc:'강가의 초식동물. 식량·나무·돌·금화.', finalStage:15, minLv:15, unlockPhase:0},
   wilds:  {id:'wilds',  name:'🌲 얕은 숲', diffTier:1, conceptPhase:0, diffMult:1.0, tier:'pred',   terrain:'pred',  color:'#a05a00',
            rFood:3, rWood:4, rStone:2, rGold:1, rIron:0, rHerb:0, rDiamond:0,
-           desc:'맹수들의 영역. 나무·돌·식량·금화.', finalStage:15, minLv:3, unlockPhase:0},
+           desc:'맹수들의 영역. 나무·돌·식량·금화.', finalStage:15, minLv:21, unlockPhase:0},
   bandit: {id:'bandit', name:'⚔️ 깊은 들판', diffTier:1, conceptPhase:1, diffMult:1.0, tier:'bandit', terrain:'bandit',color:'#7b1d1d',
            rFood:0, rWood:0, rStone:0, rGold:2, rIron:0, rCopper:2, rHerb:1, rDiamond:0, rWarSupply:0, rManaCrystal:0,
-           desc:'산적의 소굴. 마을 전투지 — 약초·구리·금화.', finalStage:15, minLv:5, unlockPhase:1},
+           desc:'산적의 소굴. 마을 전투지 — 약초·구리·금화.', finalStage:15, minLv:36, unlockPhase:1},
   ruins:  {id:'ruins',  name:'🌫 안개 강변', diffTier:1, conceptPhase:1, diffMult:1.0, tier:'raider', terrain:'raider',color:'#7c6020',
            rFood:0, rWood:0, rStone:0, rGold:3, rIron:0, rCopper:3, rHerb:2, rDiamond:0, rWarSupply:0, rManaCrystal:0,
-           desc:'폐허의 약탈자. 마을 전투지 — 약초·구리·금화.', finalStage:15, minLv:8, unlockPhase:1},
+           desc:'폐허의 약탈자. 마을 전투지 — 약초·구리·금화.', finalStage:15, minLv:48, unlockPhase:1},
   mine:   {id:'mine',   name:'🌲 울창한 숲', diffTier:1, conceptPhase:1, diffMult:1.0, tier:'bandit', terrain:'bandit',color:'#546e7a',
            rFood:0, rWood:0, rStone:0, rGold:2, rIron:0, rCopper:6, rHerb:1, rDiamond:0, rWarSupply:0, rManaCrystal:0,
-           desc:'광산 괴물. 마을 전투지 — 약초·구리·금화.', finalStage:15, minLv:8, unlockPhase:1},
+           desc:'광산 괴물. 마을 전투지 — 약초·구리·금화.', finalStage:15, minLv:63, unlockPhase:1},
   raider: {id:'raider', name:'🏚 폐허 들판', diffTier:1, conceptPhase:2, diffMult:1.0, tier:'army',   terrain:'army',  color:'#c0392b',
            rFood:0, rWood:0, rStone:0, rGold:4, rIron:2, rHerb:0, rCopper:0, rDiamond:0, rWarSupply:1, rManaCrystal:0,
-           desc:'약탈자 군단. 도시 전투지 — 강철·전쟁보급품·금화.', finalStage:15, minLv:12, unlockPhase:2},
+           desc:'약탈자 군단. 도시 전투지 — 강철·전쟁보급품·금화.', finalStage:15, minLv:84, unlockPhase:2},
   castle: {id:'castle', name:'⛰ 산적 협곡', diffTier:1, conceptPhase:2, diffMult:1.0, tier:'army',   terrain:'raider',color:'#6c2899',
            rFood:0, rWood:0, rStone:0, rGold:6, rIron:3, rHerb:0, rCopper:0, rDiamond:0, rWarSupply:2, rManaCrystal:0,
-           desc:'적 세력의 요새. 도시 전투지 — 강철·전쟁보급품·금화.', finalStage:15, minLv:15, unlockPhase:2},
+           desc:'적 세력의 요새. 도시 전투지 — 강철·전쟁보급품·금화.', finalStage:15, minLv:99, unlockPhase:2},
   crystal:{id:'crystal',name:'🏰 고원 요새', diffTier:1, conceptPhase:2, diffMult:1.0, tier:'army',   terrain:'pred',  color:'#00acc1',
            rFood:0, rWood:0, rStone:0, rGold:2, rIron:3, rHerb:0, rCopper:0, rDiamond:0, rWarSupply:4, rManaCrystal:0,
-           desc:'마력 요새. 도시 전투지 — 강철·전쟁보급품·금화.', finalStage:15, minLv:18, unlockPhase:2},
+           desc:'마력 요새. 도시 전투지 — 강철·전쟁보급품·금화.', finalStage:15, minLv:117, unlockPhase:2},
   warzone:{id:'warzone',name:'☠️ 황폐한 평야', diffTier:1, conceptPhase:3, diffMult:1.0, tier:'army',  terrain:'army',  color:'#8b1a1a',
            rFood:0, rWood:0, rStone:0, rGold:6, rIron:0, rHerb:0, rCopper:0, rDiamond:8, rWarSupply:0, rManaCrystal:2,
-           desc:'왕국 주변 전투지. 다이아몬드·마력결정·금화.', finalStage:15, minLv:22, unlockPhase:3},
+           desc:'왕국 주변 전투지. 다이아몬드·마력결정·금화.', finalStage:15, minLv:138, unlockPhase:3},
   citadel:{id:'citadel',name:'🩸 저주받은 강곡', diffTier:1, conceptPhase:3, diffMult:1.0, tier:'army',terrain:'raider',color:'#b7950b',
            rFood:0, rWood:0, rStone:0, rGold:6, rIron:0, rHerb:0, rCopper:0, rDiamond:10, rWarSupply:0, rManaCrystal:3,
-           desc:'왕국 주변 전투지. 다이아몬드·마력결정·금화.', finalStage:15, minLv:25, unlockPhase:3},
+           desc:'왕국 주변 전투지. 다이아몬드·마력결정·금화.', finalStage:15, minLv:156, unlockPhase:3},
   void:   {id:'void',   name:'🌌 영원의 숲', diffTier:1, conceptPhase:3, diffMult:1.0, tier:'army',   terrain:'army',  color:'#a855f7',
            rFood:0, rWood:0, rStone:0, rGold:7, rIron:0, rHerb:0, rCopper:0, rDiamond:12, rWarSupply:0, rManaCrystal:4,
-           desc:'왕국 주변 전투지. 다이아몬드·마력결정·금화.', finalStage:15, minLv:28, unlockPhase:3},
+           desc:'왕국 주변 전투지. 다이아몬드·마력결정·금화.', finalStage:15, minLv:174, unlockPhase:3},
 };
 Object.keys(ZONES).forEach(k=>{
   const z=ZONES[k];
@@ -4500,6 +4886,10 @@ window.manualSaveGameState=function(){ return saveGameState(false); };
 window.upgradeSkillTreeSkill=upgradeSkillTreeSkill;
 window.getSkillTreeKeyForUnit=getSkillTreeKeyForUnit;
 window.calculateExpGain=calculateExpGain;
+window.getZoneLevelExpTuneMult=getZoneLevelExpTuneMult;
+window.getZoneGuideRefLv=getZoneGuideRefLv;
+window.getRecommendedEnemyLvForZoneStage=getRecommendedEnemyLvForZoneStage;
+window.getLevelDiffExpMult=getLevelDiffExpMult;
 window.getZoneV10Id=getZoneV10Id;
 window.getPassiveTreeCombatMods=getPassiveTreeCombatMods;
 window.getZoneStageDifficultyTier=getZoneStageDifficultyTier;
@@ -4507,6 +4897,11 @@ function normalizeLoadedAllies(arr){
   const list=Array.isArray(arr)?arr:[];
   list.forEach(a=>{
     if(!a)return;
+    if((a.lv||1)>MAX_LEVEL) a.lv=MAX_LEVEL;
+    if(typeof getUnitLevelCap==='function'){
+      const cap=getUnitLevelCap(a);
+      if((a.lv||1)>cap) a.lv=Math.max(1,cap);
+    }
     ensureUnitGear(a);
     if(!a.activeSkills)a.activeSkills=['Arrow'];
     if(!a.availableSkills)a.availableSkills=['Guard','Arrow','Mend'];
@@ -4514,7 +4909,8 @@ function normalizeLoadedAllies(arr){
     if(typeof a.bonusMagic!=='number'||Number.isNaN(a.bonusMagic))a.bonusMagic=0;
     if(!a.skillUse)a.skillUse={};
     if(!a.skillLv)a.skillLv={};
-    if(!a.maxExp||a.maxExp<=0)a.maxExp=getNeedExpForLv(Math.max(1,a.lv||1));
+    a.maxExp=getNeedExpForLv(Math.max(1,a.lv||1));
+    if((a.exp||0)>a.maxExp) a.exp=Math.min(a.exp||0,a.maxExp-1);
     if(typeof a.atkCd!=='number')a.atkCd=0;
     if(typeof a.mainSkillCd!=='number')a.mainSkillCd=0;
     if(typeof a.mainSkillMaxCd!=='number'||a.mainSkillMaxCd<=0)a.mainSkillMaxCd=120;
@@ -5032,6 +5428,376 @@ function isCrystalTwoLaneZone(){
   return !!(currentZone && currentZone.id==='crystal');
 }
 
+// ══ 지형 로직.ini: 높이맵(FBM) + 구역별 강제/연결성 보정 ══
+function _terrainMat(rows,cols,fill){
+  const t=typeof fill==='string'?fill:'plain';
+  const m=[];
+  for(let r=0;r<rows;r++){
+    m[r]=[];
+    for(let c=0;c<cols;c++) m[r][c]=t;
+  }
+  return m;
+}
+function buildTerrainHeightMap(rows,cols,noiseScale,octaves,rndFn){
+  // noiseScale이 작을수록 저주파(완만한 언덕) — ini의 plain_01 등과 동일 컨셉
+  const k=Math.max(0.025,noiseScale)*4;
+  const gw=Math.max(3,Math.ceil(cols*k));
+  const gh=Math.max(3,Math.ceil(rows*k));
+  const pts=[];
+  for(let i=0;i<=gh;i++){
+    pts[i]=[];
+    for(let j=0;j<=gw;j++) pts[i][j]=rndFn();
+  }
+  const H=[];
+  for(let r=0;r<rows;r++){
+    H[r]=[];
+    for(let c=0;c<cols;c++){
+      let sum=0,w=0;
+      for(let o=0;o<Math.max(1,octaves);o++){
+        const sc=Math.pow(2,o);
+        const gx=((c+0.5)*sc/cols)*(gw-0.001);
+        const gy=((r+0.5)*sc/rows)*(gh-0.001);
+        const x0=Math.min(gw-1,Math.floor(gx)), y0=Math.min(gh-1,Math.floor(gy));
+        const tx=gx-x0, ty=gy-y0;
+        const x1=Math.min(gw,x0+1), y1=Math.min(gh,y0+1);
+        const z=(pts[y0][x0]*(1-tx)+pts[y0][x1]*tx)*(1-ty)+(pts[y1][x0]*(1-tx)+pts[y1][x1]*tx)*ty;
+        const wt=1/Math.pow(2,o);
+        sum+=z*wt; w+=wt;
+      }
+      H[r][c]=sum/w;
+    }
+  }
+  return H;
+}
+function terrainRatio(types,rows,cols,pred){
+  let n=0,t=0;
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    t++;
+    if(pred(types[r][c])) n++;
+  }
+  return t?n/t:0;
+}
+function enforceMinRatio(types,rows,cols,target,pred,minRatio,rndFn){
+  let r0=terrainRatio(types,rows,cols,pred);
+  if(r0>=minRatio) return;
+  const need=Math.ceil(minRatio*rows*cols)-Math.floor(r0*rows*cols);
+  const cand=[];
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    if(!pred(types[r][c])) cand.push({r,c,w:rndFn()});
+  }
+  cand.sort((a,b)=>a.w-b.w);
+  for(let i=0;i<Math.min(need,cand.length);i++) types[cand[i].r][cand[i].c]=target;
+}
+function enforceMaxRatio(types,rows,cols,fromPred,toType,maxRatio,rndFn){
+  let r0=terrainRatio(types,rows,cols,fromPred);
+  if(r0<=maxRatio) return;
+  const drop=Math.floor((r0-maxRatio)*rows*cols);
+  const cand=[];
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    if(fromPred(types[r][c])) cand.push({r,c,w:rndFn()});
+  }
+  cand.sort((a,b)=>b.w-a.w);
+  for(let i=0;i<Math.min(drop,cand.length);i++) types[cand[i].r][cand[i].c]=toType;
+}
+function forestClusterPass(types,rows,cols,rndFn,passes){
+  const neigh=[[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]];
+  for(let p=0;p<passes;p++){
+    const next=types.map(row=>row.slice());
+    for(let r=1;r<rows-1;r++){
+      for(let c=1;c<cols-1;c++){
+        if(types[r][c]!=='plain') continue;
+        let f=0;
+        for(const [dr,dc] of neigh){
+          const t=types[r+dr]&&types[r+dr][c+dc];
+          if(t==='forest') f++;
+        }
+        if(f>=4&&rndFn()<0.55) next[r][c]='forest';
+      }
+    }
+    for(let r=0;r<rows;r++) types[r]=next[r];
+  }
+}
+function carveRiverFlow(types,H,rows,cols,rndFn,opts){
+  const minC=Math.max(4,Math.floor(cols*0.28));
+  let c=Math.floor(cols*(0.42+rndFn()*0.22));
+  c=Math.max(minC,Math.min(cols-2,c));
+  const width=Math.max(1,Math.min(2,opts&&opts.width||2));
+  for(let r=0;r<rows;r++){
+    types[r][c]='river';
+    if(width>=2&&c+1<cols) types[r][c+1]='river';
+    if(r>=rows-1) break;
+    const cand=[c-1,c,c+1].filter(x=>x>=minC&&x<cols);
+    let best=c,bh=9;
+    for(const x of cand){
+      const h=H[r+1]&&H[r+1][x]!=null?H[r+1][x]:0.5;
+      if(h<bh||(h===bh&&rndFn()<0.5)){bh=h;best=x;}
+    }
+    c=best;
+  }
+  const bankR=Math.min(0.28,opts&&opts.stoneBankRatio||0.25);
+  for(let r=0;r<rows;r++)for(let cc=0;cc<cols;cc++){
+    if(types[r][cc]!=='river') continue;
+    for(const [dr,dc] of [[-1,0],[1,0],[0,-1],[0,1]]){
+      const nr=r+dr,nc=cc+dc;
+      if(nr<0||nr>=rows||nc<0||nc>=cols) continue;
+      if(types[nr][nc]==='river') continue;
+      if(nc<4) continue;
+      if(types[nr][nc]==='plain'&&rndFn()<bankR) types[nr][nc]='hill';
+    }
+  }
+}
+function shortRiverSnippets(types,rows,cols,rndFn,count,maxLen){
+  for(let k=0;k<count;k++){
+    const c=4+Math.floor(rndFn()*(cols-8));
+    const len=2+Math.floor(rndFn()*maxLen);
+    const r0=1+Math.floor(rndFn()*(rows-len-2));
+    for(let i=0;i<len;i++) if(types[r0+i][c]==='plain') types[r0+i][c]='river';
+  }
+}
+function fillFixedHuntTemplateTypes(types,rows,cols,centerCol,rndFn){
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const v=rndFn();
+      const upperBand=r<=Math.floor(rows*0.30);
+      const lowerBand=r>=Math.floor(rows*0.70);
+      let tp='plain';
+      if(c===centerCol&&r>=1&&r<=rows-2) tp=(r===rows-2)?'forest':'river';
+      else if(r===Math.floor(rows*0.25)&&c===centerCol+1) tp='river';
+      else if(r===Math.floor(rows*0.58)&&c===centerCol-1) tp='river';
+      else if(r===Math.floor(rows*0.80)&&c===centerCol+1) tp='river';
+      else if(r===Math.floor(rows*0.42)&&c===centerCol-1) tp='river';
+      else if(r===Math.floor(rows*0.65)&&c===centerCol+2) tp='river';
+      else if((c===centerCol-3&&r>=2&&r<=4)||(c===centerCol+3&&r>=rows-5&&r<=rows-3)) tp='hill';
+      else if((r===2&&c>=centerCol+1&&c<=centerCol+3)||(r===rows-3&&c>=centerCol-3&&c<=centerCol-1)) tp='hill';
+      else if(c>=5&&c<=cols-6&&((upperBand&&v<0.16)||(lowerBand&&v<0.18)||v<0.09)) tp='forest';
+      else if(c<4) tp='plain';
+      types[r][c]=tp;
+    }
+  }
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    if((r===Math.floor(rows*0.33)||r===Math.floor(rows*0.58))&&(c===centerCol||c===centerCol+1)) types[r][c]='plain';
+  }
+}
+function generateTerrainTypesForZone(zid,tier,fixedHuntTemplate,rows,cols,centerCol,rndFn,civPhase){
+  const types=_terrainMat(rows,cols,'plain');
+  const phaseDensity=[0.00,0.04,0.08,0.12][civPhase]||0;
+
+  if(tier==='hunt'&&fixedHuntTemplate){
+    fillFixedHuntTemplateTypes(types,rows,cols,centerCol,rndFn);
+    return types;
+  }
+
+  if(zid==='hunt'){
+    const H=buildTerrainHeightMap(rows,cols,0.07,2,rndFn);
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      if(c<4){ types[r][c]='plain'; continue; }
+      const h=H[r][c];
+      if(h<0.52) types[r][c]='plain';
+      else if(h<0.78) types[r][c]=rndFn()<0.55?'forest':'plain';
+      else types[r][c]=rndFn()<0.35?'hill':'plain';
+    }
+    shortRiverSnippets(types,rows,cols,rndFn,1+Math.floor(rndFn()*2),4);
+    forestClusterPass(types,rows,cols,rndFn,2);
+    enforceMinRatio(types,rows,cols,'plain',t=>t==='plain',0.70,rndFn);
+    enforceMaxRatio(types,rows,cols,t=>t==='forest','plain',0.22,rndFn);
+  }else if(zid==='river'){
+    const H=buildTerrainHeightMap(rows,cols,0.11,3,rndFn);
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      if(c<4) types[r][c]='plain';
+      else types[r][c]=H[r][c]<0.48?'plain':'hill';
+    }
+    carveRiverFlow(types,H,rows,cols,rndFn,{width:2,stoneBankRatio:0.26});
+  }else if(zid==='wilds'){
+    const H=buildTerrainHeightMap(rows,cols,0.14,4,rndFn);
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      if(c<=3){ types[r][c]='plain'; continue; }
+      const h=H[r][c];
+      if(h<0.22) types[r][c]='plain';
+      else if(h<0.62) types[r][c]='forest';
+      else if(h<0.82) types[r][c]=rndFn()<0.7?'forest':'hill';
+      else types[r][c]=rndFn()<0.45?'mountain':'hill';
+    }
+    forestClusterPass(types,rows,cols,rndFn,3);
+    enforceMinRatio(types,rows,cols,'forest',t=>t==='forest',0.60,rndFn);
+  }else if(zid==='bandit'){
+    const H=buildTerrainHeightMap(rows,cols,0.12,3,rndFn);
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      if(c<3) types[r][c]='plain';
+      else{
+        const h=H[r][c];
+        if(h>0.48) types[r][c]=rndFn()<0.88?'hill':'ruins';
+        else if(h>0.32) types[r][c]=rndFn()<0.15?'forest':'plain';
+        else types[r][c]='plain';
+      }
+    }
+    enforceMinRatio(types,rows,cols,'hill',t=>t==='hill'||t==='mountain',0.50,rndFn);
+  }else if(zid==='mine'){
+    const H=buildTerrainHeightMap(rows,cols,0.10,2,rndFn);
+    const pathC=Math.max(4,Math.min(cols-5,centerCol+(rndFn()>0.5?1:-1)));
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      if(c<=2) types[r][c]='plain';
+      else if(c===pathC) types[r][c]=(r+rndFn()*3)%4<1?'cave':'mountain';
+      else if(Math.abs(c-pathC)===1) types[r][c]=H[r][c]>0.55?'mountain':'hill';
+      else if(c<pathC) types[r][c]=rndFn()<0.12?'ruins':'plain';
+      else types[r][c]=H[r][c]>0.5?'mountain':rndFn()<0.2?'ruins':'forest';
+    }
+    types[Math.floor(rows/2)][pathC]='cave';
+  }else if(zid==='ruins'){
+    const H=buildTerrainHeightMap(rows,cols,0.11,3,rndFn);
+    const pc=Math.floor(cols*0.5), pr=Math.floor(rows*0.5);
+    const plazaR=Math.max(2,Math.floor(rows*0.22));
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      if(c<3) types[r][c]='plain';
+      else if(Math.abs(c-pc)<=2&&Math.abs(r-pr)<=plazaR) types[r][c]='plain';
+      else if(H[r][c]>0.62) types[r][c]=rndFn()<0.55?'ruins':'mountain';
+      else if(H[r][c]>0.38) types[r][c]=rndFn()<0.65?'ruins':(rndFn()<0.35?'forest':'hill');
+      else types[r][c]=rndFn()<0.25?'ruins':'plain';
+    }
+    enforceMinRatio(types,rows,cols,'ruins',t=>t==='ruins',0.28,rndFn);
+  }else if(zid==='raider'){
+    const H=buildTerrainHeightMap(rows,cols,0.13,4,rndFn);
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      if(c<3) types[r][c]='plain';
+      else if(H[r][c]>0.72) types[r][c]=rndFn()<0.5?'mountain':'cave';
+      else if(H[r][c]>0.48) types[r][c]=rndFn()<0.4?'mountain':'hill';
+      else if(H[r][c]>0.28) types[r][c]=rndFn()<0.35?'ruins':'forest';
+      else types[r][c]='plain';
+    }
+  }else if(zid==='castle'){
+    const H=buildTerrainHeightMap(rows,cols,0.11,3,rndFn);
+    const wallC=[Math.floor(cols*0.35),Math.floor(cols*0.62)];
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      if(c<3) types[r][c]='plain';
+      else if(wallC.some(w=>Math.abs(c-w)<=1)&&rndFn()<0.62) types[r][c]=rndFn()<0.55?'ruins':'mountain';
+      else if(H[r][c]>0.65) types[r][c]='mountain';
+      else if(H[r][c]>0.4) types[r][c]=rndFn()<0.45?'ruins':'hill';
+      else types[r][c]=rndFn()<0.2?'forest':'plain';
+    }
+    for(const wc of wallC) for(let r=2;r<rows-2;r+=3) if(types[r][wc]) types[r][wc]='plain';
+  }else if(zid==='crystal'){
+    const H=buildTerrainHeightMap(rows,cols,0.10,4,rndFn);
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      if(c<3) types[r][c]='plain';
+      else if(H[r][c]>0.7) types[r][c]=rndFn()<0.5?'ruins':'mountain';
+      else if(H[r][c]>0.45) types[r][c]=rndFn()<0.4?'ruins':'forest';
+      else types[r][c]=rndFn()<0.15?'hill':'plain';
+    }
+  }else if(zid==='warzone'){
+    const H=buildTerrainHeightMap(rows,cols,0.16,4,rndFn);
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      if(c<3) types[r][c]='plain';
+      else if(H[r][c]>0.55) types[r][c]=rndFn()<0.55?'forest':'cave';
+      else if(H[r][c]>0.28) types[r][c]=rndFn()<0.7?'forest':'ruins';
+      else types[r][c]=rndFn()<0.25?'cave':'plain';
+    }
+    forestClusterPass(types,rows,cols,rndFn,2);
+  }else if(zid==='citadel'){
+    const H=buildTerrainHeightMap(rows,cols,0.14,4,rndFn);
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      if(c<3) types[r][c]='plain';
+      else if(H[r][c]>0.68) types[r][c]=rndFn()<0.6?'mountain':'cave';
+      else if(H[r][c]>0.4) types[r][c]=rndFn()<0.55?'ruins':'hill';
+      else types[r][c]=rndFn()<0.22?'ruins':'plain';
+    }
+  }else if(zid==='void'){
+    const H=buildTerrainHeightMap(rows,cols,0.09,2,rndFn);
+    const bands=[Math.floor(rows*0.22),Math.floor(rows*0.78)];
+    const gateC=centerCol;
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      if(c<3) types[r][c]='plain';
+      else if(bands.some(b=>Math.abs(r-b)<=1)&&c!==gateC) types[r][c]=rndFn()<0.7?'mountain':'ruins';
+      else if(Math.abs(c-gateC)<=2&&r>1&&r<rows-2) types[r][c]='plain';
+      else if(H[r][c]>0.55) types[r][c]=rndFn()<0.45?'ruins':'hill';
+      else types[r][c]='plain';
+    }
+  }else if(tier==='hunt'){
+    const H=buildTerrainHeightMap(rows,cols,0.09,2,rndFn);
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      if(c<4) types[r][c]='plain';
+      else if(c===centerCol&&r>=Math.floor(rows*0.25)&&r<=Math.floor(rows*0.75)&&rndFn()<0.62) types[r][c]='river';
+      else if(c===centerCol+1&&r===Math.floor(rows*0.38)&&rndFn()<0.45) types[r][c]='river';
+      else if(c===centerCol-1&&r===Math.floor(rows*0.62)&&rndFn()<0.45) types[r][c]='river';
+      else if((c===centerCol-4&&r>=2&&r<=4)||(c===centerCol+4&&r>=rows-5&&r<=rows-3)) types[r][c]='hill';
+      else if(rndFn()<0.18) types[r][c]='forest';
+      else if(rndFn()<0.27) types[r][c]='hill';
+      else types[r][c]='plain';
+    }
+  }else if(tier==='pred'){
+    const v=()=>rndFn();
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      let tp='plain';
+      const vv=v(),v2=v();
+      if(c>=1&&c<=3) tp='plain';
+      else if(c>=4&&c<=7&&vv<0.55) tp='forest';
+      else if(c>=8&&c<=11){
+        if(vv<0.20) tp='mountain';
+        else if(vv<0.55) tp='forest';
+        else if(vv<0.65) tp='hill';
+      }else if(c>=12&&c<=15&&vv<0.40) tp='forest';
+      else if(c>=16) tp=(vv<0.3)?'hill':'plain';
+      if(c===10&&(r===2||r===3||r===8||r===9)) tp='mountain';
+      if(c===11&&(r===5||r===6)) tp='mountain';
+      types[r][c]=tp;
+    }
+  }else if(tier==='bandit'){
+    const v=()=>rndFn();
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      let tp='plain';
+      const vv=v();
+      if(c>=1&&c<=3) tp='plain';
+      else if(c>=4&&c<=8){
+        if(vv<0.45) tp='desert';
+        else if(vv<0.60) tp='hill';
+        else if(vv<0.68) tp='mountain';
+      }else if(c>=9&&c<=13){
+        if(vv<0.30) tp='mountain';
+        else if(vv<0.55) tp='desert';
+        else if(vv<0.65) tp='ruins';
+      }else if(c>=14) tp=(vv<0.4)?'desert':'plain';
+      if(c===8&&r>=3&&r<=8) tp='river';
+      if(c===9&&(r===3||r===8)) tp='river';
+      types[r][c]=tp;
+    }
+  }else{
+    const v=()=>rndFn();
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      let tp='plain';
+      const vv=v();
+      if(c>=1&&c<=2) tp='plain';
+      else if(c>=3&&c<=6){
+        if(vv<0.30) tp='ruins';
+        else if(vv<0.45) tp='forest';
+        else if(vv<0.55) tp='hill';
+      }else if(c>=7&&c<=12){
+        if(vv<0.25) tp='mountain';
+        else if(vv<0.40) tp='ruins';
+        else if(vv<0.55) tp='forest';
+        else if(vv<0.65) tp='hill';
+      }else if(c>=13) tp=(vv<0.35)?'hill':'plain';
+      if(c===9&&r>=2&&r<=4) tp='river';
+      if(c===10&&r>=7&&r<=9) tp='river';
+      types[r][c]=tp;
+    }
+  }
+
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    const v=rndFn(),v2=rndFn();
+    if(civPhase>=1&&c>3&&c<cols-2){
+      const huntStyle=(zid==='hunt'||tier==='hunt')&&zid!=='river';
+      if(huntStyle){
+        if(types[r][c]==='plain'&&v2<phaseDensity*0.45) types[r][c]='forest';
+        if(types[r][c]==='plain'&&v>0.93) types[r][c]='hill';
+        if(civPhase>=2&&types[r][c]==='plain'&&v2>0.975&&Math.abs(c-centerCol)<=3) types[r][c]='river';
+      }else{
+        if(types[r][c]==='plain'&&v2<phaseDensity*0.6) types[r][c]='forest';
+        if((types[r][c]==='plain'||types[r][c]==='hill')&&v<phaseDensity*0.35) types[r][c]='mountain';
+        if(civPhase>=2&&zid!=='river'&&types[r][c]==='plain'&&v2>0.92) types[r][c]='river';
+      }
+    }
+  }
+  return types;
+}
+
 function buildMap(){
   hexMap=[];
   const zid=currentZone.id;
@@ -5056,104 +5822,14 @@ function buildMap(){
   const seed=mapKey.split('').reduce((s,c)=>s+c.charCodeAt(0),42)+(window._terrainRerollSeed|0);
   const rndFn=seededRand(seed);
   const tier=currentZone.terrain||currentZone.tier; // 챕터 지형 테마 우선
-  const phaseDensity=[0.00,0.04,0.08,0.12][civPhase]||0;
   const centerCol=Math.floor(COLS*0.5);
+  const types=generateTerrainTypesForZone(zid,tier,fixedHuntTemplate,ROWS,COLS,centerCol,rndFn,civPhase);
 
   for(let r=0;r<ROWS;r++){
     hexMap[r]=[];
     for(let c=0;c<COLS;c++){
       const {x,y}=hexCenter(r,c);
-      let type='plain';
-      const v=rndFn();
-      const v2=rndFn();
-
-      if(tier==='hunt' && fixedHuntTemplate){
-        // 근처 들판 I 전용: 평지 비중을 높이고, 강/숲/언덕 포인트를 다채롭게 배치
-        const upperBand=r<=Math.floor(ROWS*0.30);
-        const lowerBand=r>=Math.floor(ROWS*0.70);
-        // 중앙 완만 강줄기 — 맨 아래 한 칸은 숲으로(하단 숲 타일과 자연스럽게 이어지도록)
-        if(c===centerCol&&r>=1&&r<=ROWS-2) type=(r===ROWS-2)?'forest':'river';
-        // 측면 강 가지: 가로 3연속 막벽을 줄이기 위해 행을 한 칸씩 어긋냄(정면+양옆 동시 강 패턴 완화)
-        else if(r===Math.floor(ROWS*0.25)&&c===centerCol+1) type='river';
-        else if(r===Math.floor(ROWS*0.58)&&c===centerCol-1) type='river';
-        else if(r===Math.floor(ROWS*0.80)&&c===centerCol+1) type='river';
-        else if(r===Math.floor(ROWS*0.42)&&c===centerCol-1) type='river';
-        else if(r===Math.floor(ROWS*0.65)&&c===centerCol+2) type='river';
-        else if((c===centerCol-3&&r>=2&&r<=4)||(c===centerCol+3&&r>=ROWS-5&&r<=ROWS-3)) type='hill';
-        else if((r===2&&c>=centerCol+1&&c<=centerCol+3)||(r===ROWS-3&&c>=centerCol-3&&c<=centerCol-1)) type='hill';
-        else if(c>=5&&c<=COLS-6&&((upperBand&&v<0.16)||(lowerBand&&v<0.18)||v<0.09)) type='forest';
-        else if(c<4) type='plain'; // 아군 진영 평지
-      }else if(tier==='hunt'){
-        // 들판 컨셉 랜덤: 평지 우세 + 얕은 강갈래 + 숲/언덕 포인트
-        if(c<4) type='plain';
-        else if(c===centerCol&&r>=Math.floor(ROWS*0.25)&&r<=Math.floor(ROWS*0.75)&&v2<0.65) type='river';
-        // 양쪽 동시 강 가지(가로 3연속) 완화: 행마다 좌/우 한쪽만
-        else if(c===centerCol+1&&r===Math.floor(ROWS*0.38)&&v2<0.45) type='river';
-        else if(c===centerCol-1&&r===Math.floor(ROWS*0.62)&&v2<0.45) type='river';
-        else if((c===centerCol-4&&r>=2&&r<=4)||(c===centerCol+4&&r>=ROWS-5&&r<=ROWS-3)) type='hill';
-        else if(v<0.18) type='forest';
-        else if(v<0.27) type='hill';
-        else type='plain';
-      }else if(tier==='pred'){
-        // 숲+산: 울창한 숲, 산맥, 좁은 통로
-        if(c>=1&&c<=3) type='plain';
-        else if(c>=4&&c<=7&&v<0.55) type='forest';
-        else if(c>=8&&c<=11){
-          if(v<0.20) type='mountain';
-          else if(v<0.55) type='forest';
-          else if(v<0.65) type='hill';
-        }else if(c>=12&&c<=15&&v<0.40) type='forest';
-        else if(c>=16) type=(v<0.3)?'hill':'plain';
-        // 산맥 라인
-        if(c===10&&(r===2||r===3||r===8||r===9)) type='mountain';
-        if(c===11&&(r===5||r===6)) type='mountain';
-      }else if(tier==='bandit'){
-        // 사막+돌산+협곡
-        if(c>=1&&c<=3) type='plain';
-        else if(c>=4&&c<=8){
-          if(v<0.45) type='desert';
-          else if(v<0.60) type='hill';
-          else if(v<0.68) type='mountain';
-        }else if(c>=9&&c<=13){
-          if(v<0.30) type='mountain';
-          else if(v<0.55) type='desert';
-          else if(v<0.65) type='ruins';
-        }else if(c>=14) type=(v<0.4)?'desert':'plain';
-        // 강 협곡
-        if(c===8&&r>=3&&r<=8) type='river';
-        if(c===9&&(r===3||r===8)) type='river';
-      }else{
-        // 폐허+숲+언덕 복합
-        if(c>=1&&c<=2) type='plain';
-        else if(c>=3&&c<=6){
-          if(v<0.30) type='ruins';
-          else if(v<0.45) type='forest';
-          else if(v<0.55) type='hill';
-        }else if(c>=7&&c<=12){
-          if(v<0.25) type='mountain';
-          else if(v<0.40) type='ruins';
-          else if(v<0.55) type='forest';
-          else if(v<0.65) type='hill';
-        }else if(c>=13) type=(v<0.35)?'hill':'plain';
-        if(c===9&&r>=2&&r<=4) type='river';
-        if(c===10&&r>=7&&r<=9) type='river';
-      }
-      // 모듈3: Phase가 높을수록 지형이 복잡해짐
-      if(civPhase>=1&&c>3&&c<COLS-2){
-        if(tier==='hunt'){
-          if(type==='plain'&&v2<phaseDensity*0.45) type='forest';
-          if(type==='plain'&&v>0.93) type='hill';
-          if(civPhase>=2&&type==='plain'&&v2>0.975&&Math.abs(c-centerCol)<=3) type='river';
-        }else{
-          if(type==='plain'&&v2<phaseDensity*0.6) type='forest';
-          if((type==='plain'||type==='hill')&&v<phaseDensity*0.35) type='mountain';
-          if(civPhase>=2&&type==='plain'&&v2>0.92) type='river';
-        }
-      }
-      // 근처 들판 I 고정 맵만 중앙 다리 2개를 강제 유지
-      if(tier==='hunt'&&fixedHuntTemplate&&(r===Math.floor(ROWS*0.33)||r===Math.floor(ROWS*0.58))&&(c===centerCol||c===centerCol+1)){
-        type='plain';
-      }
+      let type=types[r][c]||'plain';
       hexMap[r][c]={type,x,y,r,c};
     }
   }
@@ -6447,17 +7123,17 @@ function shouldDetourForFasterArrival(unit,targetX,targetY,nextCell,detourCandid
 // ══════════════════════════════════════════════════════
 // 유닛 생성
 // ══════════════════════════════════════════════════════
-// ── 모듈2: 등급/성격 데이터 (9단계 · maxLv 단계마다 +1 · 문명 단계별 출현은 TIER_ROLL_BY_PHASE)
+// ── 모듈2: 등급/성격 (레벨 디자인 가이드 · 만령은 MAX_LEVEL로 클램프)
 const TIERS = [
-  {name:'Poor',    mult:0.84, color:'#7c92a8', maxLv:76},
-  {name:'Common',  mult:0.90, color:'#8a7563', maxLv:77},
-  {name:'Trained', mult:0.96, color:'#fff8e7', maxLv:78},
-  {name:'Veteran', mult:1.04, color:'#86efac', maxLv:79},
-  {name:'Rare',    mult:1.14, color:'#60a5fa', maxLv:80},
-  {name:'Elite',   mult:1.28, color:'#4f46e5', maxLv:81},
-  {name:'Hero',    mult:1.48, color:'#a855f7', maxLv:82},
-  {name:'Legend',  mult:1.76, color:'#f1c40f', maxLv:83},
-  {name:'Mythic',  mult:2.10, color:'#fb7185', maxLv:84},
+  {name:'Poor',    mult:0.84, color:'#7c92a8', maxLv:56},
+  {name:'Common',  mult:0.90, color:'#8a7563', maxLv:57},
+  {name:'Trained', mult:0.96, color:'#fff8e7', maxLv:58},
+  {name:'Veteran', mult:1.04, color:'#86efac', maxLv:59},
+  {name:'Rare',    mult:1.14, color:'#60a5fa', maxLv:60},
+  {name:'Elite',   mult:1.28, color:'#4f46e5', maxLv:61},
+  {name:'Hero',    mult:1.48, color:'#a855f7', maxLv:62},
+  {name:'Legend',  mult:1.76, color:'#f1c40f', maxLv:63},
+  {name:'Mythic',  mult:2.10, color:'#fb7185', maxLv:64},
 ];
 
 const TIER_ROLL_BY_PHASE=[
@@ -7862,7 +8538,7 @@ function mkEnemy(f){
     ambushReady:f.ambushReady||false,
     ambushDone:false,
     elite:f.elite||false,
-    lv:Number.isFinite(f.lv)?f.lv:Math.max(1,Math.floor(3+(Number(zoneStage)||1)*0.55)),
+    lv:Number.isFinite(f.lv)?f.lv:getRecommendedEnemyLvForZoneStage((currentZone&&currentZone.id)||'hunt',Number(zoneStage)||1),
     difficulty:Number.isFinite(f.difficulty)?f.difficulty:getZoneStageDifficultyTier(zoneStage),
     enemyFamilyKey:f.enemyFamilyKey||null,
     type:'enemy',dead:false,
@@ -7968,7 +8644,7 @@ function createRaidBossForCurrentZone(){
     x:CW-86, y:CH*0.48,
     hp:baseHp, atk, range:72, spd:def.baseSpd||0.58, def:0.34,
     elite:true, etype:'king',
-    lv:Math.max(14,Math.floor(10+st*1.85)),
+    lv:Math.max(1,getZoneGuideRefLv(zid||'void',st)+Math.min(8,Math.floor(st/2))),
     difficulty:5,
     enemyFamilyKey:'RaidBoss',
   });
@@ -9599,7 +10275,7 @@ window.selectClass = function(key) {
   setTimeout(()=>triggerSpeech(u,'class_promote'),400);
   } 
   
-  // --- [신규 추가] 30레벨 전문직업 승급 로직 (30+이고 1차 직업만 있을 때) ---
+  // --- 2차 전직(SECOND_PROMOTION_LV) 전문직업 승급 (1차 직업만 있을 때) ---
   else if(u.lv>=SECOND_PROMOTION_LV&&u.classKey&&!u.class10Key) {
     u.class10Key = key;      // 전문직업 키 저장
     u.maxSkillSlots = Math.max(u.maxSkillSlots||1,3); // 기존 슬롯 수를 절대 줄이지 않음
@@ -9692,7 +10368,7 @@ const NAME_POOL = {
   ]
 };
 
-// [추가] 30레벨 전직 시 추천 별명 (이름 앞에 붙음)
+// 2차 전직 레벨 달성 시 추천 별명 (이름 앞에 붙음)
 const PREFIX_POOL = [
     "지옥의", "천상의", "천둥의", "불타는", "강철의", "심연의", "공포의", "영광스러운", "고요한", "그림자",
     "피의", "전설의", "불멸의", "대지의", "서리 내린", "광기 어린", "신성한", "타락한", "고결한", "잔혹한",
@@ -9715,7 +10391,7 @@ function showRenameModal(u){
     titleEl.innerText = isSecondPromotion ? "✨ 별명 부여" : "✨ 이름 부여";
   }
 
-  // 2. 추천 풀 결정 (30레벨은 별명 풀, 10레벨은 이름 풀)
+  // 2. 추천 풀 결정 (2차 전직 레벨은 별명 풀, 1차는 이름 풀)
   const fullPool = isSecondPromotion ? PREFIX_POOL : (NAME_POOL[cls] || NAME_POOL.Refugee);
   
   // 3. 무작위 6개 추출
@@ -9747,7 +10423,7 @@ window.applyRename = function(val) {
   const input = document.getElementById('rename-input');
   
   if(_renameUnit.lv >= SECOND_PROMOTION_LV) {
-    // 30레벨은 별명 + 기존 이름
+    // 2차 전직 레벨은 별명 + 기존 이름
     if(!input.value.includes(val)) {
         input.value = val + " " + input.value;
     }
@@ -11335,11 +12011,12 @@ function battleTick(){
 
         alog(`🎊 [${currentZone.name}] 정복 완료!`);
         
-        // [수정] 0.8초 후 거점 모달 호출 — 콜백 시점의 currentZone이 바뀌면 통합 가문 슬롯이 0으로 잘못 집계되므로 정복 직후 zid를 고정
+        // 정복 직후 zid 고정 → 집합소(문명) 연출 후 거점 모달
         const _conqueredZidForGarrisonModal = currentZone.id;
         setTimeout(() => {
-          showGarrisonModal(_conqueredZidForGarrisonModal);
-        }, 800);
+          if(typeof openSettlementHubCeremony==='function') openSettlementHubCeremony(_conqueredZidForGarrisonModal);
+          else showGarrisonModal(_conqueredZidForGarrisonModal);
+        }, 650);
         return; 
     }
 
@@ -11842,6 +12519,10 @@ function applyDmg(a,tgt,cell,sk,mult=1){
   dmg*=isDay?(a.dayAtkMul||1):(a.nightAtkMul||1);
   const cellUse=cell&&TERRAIN[cell.type]?cell:{type:'plain',x:0,y:0};
   dmg=Math.floor(dmg*terrainAtkBonus(a,cellUse));
+  if(a&&a.type==='ally'&&tgt&&tgt.type==='enemy'){
+    const lvDiff=(a.lv||1)-(tgt.lv||1);
+    if(lvDiff>0) dmg=Math.floor(dmg*(1+Math.min(0.25,lvDiff*0.05)));
+  }
   if(sk==='Strike'&&cellUse.type==='forest')dmg=Math.floor(dmg*1.25);
   if(sk==='Ambush'&&cellUse.type==='forest')dmg=Math.floor(dmg*1.8);
   if(sk==='Highland'&&(cellUse.type==='mountain'||cellUse.type==='hill'))dmg=Math.floor(dmg*1.6);
@@ -12542,6 +13223,130 @@ function showZoneModalAfterConquest(clearedZid) {
       }
     }, 1000);
   }
+}
+
+function finishSettlementHubToGarrison(zid){
+  if(_settlementHubTimer){ clearTimeout(_settlementHubTimer); _settlementHubTimer=null; }
+  document.getElementById('settlement-hub-overlay')?.remove();
+  showGarrisonModal(zid);
+}
+function openHubGarrisonPeekFromSettlement(zid){
+  const rec=zoneRecords&&zoneRecords[zid];
+  const rows=(rec&&rec.garrison)||[];
+  const znRaw=(typeof ZONES!=='undefined'&&ZONES[zid]&&ZONES[zid].name)?String(ZONES[zid].name):String(zid||'');
+  const zn=typeof escapeHtmlLite==='function'?escapeHtmlLite(znRaw):znRaw;
+  const lines=rows.length?rows.map(g=>{
+    const nm=typeof escapeHtmlLite==='function'?escapeHtmlLite(String(g.name||g.id||'?')):String(g.name||g.id||'?');
+    const lv=Number(g.lv)||1;
+    return `<div style="padding:6px 10px;border-bottom:1px solid #334155;font-size:12px;color:#e2e8f0">${nm} <span style="color:#94a3b8">Lv.${lv}</span></div>`;
+  }).join(''):'<div style="padding:14px;color:#94a3b8;font-size:12px;line-height:1.5">이 구역에 배치된 주둔 대원이 없습니다. 곧 거점 모달에서 고용·편성할 수 있습니다.</div>';
+  const html=`<div id="hub-garrison-peek" style="position:fixed;inset:0;z-index:12045;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:12px" onclick="document.getElementById('hub-garrison-peek')?.remove()">
+    <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;max-width:380px;width:100%;overflow:hidden" onclick="event.stopPropagation()">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #334155">
+        <span style="font-weight:700;color:#fbbf24">🚩 ${zn} 거점</span>
+        <button type="button" onclick="document.getElementById('hub-garrison-peek')?.remove()" style="padding:4px 10px;background:#334155;border-radius:6px;color:#e2e8f0;border:0;cursor:pointer;touch-action:manipulation">닫기</button>
+      </div>
+      <div style="max-height:min(50vh,320px);overflow:auto">${lines}</div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+function openSettlementHubCeremony(zid){
+  if(!zid) return;
+  if(_settlementHubTimer){ clearTimeout(_settlementHubTimer); _settlementHubTimer=null; }
+  document.getElementById('settlement-hub-overlay')?.remove();
+  if(!document.getElementById('settlement-hub-keyframes')){
+    const st=document.createElement('style');
+    st.id='settlement-hub-keyframes';
+    st.textContent='@keyframes settlementHubMarch{0%{transform:translateX(12vw)}100%{transform:translateX(-115vw)}}@keyframes settlementHubFade{0%{opacity:0}100%{opacity:1}}@keyframes settlementHubBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}@keyframes hubTileIn{0%{opacity:0;transform:translate(-50%,-50%) scale(.82)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}@keyframes hubOrbit{0%{transform:translate(-50%,-50%) rotate(0deg) translateY(calc(-1 * min(32vw,148px))) rotate(0deg)}100%{transform:translate(-50%,-50%) rotate(360deg) translateY(calc(-1 * min(32vw,148px))) rotate(-360deg)}}@keyframes hubReturn{0%{transform:translateX(108%)}100%{transform:translateX(-118%)}}';
+    document.head.appendChild(st);
+  }
+  const ph=Math.min(3,Math.max(0,Number(civPhase)||0));
+  const hubTiles=HUB_TILES_BY_PHASE[ph]||HUB_TILES_BY_PHASE[0];
+  const ringKeys=hubTiles.filter(k=>k&&k!=='big_campfire');
+  const fireN=1+Math.min(4,ph+(ph>=2?1:0));
+  const fires=Array.from({length:fireN},()=>'🔥').join(' ');
+  const zname=(ZONES[zid]&&ZONES[zid].name)?String(ZONES[zid].name):zid;
+  const autoMs=getSettlementHubAutoAdvanceMs(zid);
+  const autoSec=Math.round(autoMs/1000);
+  const speechPool=SETTLEMENT_HUB_SPEECH.slice();
+  const speakUnits=(typeof allies!=='undefined'?allies:[]).filter(a=>a&&!a.dead&&!a.permanentlyDead).slice(0,5);
+  const nRing=Math.max(1,ringKeys.length);
+  const ringHtml=ringKeys.map((k,i)=>{
+    const ang=-90+(360/nRing)*i;
+    const rad=ang*Math.PI/180;
+    const x=50+36*Math.cos(rad);
+    const y=48+36*Math.sin(rad);
+    const em=constructionHubTileEmoji(k);
+    const lab=String(k).replace(/_/g,' ');
+    const delay=(0.12+0.035*i).toFixed(2);
+    return `<div style="position:absolute;left:${x}%;top:${y}%;transform:translate(-50%,-50%);animation:hubTileIn 0.55s ease ${delay}s both;pointer-events:none">
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:7px 6px;border-radius:12px;border:1px solid rgba(100,116,139,0.55);background:linear-gradient(165deg,rgba(51,65,85,0.88),rgba(30,41,59,0.92));box-shadow:0 6px 18px rgba(0,0,0,0.35);min-width:52px;max-width:76px">
+        <span style="font-size:21px;line-height:1">${em}</span>
+        <span style="font-size:7px;color:#94a3b8;margin-top:3px;text-align:center;line-height:1.2;word-break:break-word">${lab}</span>
+      </div>
+    </div>`;
+  }).join('');
+  const centerExtra=ph>=3
+    ? `<div style="font-size:26px;line-height:1;margin-top:-6px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.4))">${constructionHubTileEmoji('throne_base')}</div>`
+    : (ph>=1?`<div style="font-size:22px;line-height:1;margin-top:-6px;opacity:.95">${constructionHubTileEmoji(ph>=2?'stone_building_base':'small_hut')}</div>`:'');
+  const bubbles=speakUnits.slice(0,3).map((a,i)=>{
+    const line=speechPool[(i*7+(String(zid).length||0))%speechPool.length];
+    const nm=typeof escapeHtmlLite==='function'?escapeHtmlLite(String(a.name||'')):String(a.name||'');
+    const dur=(14+i*2)+'s';
+    return `<div style="position:absolute;left:50%;top:48%;animation:hubOrbit ${dur} linear infinite;animation-delay:${(i*0.35).toFixed(2)}s">
+      <div style="background:rgba(15,23,42,0.94);border:1px solid #64748b;border-radius:11px;padding:6px 9px;font-size:11px;color:#e2e8f0;line-height:1.35;box-shadow:0 8px 22px #0009;max-width:min(42vw,200px);white-space:normal">
+        <div style="font-size:10px;color:#94a3b8;margin-bottom:2px">${nm}</div>${line}
+      </div>
+    </div>`;
+  }).join('');
+  const zEsc=String(zid).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  const zLab=typeof escapeHtmlLite==='function'?escapeHtmlLite(zname):zname;
+  const footTiles=`<div style="display:flex;justify-content:center;gap:14px;margin-top:16px;flex-wrap:wrap">
+    <button type="button" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 18px;border-radius:14px;border:1px solid #7f1d1d;background:linear-gradient(180deg,#292524,#1c1917);color:#fecdd3;cursor:pointer;touch-action:manipulation;min-width:108px;box-shadow:0 6px 16px rgba(0,0,0,.4)" onclick="event.stopPropagation();openCemeteryListModal()" title="사망·빈사 대원 명단">
+      <span style="font-size:26px;line-height:1" aria-hidden="true">${constructionHubTileEmoji('cemetery')}</span>
+      <span style="font-size:12px;font-weight:700">무덤</span>
+      <span style="font-size:9px;color:#a8a29e">명단 보기</span>
+    </button>
+    <button type="button" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 18px;border-radius:14px;border:1px solid #854d0e;background:linear-gradient(180deg,#422006,#1c1917);color:#fde68a;cursor:pointer;touch-action:manipulation;min-width:108px;box-shadow:0 6px 16px rgba(0,0,0,.4)" onclick="event.stopPropagation();openHubGarrisonPeekFromSettlement('${zEsc}')" title="이 구역 거점 주둔">
+      <span style="font-size:26px;line-height:1" aria-hidden="true">${constructionHubTileEmoji('garrison_marker')}</span>
+      <span style="font-size:12px;font-weight:700">거점</span>
+      <span style="font-size:9px;color:#a8a29e">주둔·생산</span>
+    </button>
+  </div>`;
+  const html=`<div id="settlement-hub-overlay" style="position:fixed;inset:0;z-index:12040;background:radial-gradient(ellipse at 50% 115%,rgba(55,48,163,0.35),rgba(3,8,16,0.96));display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px;font-family:system-ui,sans-serif" role="dialog" aria-modal="true">
+    <div style="width:100%;max-width:520px;position:relative;min-height:46vh">
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;overflow:hidden;opacity:0.85">
+        <div style="display:flex;gap:18px;white-space:nowrap;animation:settlementHubMarch 1.2s ease-in forwards;font-size:28px">🛡️⚔️🏹✨🧙🐎</div>
+      </div>
+      <div style="position:absolute;bottom:18%;left:0;right:0;height:32px;pointer-events:none;overflow:hidden;opacity:0.35">
+        <div style="display:flex;gap:22px;white-space:nowrap;animation:hubReturn 9s linear infinite;font-size:20px">🏕🧑‍🌾🪵🍖🪣</div>
+      </div>
+      <div style="position:relative;z-index:1;animation:settlementHubFade 0.65s ease 0.7s both;text-align:center">
+        <div style="font-size:12px;color:#a5b4fc;margin-bottom:4px;letter-spacing:0.02em">집합소 · ${zLab}</div>
+        <div style="font-size:19px;font-weight:800;color:#f8fafc;margin-bottom:2px">문명의 불씨</div>
+        <div style="font-size:10px;color:#94a3b8;margin-bottom:10px">${fires}</div>
+        <div style="position:relative;width:min(92vw,400px);aspect-ratio:1/1;margin:0 auto;border-radius:20px;border:1px solid rgba(71,85,105,0.45);background:radial-gradient(circle at 50% 48%,rgba(30,41,59,0.5),rgba(15,23,42,0.88));box-shadow:inset 0 0 0 1px rgba(148,163,184,0.08),0 20px 50px rgba(0,0,0,0.45)">
+          <div style="position:absolute;inset:0;border-radius:20px;pointer-events:none;box-shadow:inset 0 0 80px rgba(91,45,130,0.12)"></div>
+          ${ringHtml}
+          <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:3;text-align:center;pointer-events:none">
+            <div style="font-size:clamp(36px,11vw,46px);line-height:1;filter:drop-shadow(0 4px 14px rgba(251,146,60,0.45))">${constructionHubTileEmoji('big_campfire')}</div>
+            ${centerExtra}
+          </div>
+          <div style="position:absolute;inset:0;pointer-events:none;z-index:5">${bubbles||''}</div>
+        </div>
+        ${footTiles}
+        <div style="margin-top:12px;font-size:9px;color:#64748b;line-height:1.4">전투 타일이 집합소로 바뀌었습니다. 말풍선은 대기 대원이 순찰하는 느낌으로 표시됩니다.</div>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px">
+          <button type="button" style="padding:10px 18px;border-radius:10px;border:1px solid #4c1d95;background:#5b21b6;color:#ede9fe;font-weight:700;cursor:pointer;touch-action:manipulation" onclick="finishSettlementHubToGarrison('${zEsc}')">거점 정비로</button>
+          <button type="button" style="padding:10px 14px;border-radius:10px;border:1px solid #334155;background:#0f172a;color:#cbd5e1;cursor:pointer;touch-action:manipulation" onclick="finishSettlementHubToGarrison('${zEsc}')">건너뛰기</button>
+        </div>
+        <div style="margin-top:8px;font-size:10px;color:#64748b">${autoSec}초 후 자동으로 거점 모달로 이동합니다.</div>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend',html);
+  _settlementHubTimer=setTimeout(()=>finishSettlementHubToGarrison(zid),autoMs);
 }
 
 function closeGarrisonModal(){
@@ -15401,10 +16206,11 @@ function grantBattleParticipationExp(){
   const zV10=getZoneV10Id((currentZone&&currentZone.id)||'hunt');
   const st=Math.min(15,Math.max(1,Number(zoneStage)||1));
   const diffTier=Math.min(5,Math.max(1,Number((currentZone||{}).diffTier)||1));
-  const mockEnemy={lv:Math.max(3,Math.floor(4+st*0.65)),difficulty:diffTier};
+  const mockLv=getZoneGuideRefLv((currentZone&&currentZone.id)||'hunt',st)+Math.floor(Math.random()*3)-1;
+  const mockEnemy={lv:Math.max(1,mockLv),difficulty:diffTier};
   const perKill=calculateExpGain(mockEnemy,zV10,st,false);
   const msMul=Math.max(1,Number(_battleMilestoneExpMul)||1);
-  const basePool=Math.max(60,Math.floor(perKill*(5.2+st*0.45+participants.length*0.85)*(currentZone?.diffMult||1)*msMul));
+  const basePool=Math.max(38,Math.floor(perKill*(2.85+st*0.34+participants.length*0.55)*(currentZone?.diffMult||1)*msMul));
   const baseEach=(basePool*BATTLE_EXP_BASE_SHARE)/participants.length;
   const variablePool=basePool*BATTLE_EXP_VAR_SHARE;
   const scores=participants.map(u=>{
@@ -15420,7 +16226,7 @@ function grantBattleParticipationExp(){
   scores.forEach(({u,score})=>{
     const variableEach=totalScore>0?(variablePool*(score/totalScore)):(variablePool/participants.length);
     const grant=Math.max(1,Math.round(baseEach+variableEach));
-    gainExp(u,grant,{applyRoleBias:false});
+    gainExp(u,grant,{applyRoleBias:false,zoneExpZid:(currentZone&&currentZone.id)||'hunt',zoneExpStage:st,battleEnemyLv:mockEnemy.lv});
   });
 }
 
@@ -15431,13 +16237,27 @@ function gainExp(u,amount,opts={}){
   const feastSilent=!!opts.feastSilent;
   const suppressPromotionModal=!!opts.suppressPromotionModal;
   const capAtFirstPromotion=!!opts.capAtFirstPromotion;
+  const feastMaxLv=Math.max(0,Math.floor(Number(opts.feastMaxLv)||0));
+  const skipZoneLevelTune=!!opts.skipZoneLevelTune;
+  const skipEnemyDiffTune=!!opts.skipEnemyDiffTune;
   const role=u.classKey||u.baseRole;
   const applyRoleBias=(opts.applyRoleBias!==false);
   const roleMult=applyRoleBias?((role==='Tank'||role==='Heal')?0.67:1.0):1.0;
-  const actual=Math.max(1,Math.round(amount*roleMult*getPhaseExpMult()*getGarrisonLv3ExpMul()));
+  let zoneLvTune=1;
+  if(!skipZoneLevelTune){
+    const zid=opts.zoneExpZid||(typeof currentZone!=='undefined'&&currentZone&&currentZone.id)||'hunt';
+    const st=opts.zoneExpStage!=null?opts.zoneExpStage:Math.min(15,Math.max(1,Number(typeof zoneStage!=='undefined'?zoneStage:1)||1));
+    zoneLvTune=getZoneLevelExpTuneMult(u.lv,zid,st);
+  }
+  let enemyDiffTune=1;
+  if(!skipEnemyDiffTune&&Number.isFinite(Number(opts.battleEnemyLv))){
+    enemyDiffTune=getLevelDiffExpMult(u.lv,Number(opts.battleEnemyLv));
+  }
+  const actual=Math.max(1,Math.round(amount*roleMult*getPhaseExpMult()*getGarrisonLv3ExpMul()*zoneLvTune*enemyDiffTune));
   u.exp+=actual;
   while(u.exp>=u.maxExp){
     if(u.lv>=MAX_LV) break;
+    if(feastMaxLv>0&&u.lv>=feastMaxLv) break;
     if(capAtFirstPromotion&&!u.classKey&&u.lv>=FIRST_PROMOTION_LV) break;
     u.exp-=u.maxExp; u.lv++;
     u.maxExp=getNeedExpForLv(u.lv);
@@ -15471,7 +16291,14 @@ function gainExp(u,amount,opts={}){
     u.spd = +(u.baseSpd+u.bonusSpd).toFixed(2);
 
     const growSummary=`HP+${hpGrow+12} ATK+${atkGrow+1}${defGrow>0.005?` DEF+${Math.floor(defGrow*100)}%`:''}${spdGrow>0.01?` MOV+${spdGrow.toFixed(2)}`:''}${magGrow>0?` MAG+${magGrow}`:''}`;
-    alog(`🎊 ${u.name} Lv.${u.lv}! ${growSummary}`);
+    if(u.lv>=MAX_LEVEL) alog(`🏆 ${u.name} MAX Lv.${MAX_LEVEL}! ${growSummary}`);
+    else alog(`🎊 ${u.name} Lv.${u.lv}! ${growSummary}`);
+    if([10,30,45,55].includes(u.lv)&&u.lv<MAX_LEVEL){
+      const hx=rnd(8,14), bx=rnd(2,5);
+      u.maxHp+=hx; u.hp=Math.min((u.hp||0)+hx,u.maxHp);
+      u.bonusAtk+=bx;
+      alog(`✨ ${u.name} 구간 돌파 보너스 (Lv.${u.lv}) — HP+${hx} ATK+${bx}`);
+    }
 
     if(u.lv===FIRST_PROMOTION_LV){
       u.maxSkillSlots=2;
@@ -16348,6 +17175,7 @@ function draw(crowdedBattle){
       ctx.fillStyle='rgba(91,45,130,0.15)';ctx.fill();ctx.strokeStyle='#5b2d82';ctx.lineWidth=0.6;ctx.stroke();
     }
   }
+  if(typeof drawConstructionProgressOverlay==='function') drawConstructionProgressOverlay();
   if(fogEnabled()){
     const visAllies=allies.filter(a=>a.isDeployed&&!a.dead&&!a.permanentlyDead&&!a.garrisoned&&!a.inStandby);
     syncFogLayerCanvasSize();
@@ -18912,7 +19740,7 @@ function garrisonExpTick(){
       const upLv=rec.upgradeLv||1;
       const expMul=upLv>=5?1.30:upLv>=4?1.25:upLv>=3?1.20:upLv>=2?1.10:1.0;
       const grant=Math.max(8,Math.floor((15+u.lv*2)*expMul));
-      gainExp(u,grant);
+      gainExp(u,grant,{zoneExpZid:zid,zoneExpStage:15,skipEnemyDiffTune:true});
       if(u.lv!==prevLv){
         alog(`🏕 ${u.name} Lv.${u.lv} 달성! (${ZONES[zid]?.name||zid} 자동 사냥 중)`);
         changed=true;
@@ -19318,6 +20146,9 @@ window.onload = function() {
   window.openCemeteryListModal = openCemeteryListModal;
   window.closeCemeteryListModal = closeCemeteryListModal;
   window.refreshCemeteryListModal = refreshCemeteryListModal;
+  window.openSettlementHubCeremony = openSettlementHubCeremony;
+  window.finishSettlementHubToGarrison = finishSettlementHubToGarrison;
+  window.openHubGarrisonPeekFromSettlement = openHubGarrisonPeekFromSettlement;
   window.setStandbyListSort = setStandbyListSort;
   window.openHubStandbyGarrisonModal = openHubStandbyGarrisonModal;
   window.closeHubStandbyGarrisonModal = closeHubStandbyGarrisonModal;
