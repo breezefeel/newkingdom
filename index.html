@@ -2717,7 +2717,7 @@ canvas {
   <div id="garrison-bar">
     <div id="garrison-bar-header" class="garrison-header--split">
       <div class="garrison-header-lead">
-        <span id="garrison-title-btn" onclick="event.stopPropagation();showGarrisonSummaryModal()"><span id="garrison-hud-main">⛺ 집합소</span><span id="garrison-hud-grade"></span><span id="garrison-hud-up" class="garrison-hud-pin garrison-hud-up" style="display:none" title="거점 업그레이드 가능">⬆</span><span id="garrison-hud-rebuild" class="garrison-hud-pin garrison-hud-rebuild" title="문명 재건">🏘마을 재건</span></span>
+        <span id="garrison-title-btn" onclick="event.stopPropagation();showGarrisonSummaryModal()"><span id="garrison-hud-main">🚩 집합소</span><span id="garrison-hud-grade"></span><span id="garrison-hud-up" class="garrison-hud-pin garrison-hud-up" style="display:none" title="거점 업그레이드 가능">⬆</span><span id="garrison-hud-rebuild" class="garrison-hud-pin garrison-hud-rebuild" title="문명 재건">🏘마을 재건</span></span>
       </div>
       <div class="garrison-header-actions">
         <div class="garrison-header-recruit">
@@ -15970,7 +15970,7 @@ function showHubGraveHint(){
   el.style.bottom='auto';
   el.style.transform='translate(-50%, -100%)';
   el.innerHTML=`<div class="hub-grave-hint-title"><b style="color:#8A0707">무덤</b></div>
-  <div class="hub-grave-hint-body">이곳에 잠든 이들을 추모합니다.</div>`;
+  <div class="hub-grave-hint-body">잠든 이들을 추모합니다.</div>`;
   clampHubTileHintHorizontal(el, found.x);
 }
 function applyAutoGarrisonHireForConquestHub(zid){
@@ -16050,9 +16050,8 @@ function showHubGarrisonHintAndAutoPlace(zid){
     el.style.top='auto';
     el.style.transform='none';
   }
-  el.innerHTML=`<div style="font-weight:700;color:#fbbf24;margin-bottom:4px">🚩 거점 주둔 안내</div>
+  el.innerHTML=`<div style="font-weight:700;color:#fbbf24;margin-bottom:4px">🚩 거점 안내</div>
   <div style="color:#cbd5e1;font-size:9px;line-height:1.45">정복한 <b>${zEsc}</b>을(를) 거점으로 구축합니다.</div>
-  <div style="color:#94a3b8;font-size:8px;margin-top:6px;line-height:1.35">식량·빈 슬롯이 있으면 약 ${autoSec}초 뒤 자동으로 거점에 보급될 수 있습니다. (이 안내는 계속 표시됩니다)</div>`;
   if(placedOnTile&&gCell&&Number.isFinite(gCell.x)) clampHubTileHintHorizontal(el, gCell.x);
   _settlementHubGarrisonHintTimer=setTimeout(()=>{
     _settlementHubGarrisonHintTimer=null;
@@ -21617,7 +21616,7 @@ function renderGarrisonBar(){
   if(hintEl){
     if(!hasGarrison&&_garrisonBarExpanded){
       hintEl.style.display='block';
-      hintEl.innerHTML='<b>🏰거점</b><span style="color:#9ca3af">:</span> 사냥터를 끝까지 클리어하면 거점을 세우고, 자동 자원·주둔 편성을 이용할 수 있습니다.';
+      hintEl.innerHTML='<b>🏰거점</b><span style="color:#9ca3af">:</span> 15일 동안 거점을 세우면, 대원을 파견하여 자원을 얻을 수 있습니다.';
     }else{
       hintEl.style.display='none';
       hintEl.innerHTML='';
