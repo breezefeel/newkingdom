@@ -1472,8 +1472,12 @@ canvas {
 #game-help-modal.overlay {
   z-index: 13500 !important;
 }
-/* 거점 모달·1일차 튜토리얼: .map-hud-stack(12800) 자원 HUD가 딤 위로 올라오지 않도록 */
-#garrison-modal.overlay {
+/* 거점 모달·스토리 인트로 등: .map-hud-stack(12800) 자원 HUD가 딤 위로 올라오지 않도록 */
+#garrison-modal.overlay,
+#intro-modal.overlay,
+#next-chapter-modal.overlay,
+#zone-modal.overlay,
+#refugee-modal.overlay {
   z-index: 12900 !important;
 }
 /* body에 동적으로 붙는 전투 안내: .overlay만 쓰면 display:none·pointer-events 규칙이 남을 수 있음 */
@@ -2262,11 +2266,17 @@ canvas {
 .compact-mode .uc-skills-row,.compact-mode .ur,.compact-mode .sl { display:none !important; }
 .compact-mode .uc { padding:4px 6px !important; margin-bottom:3px !important; }
 .compact-mode .bw { margin:1px 0 !important; }
-/* compact: 카드 폭을 물약·메타 꼬리까지 한 줄로 유지 가능한 한 줄임 — 열은 auto-fit으로 공간 나면 3열 */
+/* compact: 티어·성격 줄은 말줄임·물약 꼬리 고정 — 트랙 최소만 낮춰 모바일에서도 2열 가능 */
 .compact-mode #al {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(172px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
   gap: 6px;
+}
+@media (max-width: 600px) {
+  .compact-mode #al {
+    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+    gap: 5px;
+  }
 }
 .compact-mode .uch {
   flex-wrap: wrap;
