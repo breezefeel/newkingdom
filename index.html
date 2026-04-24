@@ -45,11 +45,59 @@
 
 .logo { color:#f1c40f; font-weight:bold; font-size: calc(0.95em * 1.5 * 1.2); line-height: 1.3; }
 
+/* 집합소(비전투) 연출 중: 상단 자원바(sticky z-index 1000)가 아래로 스크롤된 동료 툴바와 겹쳐 클릭을 가로채지 않도록 — 스티키만 해제 */
+body.settlement-hub-ceremony #top {
+  position: relative;
+  z-index: auto;
+}
+/* 집합소: 거점 바·자원 위 요소가 본문·동료창(스킬/트리)과 쌓임·히트 순서로 겹쳤을 때 — 지도+컨트롤+동료를 위로 (모달/오버레이는 body 루트 고정 z로 여전히 상위) */
+body.settlement-hub-ceremony #garrison-bar {
+  position: relative;
+  z-index: 0;
+}
+body.settlement-hub-ceremony #lay {
+  position: relative;
+  z-index: 1;
+}
+body.settlement-hub-ceremony #party-stack {
+  position: relative;
+  z-index: 960; /* #party-stack 기본(950)과 동등 — #ctrl(1) 위, 본문 열(#lay) 안에서만 유효 */
+  pointer-events: auto;
+}
+/* 집합소: 지도 하단 중앙 — 집합소: 다음전투지 (N초 후 시작) */
+.settlement-hub-map-bottom-hint {
+  position: absolute;
+  z-index: 12030;
+  left: 50%;
+  right: auto;
+  bottom: 10px;
+  top: auto;
+  transform: translateX(-50%);
+  max-width: min(96%, 520px);
+  box-sizing: border-box;
+  text-align: center;
+  font-size: clamp(10px, 0.5vw + 8px, 12px);
+  font-weight: 700;
+  line-height: 1.45;
+  color: #e2e8f0;
+  background: linear-gradient(165deg, rgba(15, 23, 42, 0.96) 0%, rgba(7, 10, 16, 0.98) 100%);
+  border: 1px solid rgba(251, 191, 36, 0.5);
+  border-radius: 10px;
+  padding: 6px 12px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  user-select: none;
+  touch-action: none;
+}
+.settlement-hub-map-bottom-hint__cd {
+  color: #fde68a;
+  font-weight: 800;
+}
 /* 추가로 각 자원(rv)의 간격을 미세 조정하고 싶다면 */
 .rv {
-    /* display:flex, align-items 제거 - iOS Safari 폰트 메트릭 버그 방지 */
-    gap: 3px;
-    white-space: nowrap;
+  /* display:flex, align-items 제거 - iOS Safari 폰트 메트릭 버그 방지 */
+  gap: 3px;
+  white-space: nowrap;
 }
 
 .hint { margin-left:auto; font-size:9px; color:#374151; }
@@ -76,7 +124,7 @@ body {
 /* [수정] 컨트롤 바 - 상단바에 가려지지 않게 설정 */
 #ctrl {
     position: relative;
-    z-index: 900; /* 상단바(1000)보다 낮게 설정하여 자연스럽게 흐르게 함 */
+    z-index: 1; /* 파티 열(#party-stack)과 겹칠 때 전투줄이 클릭을 가로채지 않게 — 상단 #top(1000)은 형제라 무관 */
     flex: 0 0 auto;
     display: flex;
     flex-direction: column;
@@ -172,46 +220,89 @@ body {
   opacity: 0.92;
   margin-top: 2px;
 }
-/* (구) #ctrl .ctrl-hints — 거점 요약으로 이전됨, 아래 #garrison-bar-summary 참고 */
+/* 거점: 주둔 + (디버프·전역버프·획득·식량) 한 프레임 */
+#garrison-bar-main.garrison-bar-main {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  padding: 0 2px 4px;
+  box-sizing: border-box;
+  gap: 0;
+}
+.garrison-bar-panel--unified {
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid #1e2d3d;
+  border-radius: 6px;
+  background: #070f18;
+  padding: 3px 4px 4px;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 6px 8px;
+}
+.garrison-bar-col--zones {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  flex: 1 1 0;
+  text-align: left;
+  box-sizing: border-box;
+  align-self: flex-start;
+  order: 1;
+}
+#garrison-bar-panel-main { display: none; }
 #garrison-bar-summary.garrison-summary-panel {
   display: none;
   flex-direction: column;
   align-items: flex-end;
-  gap: 4px;
-  padding: 6px 10px 8px;
-  background: #0a1520;
-  border-top: none;
-  border-left: 1px solid #1e2d3d;
+  gap: 1px;
+  padding: 0;
+  margin: 0 0 0 auto;
+  background: transparent;
+  border: none;
   box-sizing: border-box;
   min-width: 0;
-  flex: 0 1 38%;
-  max-width: min(520px, 48%);
+  width: auto;
+  max-width: min(100%, 320px);
+  flex: 0 0 auto;
+  text-align: right;
+  align-self: flex-start;
+  order: 2;
 }
 #garrison-bar-summary.garrison-summary-panel .garrison-summary__row {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   justify-content: center;
-  gap: 2px;
+  gap: 0;
   width: 100%;
   min-width: 0;
+  max-width: 100%;
   font-size: 0.78em;
-  line-height: 1.4;
+  line-height: 1.32;
   text-align: right;
+  flex-shrink: 0;
 }
 #garrison-bar-summary.garrison-summary-panel .garrison-summary__row--buff-notice {
   flex-direction: column;
   align-items: flex-end;
   justify-content: center;
-  gap: 3px;
+  gap: 1px;
 }
 .garrison-buff-notice-label {
-  font-size: 0.72em;
+  font-size: 0.7em;
   font-weight: 700;
   color: #94a3b8;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
   text-align: right;
-  width: 100%;
+  width: auto;
+  max-width: 100%;
+  white-space: nowrap;
 }
 #garrison-summary-row-debuff:has(#ctrl-sorrow-hint:empty) {
   display: none !important;
@@ -221,110 +312,83 @@ body {
   min-width: 0;
   max-width: 100%;
   color: #f1c40f;
-  white-space: normal;
+  white-space: nowrap;
   text-align: right;
-  font-size: 0.95em;
-  line-height: 1.35;
+  font-size: 0.9em;
+  line-height: 1.3;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 #ctrl-sorrow-hint {
   font-weight: 700;
   color: #f87171;
-  white-space: normal;
+  white-space: nowrap;
   text-align: right;
-  width: 100%;
-  word-break: break-word;
+  width: auto;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  display: block;
+  box-sizing: border-box;
 }
 #ctrl-sorrow-hint:empty { display: none; }
 #garrison-bar-income {
   color: #2ecc71;
-  white-space: normal;
-  word-break: break-word;
+  white-space: nowrap;
   text-align: right;
-  width: 100%;
-}
-#garrison-bar-foot {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px 12px;
-  width: 100%;
-  min-width: 0;
-  padding: 0 0 6px 0;
-  margin: 0;
-  background: #0a1520;
-  border: none;
-  box-sizing: border-box;
-}
-#garrison-bar-foot:not(.garrison-foot-row--has-hint) #garrison-bar-foot__hint { display: none; }
-#garrison-bar-foot:not(.garrison-foot-row--has-hint) #garrison-bar-foot__food {
-  flex: 1 1 100%;
+  width: auto;
   max-width: 100%;
-  border-left: none;
-  padding: 0 8px 0 8px;
-}
-#garrison-bar-foot__hint {
-  flex: 1 1 0;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  padding: 0 0 0 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  display: block;
   box-sizing: border-box;
 }
-#garrison-bar-foot__food {
-  flex: 0 1 38%;
-  max-width: min(520px, 48%);
-  min-width: 0;
-  text-align: right;
-  box-sizing: border-box;
-  padding: 0 10px 0 0;
-  border-left: 1px solid #1e2d3d;
-  align-self: stretch;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 2px;
-  margin: 0;
-}
-#garrison-bar-food {
+#garrison-bar-food,
+#garrison-bar-food.garrison-summary-food {
   color: #fb923c;
-  white-space: normal;
-  word-break: break-word;
+  white-space: nowrap;
   text-align: right;
-  width: 100%;
-  flex: 0 0 auto;
+  display: block;
   max-width: 100%;
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
-.garrison-summary-food-battle { font-size: 1.08em; font-weight: 700; }
+#garrison-bar-summary .garrison-summary__row--food { padding-top: 1px; }
+.garrison-settlement-hint-box {
+  display: none;
+  margin-top: 1px;
+  min-width: 0;
+  width: max-content;   /* 내용물(텍스트)의 길이에 딱 맞게 너비를 설정함 */
+  max-width: 100%;      /* 혹시 부모보다 글자가 길 경우 화면 밖으로 나가는 것 방지 */
+  white-space: nowrap;  /* 절대로 줄바꿈을 하지 않도록 강제함 */
+  box-sizing: border-box;
+  align-self: flex-start;
+}
+.garrison-settlement-hint-box.garrison-settlement-hint-box--has-hint { display: block; }
+.garrison-summary-food-battle { font-size: 1.05em; font-weight: 700; }
 .garrison-summary-food-rear { font-size: 0.88em; font-weight: 600; opacity: 0.92; margin-left: 2px; }
+.gz-per-zone { display: block; margin: 0 0 2px; font-size: 9px; line-height: 1.4; text-align: left; white-space: nowrap; overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; }
+.gz-per-zone .gz-per-zone-lbl { color: #94a3b8; font-weight: 600; margin-right: 2px; }
+.gz-per-zone .gz-per-zone-val { color: #2ecc71; }
 @media (max-width: 720px) {
-  #garrison-bar-main.garrison-bar-main {
-    flex-direction: column;
-    align-items: stretch;
-  }
+  .garrison-bar-panel--unified { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
+  #garrison-bar-col-zones { order: 2; flex: 1 1 auto; align-self: stretch; width: 100%; }
   #garrison-bar-summary.garrison-summary-panel {
-    flex: 1 1 auto;
+    order: 1;
+    margin-left: 0;
+    margin-bottom: 4px;
     max-width: 100%;
-    border-left: none;
-    border-top: 1px solid #1e2d3d;
-    align-items: flex-end;
-  }
-  #garrison-bar-foot { flex-direction: column; align-items: stretch; }
-  #garrison-bar-foot__hint { padding: 0 8px; max-width: 100%; }
-  #garrison-bar-foot__food {
-    max-width: 100%;
-    flex: 1 1 auto;
     width: 100%;
-    border-left: none;
-    border-top: 1px solid #1e2d3d;
-    padding: 4px 10px 0 0;
+    align-items: flex-end;
+    align-self: flex-end;
   }
+  #garrison-bar-summary.garrison-summary-panel .garrison-summary__row { align-items: flex-end; }
 }
-/* 대원 영입 선택 모달: 거점/재기 모달(9999) 위에 표시 */
-#recruit-choice-modal.overlay { z-index: 12000; }
+/* 대원 영입 선택 모달: 집합소 우측 전투지 독(12025)·타일 힌트 위 — #modal(13000)과 동일대 */
+#recruit-choice-modal.overlay { z-index: 13000; }
 
 /* 거점 헤더(및 #ctrl 전투 줄) — 상점·대원 영입·훈련; 전체 대원 버튼 스타일은 #panel-ally .pt와 공유 */
 #garrison-bar-header .garrison-header-recruit,
@@ -721,7 +785,7 @@ body {
   right: 6px;
   left: auto;
   margin-top: 0;
-  z-index: 12790;
+  z-index: 11850;
   max-width: min(220px, calc(100% - 12px));
   width: max-content;
   font-size: 11px;
@@ -796,6 +860,12 @@ body {
 }
 .hub-grave-hint .hub-grave-hint-title { font-weight: 700; color: #94a3b8; margin-bottom: 2px; letter-spacing: 0.02em; }
 .hub-grave-hint .hub-grave-hint-body { color: #cbd5e1; font-size: 9px; }
+#cemetery-list-modal .cemetery-list-pop__inner {
+  box-sizing: border-box;
+}
+#cemetery-list-modal .cemetery-list-pop__grid {
+  min-width: 0;
+}
 .settlement-battle-confirm-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 8px; margin-top: 8px; }
 .settlement-battle-confirm-row .settlement-battle-btn { flex: 1 1 0; min-width: 0; width: auto; margin-top: 0; }
 .settlement-hub-idle-countdown { font-size: 10px; font-weight: 700; color: #fde68a; white-space: nowrap; flex: 0 0 auto; letter-spacing: 0.02em; }
@@ -906,6 +976,8 @@ button, .cb, .skb, .ub, .zone-btn, .class-btn, .gz-unit, .gz-add, .collapse-btn 
   gap: 0;
   align-items: stretch;
   isolation: isolate;
+  position: relative;
+  z-index: 950; /* #ctrl(전투줄)보다 위 — 파티창 헤버튼(정렬·전체 대원·간략히) 클릭 수신 */
 }
 /* 동료창+아군 로그+적창+적 로그 — 한 박스에서만 세로 스크롤 */
 #party-scroll {
@@ -1138,7 +1210,7 @@ button, .cb, .skb, .ub, .zone-btn, .class-btn, .gz-unit, .gz-add, .collapse-btn 
   position: absolute;
   left: 3px;
   top: 3px;
-  z-index: 12800;
+  z-index: 11800;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -1570,7 +1642,7 @@ canvas {
 #game-help-modal.overlay {
   z-index: 13500 !important;
 }
-/* 거점 모달·스토리 인트로 등: .map-hud-stack(12800) 자원 HUD가 딤 위로 올라오지 않도록 */
+/* 거점 모달·스토리 인트로 등: .map-hud-stack(11800) 아래·모달(12k+) 위 */
 #garrison-modal.overlay,
 #intro-modal.overlay,
 #next-chapter-modal.overlay,
@@ -1611,6 +1683,81 @@ canvas {
   text-align: center;
   text-shadow: 0 1px 16px rgba(0,0,0,0.7);
   letter-spacing: 0.04em;
+}
+/* 전날→익일 배너: showNextDayArrivalBanner에서 #mw getBoundingClientRect()로 정중앙(고정) 보정 */
+#day-start-banner.day-start-banner {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  right: auto;
+  bottom: auto;
+  transform: translate(-50%, -50%);
+  z-index: 12655;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: min(92%, 28rem);
+  max-width: min(96vw, 28rem);
+  min-width: 0;
+  box-sizing: border-box;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+#day-start-banner.day-start-banner--viewport-fallback {
+  z-index: 12655;
+}
+.day-start-banner__card {
+  width: 100%;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(100, 116, 139, 0.5);
+  border-radius: clamp(8px, 1.8vmin, 14px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+  padding: clamp(10px, 2.2vmin, 18px) clamp(12px, 2.8vmin, 22px);
+  box-sizing: border-box;
+}
+.day-start-banner__title {
+  font-size: clamp(0.9rem, 2.6vmin, 1.5rem);
+  font-weight: 800;
+  color: #f8fafc;
+  text-align: center;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  text-shadow: 0 2px 20px rgba(0,0,0,0.8);
+  word-break: keep-all;
+}
+.day-start-banner__day {
+  font-size: clamp(0.78rem, 2.1vmin, 1.1rem);
+  font-weight: 700;
+  color: #fde68a;
+  text-align: center;
+  margin-top: 0.35em;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 12px rgba(0,0,0,0.7);
+}
+.day-start-banner__construction { margin-top: 0.65em; }
+.day-start-banner__construction-label {
+  display: block;
+  font-size: clamp(0.62rem, 1.5vmin, 0.75rem);
+  font-weight: 700;
+  color: #94a3b8;
+  text-align: center;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.35em;
+}
+.day-start-banner__construction-line {
+  font-size: clamp(0.68rem, 1.8vmin, 0.95rem);
+  font-weight: 600;
+  color: #a5b4fc;
+  text-align: center;
+  line-height: 1.45;
+  text-shadow: 0 1px 10px rgba(0,0,0,0.7);
+  max-width: 100%;
+  word-break: keep-all;
+}
+@media (max-width: 480px) {
+  #day-start-banner.day-start-banner { width: min(94%, 100%); max-width: 100%; }
 }
 /* body에 동적으로 붙는 전투 안내: .overlay만 쓰면 display:none·pointer-events 규칙이 남을 수 있음 */
 #low-hp-safety-modal.overlay,
@@ -1746,27 +1893,12 @@ canvas {
     box-sizing: border-box;
     flex-shrink: 0;
 }
-#garrison-bar-main.garrison-bar-main {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 10px;
-  min-width: 0;
-  box-sizing: border-box;
-}
-.garrison-bar-main__left {
-  flex: 1 1 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0;
-}
-#garrison-bar-header { display:flex; align-items:center; gap:8px; padding:6px 12px; background:#0f1923; flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden; scrollbar-width:thin; box-sizing:border-box; }
+/* #garrison-bar: 헤더 + 단일 본문 프레임 */
+#garrison-bar-header { display:flex; align-items:center; gap:6px; padding:4px 6px; background:#0f1923; flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden; scrollbar-width:thin; box-sizing:border-box; }
 #garrison-bar-header::-webkit-scrollbar { height:4px; }
 #garrison-bar-header::-webkit-scrollbar-thumb { background:#334155; border-radius:3px; }
-#garrison-bar-body { padding:8px; display:flex; gap:6px; flex-wrap:nowrap; overflow-x:auto; align-items:flex-start; box-sizing:border-box; min-width:0; }
-.gz { background:#111d2b; border:1px solid #1e2d3d; border-radius:6px; padding:7px; min-width:160px; flex-shrink:0; }
+#garrison-bar-body { padding:3px 2px 0; display:flex; gap:4px; flex-wrap:nowrap; overflow-x:auto; align-items:flex-start; box-sizing:border-box; min-width:0; }
+.gz { background:#111d2b; border:1px solid #1e2d3d; border-radius:5px; padding:4px 5px; min-width:0; width:max-content; max-width:100%; flex-shrink:0; box-sizing:border-box; }
 #garrison-zones-container > .gz:not(#arcane-research-panel) {
   box-sizing: border-box;
   min-width: 0;
@@ -1774,8 +1906,8 @@ canvas {
   flex: 0 1 auto;
   width: fit-content;
 }
-.gz-title { font-size:10px; font-weight:bold; margin-bottom:4px; }
-.gz-units { display:flex; gap:3px; flex-wrap:wrap; margin-bottom:4px; min-height:22px; }
+.gz-title { font-size:10px; font-weight:bold; margin-bottom:2px; }
+.gz-units { display:flex; gap:3px; flex-wrap:wrap; margin-bottom:3px; min-height:20px; }
 .gz-unit { padding:2px 6px; border-radius:3px; font-size:9px; border:1px solid #1e2d3d; background:#0f1923; cursor:grab; user-select:none; }
 .gz-unit:hover { border-color:#f1c40f; }
 .gz-unit-inner-row { display:flex; align-items:stretch; gap:4px; }
@@ -1794,7 +1926,8 @@ canvas {
 .standby-list-pop .standby-list-grid .gz-unit.standby,
 .integrated-members-pop .standby-list-grid .gz-unit.standby,
 .hub-sg-pop .standby-list-grid .gz-unit.standby,
-#hub-tile-garrison-pop .hub-tile-garrison-unit-grid .gz-unit.standby {
+#hub-tile-garrison-pop .hub-tile-garrison-unit-grid .gz-unit.standby,
+#hub-tile-standby-pop .hub-tile-garrison-unit-grid .gz-unit.standby {
   box-sizing: border-box;
   margin: 0;
   padding: 2px 4px;
@@ -1813,7 +1946,8 @@ canvas {
 .standby-list-pop .standby-list-grid .gz-unit.standby,
 .integrated-members-pop .standby-list-grid .gz-unit.standby,
 .hub-sg-pop .standby-list-grid .gz-unit.standby,
-#hub-tile-garrison-pop .hub-tile-garrison-unit-grid .gz-unit.standby {
+#hub-tile-garrison-pop .hub-tile-garrison-unit-grid .gz-unit.standby,
+#hub-tile-standby-pop .hub-tile-garrison-unit-grid .gz-unit.standby {
   width: auto;
   max-width: 100%;
   min-width: auto;
@@ -1832,7 +1966,8 @@ canvas {
 .standby-list-pop .standby-list-grid .gz-unit.standby > .gz-standby-card-col,
 .integrated-members-pop .standby-list-grid .gz-unit.standby > .gz-standby-card-col,
 .hub-sg-pop .standby-list-grid .gz-unit.standby > .gz-standby-card-col,
-#hub-tile-garrison-pop .hub-tile-garrison-unit-grid .gz-unit.standby > .gz-standby-card-col {
+#hub-tile-garrison-pop .hub-tile-garrison-unit-grid .gz-unit.standby > .gz-standby-card-col,
+#hub-tile-standby-pop .hub-tile-garrison-unit-grid .gz-unit.standby > .gz-standby-card-col {
   flex: 0 1 auto;
 }
 .gz-unit.standby .gz-standby-card-name-row {
@@ -2058,10 +2193,10 @@ canvas {
   flex-wrap: wrap;
 }
 .gz-standby-head .gz-title { margin-bottom: 0; flex: 1; min-width: 0; }
+/* 집합소 거점 바: 대기실 스트립(가로 스크롤 행 안에 배치) */
 /* 유닛 목록: 열 폭=max(해당 열 카드들); 카드는 stretch로 열 전체 폭 통일 */
 .standby-list-pop .standby-list-grid,
-.integrated-members-pop .standby-list-grid,
-.hub-sg-pop .standby-list-grid {
+.integrated-members-pop .standby-list-grid {
   display: grid;
   grid-template-columns: repeat(5, max-content);
   gap: 5px;
@@ -2074,21 +2209,41 @@ canvas {
 }
 @media (max-width: 960px) {
   .standby-list-pop .standby-list-grid,
-  .integrated-members-pop .standby-list-grid,
-  .hub-sg-pop .standby-list-grid {
+  .integrated-members-pop .standby-list-grid {
     grid-template-columns: repeat(4, max-content);
   }
 }
 @media (max-width: 720px) {
   .standby-list-pop .standby-list-grid,
-  .integrated-members-pop .standby-list-grid,
-  .hub-sg-pop .standby-list-grid {
+  .integrated-members-pop .standby-list-grid {
     grid-template-columns: repeat(3, max-content);
   }
 }
-.standby-list-pop .unit-list-frame,
-.integrated-members-pop .unit-list-frame,
+/* 전체 대원(허브) 모달: 프레임 넓힘 + 3→4(≥720) →5(≥1000) 열 */
 .hub-sg-pop .unit-list-frame {
+  max-width: min(98vw, 1000px);
+  width: 100%;
+  box-sizing: border-box;
+}
+.hub-sg-pop .standby-list-grid {
+  display: grid;
+  grid-template-columns: repeat(3, max-content);
+  gap: 5px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  align-items: start;
+  justify-items: start;
+  justify-content: start;
+}
+@media (min-width: 720px) {
+  .hub-sg-pop .standby-list-grid { grid-template-columns: repeat(4, max-content); }
+}
+@media (min-width: 1000px) {
+  .hub-sg-pop .standby-list-grid { grid-template-columns: repeat(5, max-content); }
+}
+.standby-list-pop .unit-list-frame,
+.integrated-members-pop .unit-list-frame {
   width: 100%;
   max-width: min(96vw, 500px);
   box-sizing: border-box;
@@ -2354,23 +2509,24 @@ canvas {
   border-color: #a78bfa !important;
   background: #1f1628 !important;
 }
-/* 거점 안내: 식량 줄과 같은 가로줄의 왼쪽 열 (집합소 요약 하단 #garrison-bar-foot) */
+/* 거점 안내: 좌측 패널 (#garrison-settlement-hint-box) */
 #garrison-bar-hint.garrison-bar-hint-inline {
   display: block;
   width: 100%;
   min-width: 0;
-  max-width: min(100%, 420px);
+  max-width: 100%;
   box-sizing: border-box;
   margin: 0;
-  padding: 4px 6px 5px;
+  padding: 3px 4px 4px;
   font-size: 9px;
   line-height: 1.4;
   color: #cbd5e1;
   text-align: left;
   background: rgba(6, 10, 16, 0.45);
-  border: 1px solid rgba(30, 58, 95, 0.45);
-  border-radius: 6px;
+  background: none !important; /* 배경 제거 */
+  border: none !important;
   pointer-events: none;
+  white-space: nowrap;
 }
 #garrison-bar-hint.garrison-bar-hint-inline b { font-weight: 700; color: #e2e8f0; }
 #btn-garrison-buffs {
@@ -2396,8 +2552,9 @@ canvas {
 .garrison-buffs-pop .buff-row:not(.is-active) .buff-title { color: #94a3b8; }
 .garrison-buffs-pop .buff-meta { font-size: 10px; color: #64748b; margin-top: 4px; line-height: 1.4; }
 .garrison-buffs-pop .buff-row.is-active .buff-meta { color: #86efac; }
-/* 집합소 타일 거점 팝업: 주둔 대원 = 전체 대원(standby-list-grid)과 동일 카드·2열 max-content */
-#hub-tile-garrison-pop .hub-tile-garrison-unit-grid {
+/* 집합소 타일 거점·대기실 팝업: 주둔/대기 = 동일 그리드·카드(2열 max-content) */
+#hub-tile-garrison-pop .hub-tile-garrison-unit-grid,
+#hub-tile-standby-pop .hub-tile-garrison-unit-grid {
   display: grid;
   grid-template-columns: repeat(2, max-content);
   gap: 5px;
@@ -2408,12 +2565,14 @@ canvas {
   justify-items: start;
   justify-content: start;
 }
-#hub-tile-garrison-pop .hub-tile-garrison-unit-grid > span:only-child {
+#hub-tile-garrison-pop .hub-tile-garrison-unit-grid > span:only-child,
+#hub-tile-standby-pop .hub-tile-garrison-unit-grid > span:only-child {
   grid-column: 1 / -1;
   width: 100%;
   text-align: center;
 }
-#hub-tile-garrison-pop .hub-tile-garrison-pop__close {
+#hub-tile-garrison-pop .hub-tile-garrison-pop__close,
+#hub-tile-standby-pop .hub-tile-garrison-pop__close {
   width: 100%;
   margin-top: 10px;
   background: #1e3a5f;
@@ -2424,7 +2583,8 @@ canvas {
   font-weight: 600;
   font-size: 0.8em;
 }
-#hub-tile-garrison-pop .hub-tile-garrison-pop__close:hover {
+#hub-tile-garrison-pop .hub-tile-garrison-pop__close:hover,
+#hub-tile-standby-pop .hub-tile-garrison-pop__close:hover {
   filter: brightness(1.08);
 }
 /* ── 간단히 보기 ── */
@@ -2893,30 +3053,32 @@ canvas {
       </div>
     </div>
     <div id="garrison-bar-main" class="garrison-bar-main">
-      <div class="garrison-bar-main__left">
-        <div id="garrison-bar-body">
-          <div id="garrison-zones-container" style="display:flex;gap:6px;width:100%;overflow-x:auto;align-items:flex-start"></div>
+      <div class="garrison-bar-panel garrison-bar-panel--unified" id="garrison-bar-panel-main" aria-label="집합소·주둔·수입·식량">
+        
+        <span id="garrison-bar-hint" class="garrison-bar-hint-inline" style="display:none"></span>
+
+        <div id="garrison-bar-summary" class="garrison-summary-panel">
+          <div class="garrison-summary__row garrison-summary__row--buff-notice" id="garrison-summary-row-buff-notice" style="display:none">
+            <span class="garrison-buff-notice-label">전역 거점 버프</span>
+            <span id="garrison-bar-benefit"></span>
+          </div>
+          <div class="garrison-summary__row garrison-summary__row--debuff" id="garrison-summary-row-debuff">
+            <span id="ctrl-sorrow-hint"></span>
+          </div>
+          <div class="garrison-summary__row garrison-summary__row--income" id="garrison-summary-row-income">
+            <span id="garrison-bar-income" class="garrison-summary-income"></span>
+          </div>
+          <div class="garrison-summary__row garrison-summary__row--food" id="garrison-summary-row-food">
+            <span id="garrison-bar-food" class="garrison-summary-food"></span>
+          </div>
         </div>
-      </div>
-      <div id="garrison-bar-summary" class="garrison-summary-panel">
-        <div class="garrison-summary__row garrison-summary__row--debuff" id="garrison-summary-row-debuff">
-          <span id="ctrl-sorrow-hint"></span>
+        <div class="garrison-bar-col garrison-bar-col--zones" id="garrison-bar-col-zones">
+          <div id="garrison-bar-body">
+            <div id="garrison-zones-container" style="display:flex;gap:4px;width:100%;overflow-x:auto;align-items:flex-start"></div>
+          </div>
+          <div class="garrison-settlement-hint-box" id="garrison-settlement-hint-box" aria-live="polite">            
+          </div>
         </div>
-        <div class="garrison-summary__row garrison-summary__row--income" id="garrison-summary-row-income">
-          <span id="garrison-bar-income" class="garrison-summary-income"></span>
-        </div>
-        <div class="garrison-summary__row garrison-summary__row--buff-notice" id="garrison-summary-row-buff-notice" style="display:none">
-          <span class="garrison-buff-notice-label">버프 안내문</span>
-          <span id="garrison-bar-benefit"></span>
-        </div>
-      </div>
-    </div>
-    <div id="garrison-bar-foot" class="garrison-bar-foot" style="display:none" role="group" aria-label="거점 안내·식량">
-      <div id="garrison-bar-foot__hint">
-        <span id="garrison-bar-hint" class="garrison-bar-hint-inline" style="display:none" aria-live="polite"></span>
-      </div>
-      <div id="garrison-bar-foot__food">
-        <span id="garrison-bar-food" class="garrison-summary-food"></span>
       </div>
     </div>
   </div>
@@ -2944,15 +3106,18 @@ canvas {
         <div id="play-guide-checklist" style="display:none" aria-live="polite">
           <div class="play-guide-title">게임 방법 가이드</div>
           <ul class="play-guide-list">
-            <li data-pg="drag"><span class="pg-check" aria-hidden="true">☐</span><span class="play-guide-line">이동: 대원 클릭 후 이동</span></li>
-            <li data-pg="hold"><span class="pg-check" aria-hidden="true">☐</span><span class="play-guide-line">홀드: 대원 두 번 클릭</span></li>
-            <li data-pg="formation"><span class="pg-check" aria-hidden="true">☐</span><span class="play-guide-line">대형 이동: 지도 두 번 클릭</span></li>
-            <li data-pg="allHold"><span class="pg-check" aria-hidden="true">☐</span><span class="play-guide-line">전원 홀드: 지도 세 번 클릭</span></li>
-            <li data-pg="recruit"><span class="pg-check" aria-hidden="true">☐</span><span class="play-guide-line">대원 영입: 전투 줄 대원 영입</span></li>
-            <li data-pg="skill"><span class="pg-check" aria-hidden="true">☐</span><span class="play-guide-line">스킬 변경: 동료창 클릭</span></li>
+            <li data-pg="drag"><span class="pg-check" aria-hidden="true">☐</span><span class="play-guide-line">이동 - 대원 클릭 후 드래그</span></li>
+            <li data-pg="hold"><span class="pg-check" aria-hidden="true">☐</span><span class="play-guide-line">홀드 - 대원 두 번 클릭</span></li>
+            <li data-pg="formation"><span class="pg-check" aria-hidden="true">☐</span><span class="play-guide-line">대형 이동 - 지도 두 번 클릭</span></li>
+            <li data-pg="allHold"><span class="pg-check" aria-hidden="true">☐</span><span class="play-guide-line">전원 홀드 - 지도 세 번 클릭</span></li>
+            <li data-pg="recruit"><span class="pg-check" aria-hidden="true">☐</span><span class="play-guide-line">대원 추가 - 우측 하단 '영입'버튼</span></li>
+            <li data-pg="skill"><span class="pg-check" aria-hidden="true">☐</span><span class="play-guide-line">스킬 변경 - 동료창에서 스킬 클릭</span></li>
           </ul>
         </div>
         <canvas id="gc"></canvas>
+        <div id="settlement-hub-map-bottom-hint" class="settlement-hub-map-bottom-hint" style="display:none" role="status" aria-live="polite" aria-atomic="true">
+          <span id="settlement-hub-map-bottom-lead"></span><span id="settlement-hub-map-bottom-cd" class="settlement-hub-map-bottom-hint__cd" style="display:none" aria-hidden="true"></span>
+        </div>
         <div id="settlement-hub-strip" style="display:none" aria-hidden="true"></div>
         <div id="settlement-hub-battle-dock" style="display:none" aria-hidden="true" aria-label="다음 전투 선택">
           <div id="settlement-hub-slot-0" class="settlement-hub-dock-slot settlement-hub-dock-slot--top"></div>
@@ -2970,7 +3135,7 @@ canvas {
     <div class="ctrl-row ctrl-main">
       <div class="ctrl-left">
         <button class="cb cb-go" id="btn-go" onclick="event.stopPropagation(); toggleBattle()">▶ 출발</button>
-        <button class="cb" id="btn-auto" onclick="toggleAutoStart()" style="background:#1a4030">자동: OFF</button>
+        <button class="cb" id="btn-auto" type="button" onclick="toggleAutoStart()" style="background:#1a4030" title="자동 진행" aria-pressed="false">자동</button>
         <div class="badge b-pl" id="sb">준비</div>
         <div id="battle-timer">
           <span id="timer-clock">⏱0:00</span>
@@ -2981,7 +3146,7 @@ canvas {
       <div class="garrison-header-recruit">
         <span id="shop-btn" style="display:none" aria-live="polite"></span>
         <button type="button" class="cb cb-recruit-main" onclick="event.stopPropagation(); showRecruitChoiceModal()">👷‍♂️영입</button>
-        <button type="button" id="btn-refugee-feast" onclick="event.stopPropagation();feedRefugeesTrainingFeast()" title="미전직 대원에게 식량으로 단련을 베풀어 전투 레벨 Lv.10까지만 끌어올립니다" class="collapse-btn panel-ally-toolbar-btn">🍖 훈련</button>
+        <button type="button" id="btn-refugee-feast" onclick="event.stopPropagation();feedRefugeesTrainingFeast()" title="미전직 대원에게 식량으로 단련을 베풀어 전투 레벨 Lv.10까지만 끌어올립니다" class="collapse-btn panel-ally-toolbar-btn">🍖훈련</button>
       </div>
     </div>
     <div id="battle-potion-row" style="display:none;flex-wrap:wrap;gap:5px;align-items:center;width:100%;padding:4px 0 0 0;margin-top:2px;border-top:1px solid #1e293b;box-sizing:border-box"></div>
@@ -2995,9 +3160,9 @@ canvas {
         <span style="flex-shrink:0">👷‍♂️ 함께하는 동료 <b id="party-count" style="color:#f1c40f"></b></span>
       </div>
       <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0">
-        <button type="button" class="collapse-btn panel-ally-toolbar-btn" id="btn-party-sort" onclick="event.stopPropagation();enableAutoSort();">유닛 정렬</button>
-        <button type="button" class="btn-hub-all-units" id="btn-hub-sg-list" onclick="event.stopPropagation();openHubStandbyGarrisonModal()" title="통솔·대기실·거점 주둔 전체 목록">전체 대원</button>
-        <button type="button" class="collapse-btn panel-ally-toolbar-btn" id="btn-compact" onclick="toggleCompactView()">간략히</button>
+        <button type="button" class="collapse-btn panel-ally-toolbar-btn" id="btn-party-sort" onclick="event.stopPropagation();if(typeof window.enableAutoSort==='function')window.enableAutoSort();">유닛 정렬</button>
+        <button type="button" class="btn-hub-all-units" id="btn-hub-sg-list" onclick="event.stopPropagation();if(typeof window.openHubStandbyGarrisonModal==='function')window.openHubStandbyGarrisonModal();" title="통솔·대기실·거점 주둔 전체 목록">전체 대원</button>
+        <button type="button" class="collapse-btn panel-ally-toolbar-btn" id="btn-compact" onclick="event.stopPropagation();if(typeof window.toggleCompactView==='function')window.toggleCompactView();">간략히</button>
       </div>
     </div>
     <div id="panel-ally-body">
@@ -3722,7 +3887,7 @@ window.openHubStandbyGarrisonModal=function(){
   closeHubStandbyGarrisonModal();
   const mkBtn=(m,label)=>{
     const on=_hubSgSortMode===m;
-    return `<button type="button" data-hub-sort="${m}" class="standby-sort-btn${on?' is-active':''}" onclick="event.stopPropagation();setHubSgSort('${m}')">${label}</button>`;
+    return `<button type="button" data-hub-sort="${m}" class="standby-sort-btn${on?' is-active':''}" onclick="event.stopPropagation();if(typeof window.setHubSgSort==='function')window.setHubSgSort('${m}')">${label}</button>`;
   };
   const html=`<div id="hub-sg-modal" class="hub-sg-pop" onclick="closeHubStandbyGarrisonModal()">
     <div class="unit-list-frame" onclick="event.stopPropagation()">
@@ -4101,13 +4266,13 @@ function _renderCemeteryInStandbyListModal() {
 }
 window.openCemeteryListModal=function(){
   closeCemeteryListModal();
-  const html=`<div class="standby-list-pop" id="cemetery-list-modal" style="position:fixed;inset:0;z-index:12042;background:rgba(3,8,16,0.78);display:flex;align-items:center;justify-content:center;padding:10px" onclick="closeCemeteryListModal()">
-    <div class="unit-list-frame" style="max-height:min(88vh,720px);overflow:auto;background:#0d0a0a;border:1px solid #7f1d1d;border-radius:10px;padding:12px;box-shadow:0 12px 40px #000a" onclick="event.stopPropagation()">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-        <div style="color:#fecaca;font-weight:bold;font-size:15px">⚰️ 사망자 명단</div>
+  const html=`<div class="standby-list-pop" id="cemetery-list-modal" style="position:fixed;inset:0;z-index:12920;background:rgba(3,8,16,0.78);display:flex;align-items:center;justify-content:center;padding:10px" onclick="closeCemeteryListModal()">
+    <div class="unit-list-frame cemetery-list-pop__inner" style="width:min(96vw,380px);max-width:100%;min-height:0;max-height:min(90vh,720px);background:#0d0a0a;border:1px solid #7f1d1d;border-radius:10px;padding:10px 10px 12px;box-shadow:0 12px 40px #000a;display:flex;flex-direction:column;overflow:hidden" onclick="event.stopPropagation()">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;flex:0 0 auto">
+        <div style="color:#fecaca;font-weight:bold;font-size:14px">⚰️ 사망자 명단</div>
         <button type="button" class="cb" style="padding:4px 10px;background:#374151;touch-action:manipulation" onclick="closeCemeteryListModal()">닫기</button>
       </div>            
-      <div class="standby-list-grid" data-cemetery-perm-grid style="min-height:40px;margin-bottom:14px"></div>      
+      <div class="standby-list-grid cemetery-list-pop__grid" data-cemetery-perm-grid style="min-height:36px;flex:1 1 auto;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain"></div>      
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend',html);
@@ -4155,7 +4320,7 @@ const CONSTRUCTION_TILES={
   citadel:{3:['ruin_clean','tent'],7:['seal_stone','fence'],11:['inner_passage_open'],14:['ancient_tablet','treasure_base'],15:['unsealed_ruin']},
   void:{3:['fort_ruin_clean','tent'],7:['wall_repair_start'],11:['tower','barrack'],14:['large_wall','flag'],15:['completed_border_fortress']},
 };
-// 집합소: 캔버스 좌표 장식(중앙 화톨불·천막 등) — 무덤/거점은 hextile `hub_grave` / `hub_garrison` 로 처리(버튼/플로트 마커 아님)
+// 집합소: 캔버스 좌표 장식(중앙 화톨불·천막 등) — 무덤/거점/대기실은 hextile `hub_grave` / `hub_garrison` / `hub_standby` 로 처리(버튼/플로트 마커 아님)
 const HUB_TILES_BY_PHASE=[
   ['big_campfire','tent_1','tent_1','tent_2','wood_pole','wood_pole_cluster','ground_clear','small_hut'],
   ['big_campfire','small_hut','herb_patch','wood_stack','potion_tent','small_market_stall','farm_plot'],
@@ -4180,6 +4345,8 @@ let _settlementHubIdlePaused=false;
 /** 맵 전체 딤(집합소 퇴장·다음 전투지 페이드) 0~1 */
 let _mapScreenDimAlpha=0;
 let _mapScreenDimFadeIn=false;
+/** 집합소 진입 직후 0→1 (맵·대기 유닛·우측 도크가 동시에 밝아짐) */
+let _settlementHubEntranceAlpha=1;
 /** @type {null|{type:'default_next'|'zone',zid?:string}} 집합소에서 미리 고른 다음 전투 (없으면 기존 구역 모달) */
 let _settlementHubBattleChoice=null;
 /** 집합소 직전 hex 타일 스냅샷(복구용) */
@@ -4382,6 +4549,30 @@ function _applyHubFeatureTriplet(anchorR, anchorC, typeName){
     hexMap[r][c].type=typeName;
   }
 }
+/** 대기실 3칸(트리플릿)이 캠프 내부 hub_town 위에만 올라가는지 */
+function _hubStandbyTripletFitsOnTown(anchorR, anchorC){
+  if(!hexMap||typeof ROWS==='undefined'||typeof COLS==='undefined') return false;
+  const rows=ROWS, cols=COLS;
+  const cells=[];
+  const pushRC=(r,c)=>{
+    if(r<0||r>=rows||c<0||c>=cols) return;
+    if(!hexMap[r]||!hexMap[r][c]) return;
+    cells.push([r,c]);
+  };
+  pushRC(anchorR, anchorC);
+  pushRC(anchorR, anchorC+1);
+  if((anchorR%2)===0) pushRC(anchorR-1, anchorC);
+  else pushRC(anchorR-1, anchorC+1);
+  const seen=new Set();
+  for(let i=0;i<cells.length;i++){
+    const r=cells[i][0], c=cells[i][1];
+    const k=r+','+c;
+    if(seen.has(k)) continue;
+    seen.add(k);
+    if(hexMap[r][c].type!=='hub_town') return false;
+  }
+  return seen.size>=3;
+}
 /** 집합소: 가로로 긴 캠프(모서리 3칸×4절·우측 통로 제외) + 집합소 끝 뒤뜰 제외, 가장자리 = 울타리 헥스(게이트 구간은 평지) */
 function _paintSettlementHubTownVillage(){
   if(!hexMap||typeof ROWS==='undefined'||typeof COLS==='undefined') return;
@@ -4406,7 +4597,7 @@ function _paintSettlementHubTownVillage(){
   for(let r=rMin;r<=rMax;r++)for(let c=cMin;c<=cMax;c++){
     if(!hexMap[r]||!hexMap[r][c]) continue;
     const cur=hexMap[r][c].type;
-    if(cur==='hub_grave'||cur==='hub_garrison') continue;
+    if(cur==='hub_grave'||cur==='hub_garrison'||cur==='hub_standby') continue;
     if(inCorner3(r,c)){
       hexMap[r][c].type='plain';
       continue;
@@ -4423,6 +4614,7 @@ function _paintSettlementHubTownVillage(){
   const gCell=hexMap[gR]&&hexMap[gR][cMax];
   if(gCell) window._settlementHubGateMeta={x:gCell.x,y:gCell.y,r:gR,c:cMax,cMin,cMax,rMin,rMax};
   else window._settlementHubGateMeta=null;
+  window._settlementHubHubRect={rMin,rMax,cMin,cMax};
   const cL=Math.min(cMax-1, cMin+1);
   const hubRows=[];
   for(let r=rMin+1;r<=rMax-1;r++){
@@ -4436,6 +4628,17 @@ function _paintSettlementHubTownVillage(){
     }
     _applyHubFeatureTriplet(hubRows[giG], cL, 'hub_grave');
     _applyHubFeatureTriplet(hubRows[giB], cL, 'hub_garrison');
+    let cStandby=Math.min(cMax-2, Math.max(cMin+1, Math.floor((cMin+cMax)/2)-1))-4;
+    cStandby=Math.max(cMin+1, Math.min(cMax-2, cStandby));
+    const rStand=hubRows[Math.floor(hubRows.length/2)]|0;
+    if(rStand>=0){
+      if(!_hubStandbyTripletFitsOnTown(rStand,cStandby)){
+        for(let cc=cStandby+1;cc<=cMax-2;cc++){
+          if(_hubStandbyTripletFitsOnTown(rStand,cc)){ cStandby=cc; break; }
+        }
+      }
+      if(_hubStandbyTripletFitsOnTown(rStand,cStandby)) _applyHubFeatureTriplet(rStand,cStandby,'hub_standby');
+    }
   }else if(hubRows.length===1){
     _applyHubFeatureTriplet(hubRows[0], cL, 'hub_grave');
     let gR0=null, gC0=null;
@@ -4453,7 +4656,7 @@ function getSettlementHubCampWorldBounds(){
   for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
     const cell=hexMap[r]&&hexMap[r][c];
     const t=cell&&cell.type;
-    if(!cell||(t!=='hub_town'&&t!=='hub_grave'&&t!=='hub_garrison')) continue;
+    if(!cell||(t!=='hub_town'&&t!=='hub_grave'&&t!=='hub_garrison'&&t!=='hub_standby')) continue;
     const x=Number(cell.x), y=Number(cell.y);
     if(!Number.isFinite(x)||!Number.isFinite(y)) continue;
     minX=Math.min(minX,x); maxX=Math.max(maxX,x);
@@ -4463,6 +4666,99 @@ function getSettlementHubCampWorldBounds(){
   if(n<1) return null;
   const P=6;
   return{minX:minX-P,maxX:maxX+P,minY:minY-P,maxY:maxY+P,cx:(minX+maxX)/2,cy:(minY+maxY)/2};
+}
+function openHubRecruitFenceGap(edge){
+  const R=typeof window._settlementHubHubRect!=='undefined'?window._settlementHubHubRect:null;
+  if(!R||!hexMap||typeof ROWS==='undefined') return;
+  const rMin=R.rMin|0,rMax=R.rMax|0,cMin=R.cMin|0,cMax=R.cMax|0;
+  const r=edge==='top'?rMin:rMax;
+  if(r<0||r>=ROWS) return;
+  const c0=Math.floor((cMin+cMax)/2);
+  for(let dc=-1;dc<=1;dc++){
+    const c=c0+dc;
+    if(c<cMin||c>cMax) continue;
+    const h=hexMap[r]&&hexMap[r][c];
+    if(h&&h.type==='hub_fence') h.type='hub_town';
+  }
+  if(typeof markDirty==='function') markDirty();
+}
+function beginSettlementHubStandbyRecruitEntrance(u){
+  if(!u||typeof _settlementHubCeremonyActive==='undefined'||!_settlementHubCeremonyActive||_settlementHubPhase!=='hub') return;
+  if(!u.inStandby) return;
+  const R=window._settlementHubHubRect||(window._settlementHubGateMeta&&{rMin:window._settlementHubGateMeta.rMin,rMax:window._settlementHubGateMeta.rMax,cMin:window._settlementHubGateMeta.cMin,cMax:window._settlementHubGateMeta.cMax});
+  if(!R||!hexMap) return;
+  const {rMin,rMax,cMin,cMax}=R;
+  const hr=Number(typeof HR!=='undefined'?HR:18);
+  window._settlementHubRecruitFromTop = !window._settlementHubRecruitFromTop;
+  const fromTop=!!window._settlementHubRecruitFromTop;
+  openHubRecruitFenceGap(fromTop?'top':'bottom');
+  const rEdge=fromTop?rMin:rMax;
+  if(rEdge<0||rEdge>=ROWS) return;
+  const c0=Math.floor((cMin+cMax)/2);
+  let cell=null;
+  for(const dc of[0,-1,1,-2,2]){
+    const c=Math.max(cMin,Math.min(cMax,c0+dc));
+    const h=hexMap[rEdge]&&hexMap[rEdge][c];
+    if(h&&Number.isFinite(h.x)) { cell=h; break; }
+  }
+  if(!cell) return;
+  const f=Array.isArray(worldTiles)?worldTiles.find(t=>t&&t.type==='big_campfire'&&t.isHubObject):null;
+  const fcx=f?f.x:((typeof CW!=='undefined'?CW:800)*0.5);
+  const fcy=f?f.y:((typeof CH!=='undefined'?CH:600)*0.5);
+  const B=typeof getSettlementHubCampWorldBounds==='function'?getSettlementHubCampWorldBounds():null;
+  if(!u._settlementHubSnap) u._settlementHubSnap={x:-300,y:-300,isDeployed:false,inStandby:true,wx:null,wy:null,retreating:false,onHold:false};
+  u._settlementHubWander=true;
+  u._hubRoamInCamp=true;
+  u._hubAsStandby=true;
+  u._settlementHubManualMove=false;
+  u._hubWandAng=Math.random()*6.28;
+  u._hubT=0;
+  u._hubRMin=8;
+  u._hubRMax=88;
+  u._hubWanderSpurt=0;
+  u.isDeployed=true;
+  u.inStandby=false;
+  if(typeof clearAllyHexPath==='function') clearAllyHexPath(u);
+  u._hubMarchToFire=false;
+  u._hubAtFire=true;
+  u.wx=null;
+  u.wy=null;
+  u._hubRoamTgtX=null;
+  u._hubRoamTgtY=null;
+  u.x=cell.x;
+  u.y=cell.y+(fromTop?-hr*2.35:hr*2.35);
+  if(typeof clampToMap==='function') clampToMap(u);
+  if(typeof assignNextHubRoamTarget==='function') assignNextHubRoamTarget(u,B,fcx,fcy,34);
+  const spdN=Math.max(0.65, Math.min(3.4, Number(u.spd)||1.15));
+  u._hubPaceMul=0.18+(spdN/3.4)*0.52+((u.id||0)%5)*0.04+Math.random()*0.12;
+  u._nextHubSpchF=8+((u.id||0)*17)%28;
+  if(typeof markDirty==='function') markDirty();
+}
+function clampWorldHubTilesToCampBounds(){
+  if(typeof _settlementHubCeremonyActive!=='undefined'&& !_settlementHubCeremonyActive) return;
+  if(!Array.isArray(worldTiles)) return;
+  if(typeof getSettlementHubCampWorldBounds!=='function') return;
+  const B=getSettlementHubCampWorldBounds();
+  if(!B||!Number.isFinite(B.minX)) return;
+  const f=worldTiles.find(t=>t&&t.type==='big_campfire'&&t.isHubObject);
+  const fcx=Number(f&&f.x), fcy=Number(f&&f.y);
+  const cfx=Number.isFinite(fcx)?fcx:(B.minX+B.maxX)/2;
+  const cfy=Number.isFinite(fcy)?fcy:(B.minY+B.maxY)/2;
+  const rFire=32;
+  worldTiles.forEach(t=>{
+    if(!t||!t.isHubObject) return;
+    if(t.type==='big_campfire') return;
+    let x=Number(t.x), y=Number(t.y);
+    if(!Number.isFinite(x)||!Number.isFinite(y)) return;
+    const dF=Math.hypot(x-cfx,y-cfy);
+    if(dF<rFire&&dF>0.08){
+      const push=Math.max(6,(rFire-dF)+2);
+      x=cfx+((x-cfx)/dF)*push;
+      y=cfy+((y-cfy)/dF)*0.7;
+    }
+    t.x=Math.max(B.minX+3, Math.min(B.maxX-3, x));
+    t.y=Math.max(B.minY+3, Math.min(B.maxY-3, y));
+  });
 }
 function randomPointInHubCampBounds(B, avoidX, avoidY, avoidR){
   if(!B) return{ x:200,y:200 };
@@ -4507,15 +4803,15 @@ function spawnHubTiles(phaseIndex,centerX,centerY,hubZid){
     const yk=0.62;
     const R=(rad,ang)=>({x:Math.cos(ang)*rad,y:Math.sin(ang)*rad*yk});
     const place=(key,rad,ang)=>{ if(has(key)>=0) pr(key,R(rad,ang)); };
-    place('tent_1',hr*2.2,0.2);
-    place('tent_2',hr*2.35,1.05);
-    place('wood_pole',hr*2.55,1.95);
-    place('small_hut',hr*2.75,3.1);
-    place('wood_pole_cluster',hr*3.35,4.25);
-    place('ground_clear',hr*3.85,2.45);
-    place('tent_1',hr*4.25,3.55);
-    place('tent_2',hr*4.7,5.15);
-    place('wood_pole',hr*5.1,1.1);
+    place('tent_1',hr*3.05,0.2);
+    place('tent_2',hr*3.25,1.05);
+    place('wood_pole',hr*3.5,1.95);
+    place('small_hut',hr*3.85,3.1);
+    place('wood_pole_cluster',hr*4.55,4.25);
+    place('ground_clear',hr*5.15,2.45);
+    place('tent_1',hr*5.6,3.55);
+    place('tent_2',hr*6.2,5.15);
+    place('wood_pole',hr*6.35,1.1);
   }else if(p===1){
     const r0=hr*1.7*1.9,r1=hr*3.4*1.9;
     if(notFire.indexOf('small_hut')>=0) pr('small_hut',{x:Math.cos(1.0)*r0*0.55,y:Math.sin(1.0)*r0*0.4});
@@ -4548,6 +4844,7 @@ function spawnHubTiles(phaseIndex,centerX,centerY,hubZid){
     if(notFire.indexOf('administrative_tent')>=0) pr('administrative_tent',{x:Math.cos(5.5)*r*0.75,y:Math.sin(0.1)*r*0.1});
     if(notFire.indexOf('large_fountain')>=0) pr('large_fountain',{x:-hr*0.15,y:hr*1.45});
   }
+  if(typeof clampWorldHubTilesToCampBounds==='function') clampWorldHubTilesToCampBounds();
   if(typeof markDirty==='function') markDirty();
 }
 function updateHubDisplay(){
@@ -4596,6 +4893,67 @@ let _settlementHubTimer=null;
 function getSettlementHubAutoAdvanceMs(_zid){
   return HUB_AUTO_IDLE_MS;
 }
+function settlementHubBannerOtherMenuBlocksCountdown(){
+  if(typeof document==='undefined') return false;
+  const shown=(id)=>{ const n=document.getElementById(id); return !!(n&&n.classList&&n.classList.contains('show')); };
+  if(shown('zone-modal')||shown('game-help-modal')||shown('garrison-summary-modal')||shown('garrison-modal')||shown('shop-modal')||shown('refugee-modal')||shown('recruit-choice-modal')||shown('next-chapter-modal')||shown('modal')||shown('rename-modal')||shown('intro-modal')||shown('facility-shop-hub-modal')) return true;
+  if(typeof document.querySelector==='function' && document.querySelector('.civ-popup')) return true;
+  const api=document.getElementById('apikey-modal');
+  if(api&&String(api.style.display||'')==='flex') return true;
+  return false;
+}
+function getSettlementHubBannerNextBattleText(){
+  const cz=String(_settlementHubConquestZid||'');
+  if(!cz) return '—';
+  if(typeof ZONES==='undefined'||!ZONES[cz]) return '—';
+  const c=typeof _settlementHubBattleChoice!=='undefined'?_settlementHubBattleChoice:null;
+  if(c&&c.type==='zone'&&c.zid&&ZONES[c.zid]){
+    const z=ZONES[c.zid];
+    const base=String(z.name||c.zid).replace(/\s[IVX]+$/g,'').trim();
+    const rom=typeof getHubDockNextBattleRoman==='function'?getHubDockNextBattleRoman(c.zid):'I';
+    return `${base} ${rom}`.trim();
+  }
+  if(c&&c.type==='default_next'){
+    const pr=typeof computeDefaultNextStepPreview==='function'?computeDefaultNextStepPreview(cz):null;
+    if(pr) return `${(pr.displayName||pr.newName||'').trim()} (티어${pr.newTier})`;
+  }
+  const pr=typeof computeDefaultNextStepPreview==='function'?computeDefaultNextStepPreview(cz):null;
+  if(pr) return `${(pr.displayName||pr.newName||'').trim()} (티어${pr.newTier})`;
+  return String((ZONES[cz]&&ZONES[cz].name)||cz);
+}
+/** 집합소 허브: 지도 하단 중앙 — `집합소: [다음 전투지]`는 항상, `(N초 후 시작)`만 조건부 */
+function syncSettlementHubMapBottomHint(){
+  const wrap=document.getElementById('settlement-hub-map-bottom-hint');
+  const lead=document.getElementById('settlement-hub-map-bottom-lead');
+  const cdEl=document.getElementById('settlement-hub-map-bottom-cd');
+  if(!wrap||!lead||!cdEl) return;
+  if(typeof _settlementHubCeremonyActive==='undefined'||!_settlementHubCeremonyActive||_settlementHubPhase!=='hub'){
+    wrap.style.display='none';
+    lead.textContent='';
+    cdEl.textContent='';
+    cdEl.style.display='none';
+    cdEl.setAttribute('aria-hidden','true');
+    return;
+  }
+  let zoneName=String(getSettlementHubBannerNextBattleText()||'—').replace(/\s*\(티어\d+\)\s*$/,'').trim();
+  const leadText=`집합소: ${zoneName}`;
+  if(lead.textContent!==leadText) lead.textContent=leadText;
+  wrap.style.display='block';
+  const blockCd=settlementHubBannerOtherMenuBlocksCountdown();
+  const showCd=!!_settlementHubAutoTimerStart&&!_settlementHubIdlePaused&&!blockCd;
+  if(!showCd){
+    cdEl.textContent='';
+    cdEl.style.display='none';
+    cdEl.setAttribute('aria-hidden','true');
+    return;
+  }
+  const ms=typeof getSettlementHubAutoAdvanceMs==='function'?getSettlementHubAutoAdvanceMs(_settlementHubConquestZid):HUB_AUTO_IDLE_MS;
+  const left=Math.max(0, Math.ceil((_settlementHubAutoTimerStart+ms-Date.now())/1000));
+  const cdText=` (${left}초 후 시작)`;
+  if(cdEl.textContent!==cdText) cdEl.textContent=cdText;
+  cdEl.style.display='inline';
+  cdEl.setAttribute('aria-hidden','false');
+}
 function pauseSettlementHubIdleCountdown(){
   if(typeof _settlementHubCeremonyActive==='undefined'||!_settlementHubCeremonyActive) return;
   if(_settlementHubPhase!=='hub') return;
@@ -4608,6 +4966,7 @@ function pauseSettlementHubIdleCountdown(){
   if(cEl) cEl.textContent='멈춤';
   if(bEl) bEl.style.display='inline-flex';
   if(typeof markDirty==='function') markDirty();
+  if(typeof syncSettlementHubMapBottomHint==='function') syncSettlementHubMapBottomHint();
 }
 window.settlementHubManualAdvance=function(){
   if(typeof _settlementHubCeremonyActive==='undefined'||!_settlementHubCeremonyActive) return;
@@ -4616,6 +4975,7 @@ window.settlementHubManualAdvance=function(){
   _settlementHubIdlePaused=false;
   const bEl=document.getElementById('settlement-hub-idle-go-btn');
   if(bEl) bEl.style.display='none';
+  if(typeof syncSettlementHubMapBottomHint==='function') syncSettlementHubMapBottomHint();
   if(typeof beginHubScreenAutoExit==='function') beginHubScreenAutoExit();
 };
 function _snapshotUnitsBeforeSettlementHub(){
@@ -4732,6 +5092,7 @@ function _beginSettlementHubStandbyWander(cx,cy,phase){
   _hubMapFade=0;
   const hubMs=typeof getSettlementHubAutoAdvanceMs==='function'?getSettlementHubAutoAdvanceMs(_settlementHubConquestZid):HUB_AUTO_IDLE_MS;
   _settlementHubTimer=setTimeout(()=>{if(_settlementHubCeremonyActive&&_settlementHubPhase==='hub'&&!_settlementHubIdlePaused) beginHubScreenAutoExit();},hubMs);
+  if(typeof syncSettlementHubMapBottomHint==='function') syncSettlementHubMapBottomHint();
 }
 function _restoreAfterSettlementHub(){
   if(typeof _restoreSettlementHubHexFromBackup==='function') _restoreSettlementHubHexFromBackup();
@@ -4765,6 +5126,10 @@ function _restoreAfterSettlementHub(){
   if(_bGoR) _bGoR.style.display='none';
   _settlementHubInteraction=false;
   if(typeof hideAllHubTileHints==='function') hideAllHubTileHints();
+  _settlementHubEntranceAlpha=1;
+  if(typeof syncSettlementHubEntranceOverlays==='function') syncSettlementHubEntranceOverlays();
+  try{ document.body.classList.remove('settlement-hub-ceremony'); }catch(_e){}
+  if(typeof syncSettlementHubMapBottomHint==='function') syncSettlementHubMapBottomHint();
 }
 let _settlementHubTimerStart=0;
 function updateHubStandbyWanderers(cx,cy,phase){
@@ -4856,14 +5221,16 @@ function beginHubScreenAutoExit(){
     try{ clearTimeout(_settlementHubTimer);}catch(e){}
     _settlementHubTimer=null;
   }
+  let hubDockSlot=1;
   {
     const c=_settlementHubBattleChoice;
     const prevZ=String(_settlementHubConquestZid||'');
-    let slot=typeof getHubZoneMenuSlotForZid==='function'?getHubZoneMenuSlotForZid(prevZ):1;
+    const ph0=Math.min(3,Math.max(0,Number(typeof civPhase!=='undefined'?civPhase:0)));
+    hubDockSlot=typeof getHubZoneMenuSlotForZid==='function'?getHubZoneMenuSlotForZid(prevZ,ph0):1;
     if(c&&c.type==='zone'&&c.zid){
-      slot=typeof getHubZoneMenuSlotForZid==='function'?getHubZoneMenuSlotForZid(c.zid):slot;
+      hubDockSlot=typeof getHubZoneMenuSlotForZid==='function'?getHubZoneMenuSlotForZid(String(c.zid),ph0):hubDockSlot;
     }
-    window._settlementHubExitBearingUnit=typeof getHubDockExitUnitVectorForSlot==='function'?getHubDockExitUnitVectorForSlot(slot):{dx:1,dy:0};
+    window._settlementHubExitBearingUnit=typeof getHubDockExitUnitVectorForSlot==='function'?getHubDockExitUnitVectorForSlot(hubDockSlot):{dx:1,dy:0};
   }
   if(typeof _speechBubbles!=='undefined'&&_speechBubbles) _speechBubbles.length=0;
   _hubExitMarchFrames=0;
@@ -4881,6 +5248,9 @@ function beginHubScreenAutoExit(){
   let baseToX=W-mPad0*3;
   if(gm&&Number.isFinite(gm.x)) baseToX=Math.min(W-mPad0*2, gm.x+hw*0.95);
   else if(B&&Number.isFinite(B.maxX)) baseToX=Math.min(W-mPad0*2, B.maxX+hw*0.42);
+  const sDock=Math.max(0,Math.min(2,Number(hubDockSlot)|0));
+  const yMarchAnchors=[H*0.2+mPad0*0.45,H*0.5,H*0.8-mPad0*0.45];
+  const yExitMarch=yMarchAnchors[sDock]??H*0.5;
   let partyMarch=[];
   if(typeof getPartySlotIndices==='function'){
     const pIdx=getPartySlotIndices();
@@ -4891,13 +5261,14 @@ function beginHubScreenAutoExit(){
     a._hubMarchFromX=a.x;
     a._hubMarchFromY=a.y;
     a._hubMarchToX=baseToX;
-    a._hubMarchToY=Math.max(10, Math.min(H-10, a.y + (idx-(nM-1)/2)*9));
+    a._hubMarchToY=Math.max(10, Math.min(H-10, yExitMarch + (idx-(nM-1)/2)*8));
   });
   (allies||[]).forEach(a=>{
     if(!a||!a._settlementHubWander) return;
     a._hubExitPartyMember=partyMarch.some(p=>p.id===a.id);
   });
   _settlementHubMarchStartMs=Date.now();
+  if(typeof syncSettlementHubMapBottomHint==='function') syncSettlementHubMapBottomHint();
 }
 function updateHubExitMarchAndFade(){
   if(!_settlementHubCeremonyActive||_settlementHubPhase==='hub') return;
@@ -4987,13 +5358,43 @@ function openHubGarrisonFromTileClick(zid){
   _settlementHubInteraction=true;
   if(typeof pauseSettlementHubIdleCountdown==='function') pauseSettlementHubIdleCountdown();
 }
+/** 집합소 맵: 대기실(⛺) 3칸 터치 — 거점 타일 팝업과 유사 UI */
+function openHubStandbyFromTileClick(){
+  if(document.getElementById('hub-tile-standby-pop')) return;
+  const cap=typeof getStandbyCapacity==='function'?getStandbyCapacity():0;
+  const raw=typeof getStandbyMembersForUnitListView==='function'?getStandbyMembersForUnitListView():(allies||[]).filter(a=>a&&a.inStandby&&!a.garrisoned&&!a.dead&&!a.permanentlyDead);
+  const mode=(typeof _hubSgSortMode!=='undefined'&&_hubSgSortMode==='lv')?'lv':'tier';
+  const sorted=typeof sortStandbyListForModal==='function'?sortStandbyListForModal(raw, mode):raw.slice();
+  let inner='<span style="font-size:11px;color:#64748b">대기 중인 대원이 없습니다.</span>';
+  if(sorted.length&&typeof buildStandbyUnitCardHtml==='function'){
+    inner=sorted.map(a=>buildStandbyUnitCardHtml(a,{
+      statCardClick:true,
+      useStandbyMoveMenu:true,
+      hubCardDragUi:false
+    })).join('');
+  }
+  const sub='대기 중인 인원 ('+raw.length+'/'+cap+')';
+  const html=`<div id="hub-tile-standby-pop" class="garrison-buffs-pop" style="position:fixed;inset:0;z-index:12050;background:rgba(3,8,16,0.72);display:flex;align-items:center;justify-content:center;padding:10px" onclick="if(event.target.getAttribute('data-hbb')==='1'||this===event.target)document.getElementById('hub-tile-standby-pop')?.remove()">
+  <div data-hbb="1" style="background:linear-gradient(180deg,#0b1628 0%,#080f18 100%);border:1px solid rgba(56,189,248,0.45);border-radius:10px;max-width:min(520px,94vw);max-height:min(72vh,480px);overflow:auto;padding:12px;box-shadow:0 12px 32px rgba(0,0,0,0.45)" onclick="event.stopPropagation()">
+    <div style="color:#7dd3fc;font-weight:700;font-size:14px;margin-bottom:4px;display:flex;align-items:center;gap:6px"><span style="font-size:1.15em" aria-hidden="true">⛺</span> 대기실</div>
+    <div style="font-size:10px;font-weight:600;color:#94a3b8;margin:0 0 10px;line-height:1.4">${sub}</div>
+    <div class="hub-tile-garrison-unit-grid">${inner}</div>
+    <button class="cb hub-tile-garrison-pop__close" type="button" data-hbb="1" onclick="document.getElementById('hub-tile-standby-pop')?.remove()">닫기</button>
+  </div></div>`;
+  document.getElementById('hub-tile-standby-pop')?.remove();
+  document.body.insertAdjacentHTML('beforeend',html);
+  _settlementHubInteraction=true;
+  if(typeof pauseSettlementHubIdleCountdown==='function') pauseSettlementHubIdleCountdown();
+}
 function onSettlementHubWorldClick(wx,wy){
   if(document.getElementById('hub-tile-garrison-pop')) return true;
+  if(document.getElementById('hub-tile-standby-pop')) return true;
   if(typeof nearestCell==='function'&&typeof hexMap!=='undefined'&&hexMap){
     const cell=nearestCell(wx,wy);
-    if(cell && (cell.type==='hub_grave' || cell.type==='hub_garrison')){
+    if(cell && (cell.type==='hub_grave' || cell.type==='hub_garrison' || cell.type==='hub_standby')){
       if(cell.type==='hub_grave' && typeof openCemeteryListModal==='function') openCemeteryListModal();
       else if(cell.type==='hub_garrison' && _settlementHubConquestZid) openHubGarrisonFromTileClick(_settlementHubConquestZid);
+      else if(cell.type==='hub_standby' && typeof openHubStandbyFromTileClick==='function') openHubStandbyFromTileClick();
       if(typeof pauseSettlementHubIdleCountdown==='function') pauseSettlementHubIdleCountdown();
       return true;
     }
@@ -5755,6 +6156,7 @@ const TERRAIN={
   bonfire: {label:'모닥불', color:'#2a0f0a',border:'#7c2d12',spd:1,   blockLOS:false,sym:'🔥',  bonus:{}, desc:'이전 강가 자리 — 문명의 불' },
   hub_grave: {label:'무덤', color:'#14141a',border:'#334155',   spd:0.95,blockLOS:false,sym:'⚰️', bonus:{}, desc:'고인을 기리는 자리' },
   hub_garrison: {label:'거점', color:'#1a1524',border:'#5b4a78',  spd:0.95,blockLOS:false,sym:'🚩', bonus:{}, desc:'이 구역 거점 — 터치로 상세' },
+  hub_standby: {label:'대기실', color:'#0c1822',border:'#38bdf8', spd:0.95,blockLOS:false,sym:'', bonus:{}, desc:'집합소 대기 — 터치로 목록(집합소 연출에서 윗줄에 ⛺)' },
   // 집합소: 베이스는 평지와 동일 — draw()에서 보라 배치구역과 같이 흰 오버레이+선으로 마무리
   hub_town:  {label:'마을', color:'#0d1f30',border:'#1a3a55', spd:1,   blockLOS:false,sym:'',   bonus:{}, desc:'집합소 마을' },
   hub_fence: {label:'울타리', color:'#0d1f30',border:'#1a3a55',spd:1,   blockLOS:false,sym:'', bonus:{}, desc:'마을 경계' },
@@ -6286,11 +6688,25 @@ function hasSeenLowHpSafetyTip() {
 function markLowHpSafetyTipSeen() {
   try { localStorage.setItem(LOW_HP_SAFETY_TIP_KEY, '1'); } catch (_e) {}
 }
-/** '처음부터'·저장 삭제 시: SP 스킬트리 안내·HP 50% 안내 등 1회성 localStorage 플래그 제거 */
+/** '처음부터'·저장 삭제 시: SP 스킬트리 안내·HP 50% 안내·행상/상점 1회 안내 등 localStorage 플래그 제거 + 열린 팝업 정리 */
 function clearOneTimeBattleHelpFlags(){
   try{
     localStorage.removeItem(SKILL_POINT_INTRO_SEEN_KEY);
     localStorage.removeItem(LOW_HP_SAFETY_TIP_KEY);
+    localStorage.removeItem('kingdom_wandering_merchant_intro_done');
+    localStorage.removeItem('kingdom_facility_shop_intro_done');
+    const wEl=document.getElementById('merchant-wandering-intro-pop');
+    if(wEl) wEl.remove();
+    const sEl=document.getElementById('shop-first-intro-pop');
+    if(sEl) sEl.remove();
+    if(typeof _wanderingMerchantIntroTimer!=='undefined' && _wanderingMerchantIntroTimer){
+      clearTimeout(_wanderingMerchantIntroTimer);
+      _wanderingMerchantIntroTimer=null;
+    }
+    if(typeof _shopFacilityIntroTimer!=='undefined' && _shopFacilityIntroTimer){
+      clearTimeout(_shopFacilityIntroTimer);
+      _shopFacilityIntroTimer=null;
+    }
   }catch(_e){}
 }
 window.clearOneTimeBattleHelpFlags=clearOneTimeBattleHelpFlags;
@@ -6496,7 +6912,7 @@ function mapHexTerrainToVisionKey(cellType){
   if(cf>=3&&magicZ.has(zid)&&(cellType==='forest'||cellType==='hill'||cellType==='ruins'))
     return 'magic_fog';
   if(cellType==='ruins'||cellType==='cave') return 'ruin';
-  if(cellType==='bonfire'||cellType==='hub_grave'||cellType==='hub_garrison'||cellType==='hub_town'||cellType==='hub_fence') return 'plain';
+  if(cellType==='bonfire'||cellType==='hub_grave'||cellType==='hub_garrison'||cellType==='hub_standby'||cellType==='hub_town'||cellType==='hub_fence') return 'plain';
   if(cellType==='mountain') return 'mountain';
   if(cellType==='hill') return 'hill';
   if(cellType==='river') return 'river';
@@ -6703,7 +7119,7 @@ let _playGuideUnlocked = false;
 let _playGuideChecklistHideTimer = null;
 const PLAY_GUIDE_STRIKE_REMOVE_MS=640;
 const PLAY_GUIDE_DONE_TITLE_MS=2200;
-const PLAY_GUIDE_TITLE_DEFAULT='게임 방법 가이드';
+const PLAY_GUIDE_TITLE_DEFAULT='하나씩 따라해보세요';
 const PLAY_GUIDE_TITLE_DONE='가이드 모두 완료';
 function playGuideIsComplete(){
   return _playGuide.drag && _playGuide.formation && _playGuide.hold && _playGuide.allHold && _playGuide.skill && _playGuide.recruit;
@@ -6871,6 +7287,30 @@ let garrisonInterval=null;
 let _battleStartTime=0;
 /** 전날 → 다음날: 중앙 일차·거점 배너를 3초 뒤 제거(전투 시작 기준) */
 let _nextDayBannerDismissTimer=null;
+let _dayStartBannerPlaceHandler=null;
+function positionDayStartBannerOnMap(){
+  const el=document.getElementById('day-start-banner');
+  if(!el) return;
+  const map=document.getElementById('mw');
+  if(map&&typeof map.getBoundingClientRect==='function'){
+    const r=map.getBoundingClientRect();
+    if(r.width>=1&&r.height>=1){
+      el.style.position='fixed';
+      el.style.left=(r.left+r.width*0.5)+'px';
+      el.style.top=(r.top+r.height*0.5)+'px';
+      el.style.right='auto';
+      el.style.bottom='auto';
+      el.style.transform='translate(-50%,-50%)';
+      return;
+    }
+  }
+  el.style.position='fixed';
+  el.style.left='50%';
+  el.style.top='50%';
+  el.style.right='auto';
+  el.style.bottom='auto';
+  el.style.transform='translate(-50%,-50%)';
+}
 /** tab/창이 가려진 시각(ms). 복귀 시 _battleStartTime에 (경과)만큼 더해 ‘전투 시계’가 백그라운드에서 쌓이지 않게 함. */
 let _pageHiddenAtForBattleTimer=0;
 let _battleMilestoneExpMul=1;
@@ -7439,6 +7879,7 @@ function createPresetCombatUnit(name,classKey,class10Key,lv,allowBelowTen){
   return u;
 }
 window.quickStartFromPhase=function(phaseKey){
+  if(typeof clearOneTimeBattleHelpFlags==='function') clearOneTimeBattleHelpFlags();
   const phaseMap={village:1,city:2,kingdom:3};
   const zoneMap={village:'bandit',city:'raider',kingdom:'warzone'};
   const lvMap={village:18,city:32,kingdom:50};
@@ -7740,6 +8181,14 @@ function init(){
   if(hasG) startGarrisonTick();
   resizeCanvas();      // 자원바 레이아웃에 맞춰 캔버스 크기 최종 조정
   if(typeof updatePlayGuideChecklistUI==='function') updatePlayGuideChecklistUI();
+  if(!window._autoBtnWideMqBound && typeof window.matchMedia==='function'){
+    window._autoBtnWideMqBound=true;
+    const _mq=window.matchMedia('(min-width: 768px)');
+    const _onW=()=>{ if(typeof applyAutoStartButtonUi==='function') applyAutoStartButtonUi(); };
+    if(_mq.addEventListener) _mq.addEventListener('change',_onW);
+    else if(_mq.addListener) _mq.addListener(_onW);
+  }
+  if(typeof applyAutoStartButtonUi==='function') applyAutoStartButtonUi();
 }
 
 // ══════════════════════════════════════════════════════
@@ -13666,6 +14115,11 @@ function spawnRefugee(opts={}) {
     u.isDeployed = false;
     u.x = -300; u.y = -300;
     if(!silent) alog(`⏳ ${u.name} 자동 대기 합류`);
+    if(typeof _settlementHubCeremonyActive!=='undefined'&&_settlementHubCeremonyActive&&_settlementHubPhase==='hub'&&typeof beginSettlementHubStandbyRecruitEntrance==='function'){
+      beginSettlementHubStandbyRecruitEntrance(u);
+    }
+    markDirty();
+    renderGarrisonBar();
     return;
   }
 
@@ -13702,6 +14156,10 @@ function spawnRefugee(opts={}) {
       renderGarrisonBar();
       return;
     }
+  }
+
+  if(typeof _settlementHubCeremonyActive!=='undefined'&&_settlementHubCeremonyActive&&_settlementHubPhase==='hub'&&u.inStandby&&typeof beginSettlementHubStandbyRecruitEntrance==='function'){
+    beginSettlementHubStandbyRecruitEntrance(u);
   }
 
   markDirty(); // 파티창 갱신
@@ -13860,8 +14318,11 @@ function togglePause() {
 function applyAutoStartButtonUi(){
   const btn = document.getElementById('btn-auto');
   if(btn){
-    btn.innerText = `자동:${autoStart ? 'ON' : 'OFF'}`;
-    btn.style.background = autoStart ? '#1a5c32' : '#1a4030';
+    const wide=typeof window!=='undefined' && window.matchMedia && window.matchMedia('(min-width: 768px)').matches;
+    btn.textContent = wide ? (autoStart ? '자동: On' : '자동: Off') : '자동';
+    // 활성: 출발(재개)과 같은 밝은 초록 / 비활성: 어두운 초록
+    btn.style.background = autoStart ? '#27ae60' : '#1a4030';
+    btn.setAttribute('aria-pressed', autoStart ? 'true' : 'false');
   }
   const goBtn = document.getElementById('btn-go');
   if(!goBtn) return;
@@ -13944,6 +14405,13 @@ function removeNextDayArrivalBannerEl(){
     try{ clearTimeout(_nextDayBannerDismissTimer);}catch(_e){}
     _nextDayBannerDismissTimer=null;
   }
+  if(typeof _dayStartBannerPlaceHandler==='function'&&_dayStartBannerPlaceHandler){
+    try{
+      window.removeEventListener('resize', _dayStartBannerPlaceHandler);
+      window.removeEventListener('scroll', _dayStartBannerPlaceHandler, true);
+    }catch(_e){}
+    _dayStartBannerPlaceHandler=null;
+  }
   const el=document.getElementById('day-start-banner');
   if(el&&el.parentNode) el.parentNode.removeChild(el);
 }
@@ -13953,19 +14421,28 @@ function showNextDayArrivalBanner(){
   const zid=currentZone&&currentZone.id;
   const cvis=(zid&&typeof getConstructionVisualText==='function'&&Number(zoneStage||1)>=2)
     ?getConstructionVisualText(zid,zoneStage):'';
+  const mapWrap=document.getElementById('mw');
   const box=document.createElement('div');
   box.id='day-start-banner';
+  box.className='day-start-banner'+(mapWrap?'':' day-start-banner--viewport-fallback');
   box.setAttribute('role','status');
-  const sub3=cvis?`<div style="margin-top:8px;font-size:12px;font-weight:600;color:#a5b4fc;text-align:center;max-width:min(90vw,480px);line-height:1.45;text-shadow:0 1px 10px rgba(0,0,0,0.7)">🏗 `+battleCurtainEscapeHtml(cvis)+`</div>`:'';
-  box.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:12655;opacity:0;transition:opacity 0.4s ease;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding:18px 22px;box-sizing:border-box;';
-  box.innerHTML='<div style="background:rgba(15,23,42,0.92);border:1px solid rgba(100,116,139,0.5);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.04);padding:16px 22px;max-width:min(92vw,520px)">'+
-    '<div style="font-size:clamp(16px,3.8vw,24px);font-weight:800;color:#f8fafc;text-align:center;letter-spacing:0.02em;text-shadow:0 2px 20px rgba(0,0,0,0.8)">'+battleCurtainEscapeHtml(L.title||'')+'</div>'+
-    '<div style="font-size:clamp(13px,2.8vw,17px);font-weight:700;color:#fde68a;text-align:center;margin-top:4px;letter-spacing:0.04em;text-shadow:0 1px 12px rgba(0,0,0,0.7)">'+battleCurtainEscapeHtml(L.sub||'')+'</div>'+
+  const sub3=cvis
+    ?'<div class="day-start-banner__construction"><span class="day-start-banner__construction-label">건설 상황</span><div class="day-start-banner__construction-line">🏗 '+battleCurtainEscapeHtml(cvis)+'</div></div>'
+    :'';
+  box.innerHTML=
+    '<div class="day-start-banner__card">'+
+    '<div class="day-start-banner__title">'+battleCurtainEscapeHtml(L.title||'')+'</div>'+
+    '<div class="day-start-banner__day">'+battleCurtainEscapeHtml(L.sub||'')+'</div>'+
     sub3+
     '</div>';
   document.body.appendChild(box);
+  positionDayStartBannerOnMap();
+  _dayStartBannerPlaceHandler=function(){ positionDayStartBannerOnMap(); };
+  window.addEventListener('resize', _dayStartBannerPlaceHandler);
+  window.addEventListener('scroll', _dayStartBannerPlaceHandler, true);
   requestAnimationFrame(function(){
     requestAnimationFrame(function(){
+      positionDayStartBannerOnMap();
       if(box.parentNode) box.style.opacity='1';
     });
   });
@@ -13980,7 +14457,7 @@ function scheduleNextDayArrivalBannerDismissOnBattleStart(){
     b.style.transition='opacity 0.45s ease';
     b.style.opacity='0';
     setTimeout(function(){
-      if(b&&b.parentNode) b.parentNode.removeChild(b);
+      removeNextDayArrivalBannerEl();
     },480);
   },3000);
 }
@@ -16510,7 +16987,7 @@ function showHubGarrisonHintAndAutoPlace(zid){
   el.style.bottom='auto';
   el.style.transform='none';
   el.innerHTML=`<div style="font-weight:700;color:#fbbf24;margin-bottom:4px">🚩 거점 안내</div>
-  <div style="color:#cbd5e1;font-size:9px;line-height:1.45">정복한 <b>${zEsc}</b>을(를) 거점으로 구축합니다.</div>`;
+  <div style="color:#cbd5e1;font-size:9px;line-height:1.45">정복한 <b>${zEsc}</b>이 거점 되었습니다.</div>`;
   if(typeof layoutSettlementHubTileHints==='function') layoutSettlementHubTileHints();
   _settlementHubGarrisonHintTimer=setTimeout(()=>{
     _settlementHubGarrisonHintTimer=null;
@@ -16613,7 +17090,7 @@ function mountSettlementHubBattleSidePanels(clearedZid){
           <button type="button" class="settlement-hub-dock-btn hub-dock-zone-btn" data-hub-slot="${slot}" data-zid="${zid}" data-pick="zone"
             ${dis?'disabled title="총레벨 부족"':`onclick="if(typeof window.settlementHubPickZoneForHub==='function')window.settlementHubPickZoneForHub('${safeZid}')"`}>
             <div class="hub-dock-btn-main"><div class="hub-dock-zname"><span class="hub-dock-zname-txt">${zname}</span><span class="hub-dock-zname-roman">${romanEsc}</span></div><div class="hub-dock-zres">${resLine||esc((z.desc||'').slice(0,56))}</div></div>
-            <span class="hub-dock-btn-chev" aria-hidden="true">▶</span>
+            <span class="hub-dock-btn-chev" aria-hidden="true" style="flex: 1; text-align: center; position: static;">▶</span>
           </button>
         </div>`;
     }
@@ -16663,6 +17140,15 @@ window.settlementHubPickZoneForHub=function(zid){
     if(typeof beginHubScreenAutoExit==='function') beginHubScreenAutoExit();
   }
 };
+function syncSettlementHubEntranceOverlays(){
+  const dock=document.getElementById('settlement-hub-battle-dock');
+  if(!dock) return;
+  if(typeof _settlementHubCeremonyActive!=='undefined' && _settlementHubCeremonyActive && _settlementHubPhase==='hub' && (_settlementHubEntranceAlpha|0)<0.999){
+    dock.style.opacity=String(Math.max(0, Math.min(1, Number(_settlementHubEntranceAlpha)||0)));
+  }else{
+    dock.style.removeProperty('opacity');
+  }
+}
 function openSettlementHubCeremony(zid, opts){
   opts=opts||{};
   if(!zid) return;
@@ -16680,6 +17166,7 @@ function openSettlementHubCeremony(zid, opts){
   _settlementHandoffZid=String(zid);
   _settlementHubConquestZid=String(zid);
   _settlementHubCeremonyActive=true;
+  _settlementHubEntranceAlpha=0;
   if(typeof updateHubDisplay==='function') updateHubDisplay();
   document.getElementById('mw')?.classList.add('mw-hub-tile-hints-open');
   const hMid=typeof ROWS!=='undefined'&&typeof hexMap!=='undefined'?hexMap[Math.floor(ROWS/2)]&&hexMap[Math.floor(ROWS/2)][Math.floor((typeof COLS!=='undefined'?COLS:23)/2)]:null;
@@ -16716,9 +17203,13 @@ function openSettlementHubCeremony(zid, opts){
   if(_goHub){
     _goHub.innerText='▶ 출발';
     _goHub.style.background='#7b1d1d';
-    _goHub.style.display='none';
+    _goHub.style.display='inline-block';
   }
+  if(typeof syncSettlementHubEntranceOverlays==='function') syncSettlementHubEntranceOverlays();
   if(typeof markDirty==='function') markDirty();
+  try{ document.body.classList.add('settlement-hub-ceremony'); }catch(_e){}
+  if(typeof applyAutoStartButtonUi==='function') applyAutoStartButtonUi();
+  if(typeof syncSettlementHubMapBottomHint==='function') syncSettlementHubMapBottomHint();
 }
 
 function closeGarrisonModal(){
@@ -17027,6 +17518,39 @@ function generateShopItems(){
 
 let _merchantDepartTime=0;
 let _shopFacilityIntroTimer=null;
+let _wanderingMerchantIntroTimer=null;
+
+function dismissWanderingMerchantIntroPop(){
+  const el=document.getElementById('merchant-wandering-intro-pop');
+  if(el) el.remove();
+  if(_wanderingMerchantIntroTimer){
+    clearTimeout(_wanderingMerchantIntroTimer);
+    _wanderingMerchantIntroTimer=null;
+  }
+  try{ localStorage.setItem('kingdom_wandering_merchant_intro_done','1'); }catch(_e){}
+}
+/** 집합소·마을: 떠돌이 상인(행상)이 처음 올 때 1회만 안내(15초 후 자동 닫힘) */
+function maybeShowWanderingMerchantIntroOnce(){
+  try{
+    if(typeof civPhase==='undefined'||civPhase>=2) return;
+    if(localStorage.getItem('kingdom_wandering_merchant_intro_done')) return;
+    if(document.getElementById('merchant-wandering-intro-pop')) return;
+    const pop=document.createElement('div');
+    pop.id='merchant-wandering-intro-pop';
+    pop.setAttribute('role','dialog');
+    pop.setAttribute('aria-modal','true');
+    pop.style.cssText='position:fixed;z-index:11500;left:50%;top:max(72px, env(safe-area-inset-top, 0px));transform:translateX(-50%);max-width:min(400px,calc(100vw - 20px));background:linear-gradient(165deg,#0f172a 0%,#0b1220 100%);border:1px solid rgba(251,191,36,0.45);color:#e2e8f0;padding:14px 16px;border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,0.55);font-size:12px;line-height:1.6;box-sizing:border-box';
+    pop.innerHTML='<div style="font-weight:800;color:#facc15;margin-bottom:8px;font-size:13px">🛒 행상 안내</div>'+
+      '<div style="color:#cbd5e1;margin-bottom:10px;line-height:1.55">1. 상점(행상)이 <b>랜덤</b>으로 출현합니다.</div>'+
+      '<div style="color:#cbd5e1;margin-bottom:12px;line-height:1.55">2. <b>자원</b>을 사거나 팔 수 있습니다. (전투 줄 <b style="color:#fde047">🛒 행상·상인</b>)</div>'+
+      '<div style="color:#94a3b8;font-size:11px;margin-bottom:10px">15초 후 자동으로 닫힙니다.</div>'+
+      '<button type="button" class="cb" style="width:100%;padding:8px;background:#374151;border:none;border-radius:6px;color:#e5e7eb;font-weight:600;cursor:pointer;touch-action:manipulation">닫기</button>';
+    const closeBtn=pop.querySelector('button');
+    if(closeBtn) closeBtn.addEventListener('click',dismissWanderingMerchantIntroPop);
+    document.body.appendChild(pop);
+    _wanderingMerchantIntroTimer=setTimeout(dismissWanderingMerchantIntroPop,15000);
+  }catch(_e){}
+}
 
 function dismissShopFacilityIntroPop(){
   const el=document.getElementById('shop-first-intro-pop');
@@ -17218,6 +17742,7 @@ function spawnMerchant(stayMsOpt){
   alog(`${tag}이 찾아왔습니다! (${staySec}초 체류)${volHint}`);
   const _mSpk=allies.find(a=>a.isDeployed&&!a.dead);
   if(_mSpk&&Math.random()<0.6) triggerSpeech(_mSpk,'merchant_meet');
+  try{ maybeShowWanderingMerchantIntroOnce(); }catch(_e){}
 }
 
 function updateMerchantBtn(){
@@ -17290,6 +17815,7 @@ function startMerchantSchedule(){
 window.openShop = function(ev) {
   if (ev) ev.stopPropagation();
   if (!_merchantPresent && civPhase < 2) { alog('상인이 없습니다.'); return; }
+  if(typeof dismissWanderingMerchantIntroPop==='function') try{ dismissWanderingMerchantIntroPop(); }catch(_e){}
   ensureInventoryStore();
   
   // 1. 현재 보유 재원을 보여주는 그리드 바 생성
@@ -17602,10 +18128,7 @@ function autoStartNextZone(clearedZid) {
   alog(`🗺 구역 확장: ${newName}`);
   
   autoStart = true;
-  const abtn = document.getElementById('btn-auto');
-  if (abtn) {
-    abtn.innerText = '자동: ON'; abtn.style.background = '#1a5c32';
-  }
+  if (typeof applyAutoStartButtonUi === 'function') applyAutoStartButtonUi();
   
   setChronicleAreaLabel(currentZone);
   enterPlacement(); 
@@ -17748,8 +18271,7 @@ function showNextChapterModal(clearedZid){
 function autoAdvance(){
   // 자동 진행 ON + 이전 배치로 시작
   autoStart=true;
-  const el=document.getElementById('btn-auto');
-  if(el)el.innerText='자동: ON';
+  if (typeof applyAutoStartButtonUi === 'function') applyAutoStartButtonUi();
   alog('⚡ 자동: 이전 배치로 전투 시작!');
 }
 
@@ -20776,6 +21298,60 @@ function draw(crowdedBattle){
         ctx.fillStyle='rgba(248,250,252,0.88)';
         ctx.fillText('🪜',h.x,h.y+HR*0.28);
         ctx.restore();
+      }else if(h.type==='hub_standby'){
+        drawHexPath(h.x,h.y,HR);
+        ctx.save();
+        const fillA='rgba(14,76,120,0.2)';
+        ctx.fillStyle=fillA;
+        ctx.fill();
+        ctx.shadowColor='rgba(56,189,248,0.55)';
+        ctx.shadowBlur=8;
+        ctx.strokeStyle='rgba(125,211,252,0.92)';
+        ctx.lineWidth=2.1;
+        ctx.stroke();
+        ctx.shadowBlur=0;
+        drawHexPath(h.x,h.y,HR*0.86);
+        ctx.setLineDash([2,2]);
+        ctx.strokeStyle='rgba(186,230,253,0.65)';
+        ctx.lineWidth=1.1;
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+        ctx.save();
+        const tf=Math.round(Math.max(12,Math.min(24,Number(typeof HR!=='undefined'?HR:18)*0.9)));
+        ctx.font=`${tf}px "Segoe UI Emoji",Segoe UI Symbol,sans-serif`;
+        ctx.textAlign='center';
+        ctx.textBaseline='middle';
+        ctx.fillStyle='rgba(15,23,42,0.35)';
+        ctx.fillText('⛺',h.x+0.6,h.y+1.4-HR*0.1);
+        ctx.fillStyle='rgba(255,255,255,0.96)';
+        ctx.fillText('⛺',h.x,h.y-HR*0.16);
+        ctx.restore();
+      }else if(h.type==='hub_grave'||h.type==='hub_garrison'){
+        const gGrave=h.type==='hub_grave';
+        drawHexPath(h.x,h.y,HR);
+        ctx.save();
+        ctx.shadowColor=gGrave?'rgba(196,220,150,0.5)':'rgba(196,181,253,0.55)';
+        ctx.shadowBlur=7;
+        ctx.strokeStyle=gGrave?'rgba(190,220,150,0.88)':'rgba(216,201,255,0.95)';
+        ctx.lineWidth=2.1;
+        ctx.stroke();
+        ctx.shadowBlur=0;
+        drawHexPath(h.x,h.y,HR*0.84);
+        ctx.setLineDash([3,2]);
+        ctx.strokeStyle=gGrave?'rgba(251,191,36,0.55)':'rgba(250,204,100,0.6)';
+        ctx.lineWidth=1.15;
+        ctx.stroke();
+        ctx.setLineDash([]);
+        for(let k=0;k<6;k+=2){
+          const a=(Math.PI/3)*k-Math.PI/6;
+          const px=h.x+HR*0.92*Math.cos(a), py=h.y+HR*0.92*Math.sin(a);
+          ctx.beginPath();
+          ctx.arc(px,py,2.2,0,Math.PI*2);
+          ctx.fillStyle=gGrave?'rgba(253,230,138,0.9)':'rgba(253,224,71,0.95)';
+          ctx.fill();
+        }
+        ctx.restore();
       }
     }
   }
@@ -21217,6 +21793,14 @@ function draw(crowdedBattle){
       ctx.restore();
     }
   });
+  if(typeof _settlementHubCeremonyActive!=='undefined' && _settlementHubCeremonyActive && _settlementHubPhase==='hub' && (_settlementHubEntranceAlpha|0)<0.999){
+    ctx.save();
+    ctx.setTransform(1,0,0,1,0,0);
+    const k=1-Math.max(0, Math.min(1, Number(_settlementHubEntranceAlpha)||0));
+    ctx.fillStyle='rgba(4,7,12,'+(0.58*k)+')';
+    ctx.fillRect(0,0,CW,CH);
+    ctx.restore();
+  }
   if(_conquestVictorySeq && _conquestVictorySeq.phase==='mapfade' && (_conquestVictorySeq.mapCoverAlpha||0)>0.01){
     ctx.save();
     ctx.setTransform(1,0,0,1,0,0);
@@ -21442,9 +22026,9 @@ function renderAllyPanel() {
       </div>
       <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0">
         ${groupBtnHtml}
-        <button type="button" class="collapse-btn panel-ally-toolbar-btn" id="btn-party-sort" onclick="event.stopPropagation();enableAutoSort();">유닛 정렬</button>
-        <button type="button" class="btn-hub-all-units" id="btn-hub-sg-list" onclick="event.stopPropagation();openHubStandbyGarrisonModal()" title="통솔·대기실·거점 주둔 전체 목록">전체 대원</button>
-        <button type="button" class="collapse-btn panel-ally-toolbar-btn" id="btn-compact" onclick="toggleCompactView()">간략히</button>
+        <button type="button" class="collapse-btn panel-ally-toolbar-btn" id="btn-party-sort" onclick="event.stopPropagation();if(typeof window.enableAutoSort==='function')window.enableAutoSort();">유닛 정렬</button>
+        <button type="button" class="btn-hub-all-units" id="btn-hub-sg-list" onclick="event.stopPropagation();if(typeof window.openHubStandbyGarrisonModal==='function')window.openHubStandbyGarrisonModal();" title="통솔·대기실·거점 주둔 전체 목록">전체 대원</button>
+        <button type="button" class="collapse-btn panel-ally-toolbar-btn" id="btn-compact" onclick="event.stopPropagation();if(typeof window.toggleCompactView==='function')window.toggleCompactView();">간략히</button>
       </div>
     </div>`;
 
@@ -22072,24 +22656,27 @@ function renderGarrisonBar(){
   const hasIncome=Object.values(total).some(v=>v>0);
   const hasGarrison=clearedCount>0;
   const showSummary=hasGarrison||(!hasGarrison&&_garrisonBarExpanded);
+  const incomeRow=document.getElementById('garrison-summary-row-income');
   if(incomeEl){
     if(hasGarrison){
       incomeEl.style.display='';
       incomeEl.innerText=hasIncome?`거점 획득 자원: ${formatIncomeLine(total)}/분`:'거점 획득 자원: -';
+      if(incomeRow) incomeRow.style.display='';
     }else{
       incomeEl.style.display='none';
       incomeEl.innerText='';
+      if(incomeRow) incomeRow.style.display='none';
     }
   }
   if(hintEl){
-    const footRow=document.getElementById('garrison-bar-foot');
+    const hintBox=document.getElementById('garrison-settlement-hint-box');
     if(!hasGarrison&&_garrisonBarExpanded){
       hintEl.style.display='';
-      if(footRow) footRow.classList.add('garrison-foot-row--has-hint');
+      if(hintBox) hintBox.classList.add('garrison-settlement-hint-box--has-hint');
       hintEl.innerHTML='<b>🏰거점</b><span style="color:#9ca3af">:</span> 15일 동안 거점을 세우면, 대원을 파견하여 자원을 얻을 수 있습니다.';
     }else{
       hintEl.style.display='none';
-      if(footRow) footRow.classList.remove('garrison-foot-row--has-hint');
+      if(hintBox) hintBox.classList.remove('garrison-settlement-hint-box--has-hint');
       hintEl.innerHTML='';
     }
   }
@@ -22101,12 +22688,14 @@ function renderGarrisonBar(){
     const gN=(allies||[]).filter(a=>a&&a.garrisoned&&!a.dead&&!a.permanentlyDead).length;
     const battlePart=p*2;
     const rearPart=sb+gN;
-    foodEl.innerHTML='<span style="color:#94a3b8;font-size:0.92em;margin-right:6px">하루 식량 소모량</span>🍖 <span class="garrison-summary-food-battle">'+battlePart+'</span><span class="garrison-summary-food-rear">+'+rearPart+'</span>';
+    foodEl.innerHTML='<span style="color:#94a3b8;font-size:0.92em;margin-right:4px;white-space:nowrap">하루 식량 소모량</span>🍖 <span class="garrison-summary-food-battle">-'+battlePart+'</span> <span class="garrison-summary-food-rear">-'+rearPart+'</span>';
   }
   if(typeof syncGarrisonSummaryMetaRowVisibility==='function') syncGarrisonSummaryMetaRowVisibility();
   if(summaryEl) summaryEl.style.display=showSummary?'flex':'none';
-  const footEl=document.getElementById('garrison-bar-foot');
-  if(footEl) footEl.style.display=showSummary?'flex':'none';
+  const mainPanel=document.getElementById('garrison-bar-panel-main');
+  if(mainPanel) mainPanel.style.display=showSummary?'flex':'none';
+  const mainGarrisonEl=document.getElementById('garrison-bar-main');
+  if(mainGarrisonEl) mainGarrisonEl.classList.toggle('garrison-bar-main--collapsed', !_garrisonBarExpanded);
   const garrisonBodyEl=document.getElementById('garrison-bar-body');
   if(garrisonBodyEl){
     garrisonBodyEl.style.display=_garrisonBarExpanded?'block':'none';
@@ -22154,11 +22743,12 @@ function renderGarrisonBar(){
     let oneLine='';
     if(resShown.length) oneLine=resShown.join(' ')+'/분';
     if(expPart) oneLine+=(oneLine?' ':'')+expPart;
-    const titleRow=`<div class="gz-head-row" style="display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:nowrap;justify-content:flex-start;width:max-content;max-width:100%">
+    const titleRow=`<div class="gz-head-row" style="display:flex;align-items:center;gap:4px;margin-bottom:2px;flex-wrap:nowrap;justify-content:flex-start;width:max-content;max-width:100%">
         <div class="gz-title" style="color:${zone?.color||'#f1c40f'};margin:0;flex:0 1 auto;min-width:0;white-space:nowrap">${displayName}</div>
         <span style="font-size:9px;font-weight:bold;color:${effColor};white-space:nowrap;flex-shrink:0">효율 ${effPct}%</span>
       </div>`;
-    const incomeLineHtml=oneLine?`<div class="gz-income" style="margin:0 0 3px;font-size:9px;line-height:1.45;white-space:nowrap;overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch">${oneLine}</div>`:'';
+    const perZoneVal=oneLine||'—';
+    const incomeLineHtml=`<div class="gz-per-zone gz-income" style="margin:0 0 2px"><span class="gz-per-zone-lbl">이 거점:</span> <span class="gz-per-zone-val">${perZoneVal}</span></div>`;
     return `<div class="gz" ondragover="event.preventDefault()" ondrop="zoneFrameDrop(event,'${dropZid}')">
       ${titleRow}
       ${incomeLineHtml}
@@ -22448,7 +23038,13 @@ function getPartyMembersForUnitListView(){
   return list;
 }
 function getStandbyMembersForUnitListView(){
-  const base=allies.filter(a=>!a.dead&&!a.permanentlyDead&&!a.garrisoned&&a.inStandby);
+  const hubList=(typeof _settlementHubCeremonyActive!=='undefined'&&_settlementHubCeremonyActive&&_settlementHubPhase==='hub');
+  const base=allies.filter(a=>{
+    if(!a||a.dead||a.permanentlyDead||a.garrisoned) return false;
+    if(a.inStandby) return true;
+    if(hubList&&a._settlementHubSnap&&a._settlementHubSnap.inStandby) return true;
+    return false;
+  });
   const removeIds=new Set();
   const addIds=new Set();
   Object.values(_pendingBattleSwapByPartyId||{}).forEach(job=>{
@@ -23271,7 +23867,7 @@ let _compactMode = false;
 function toggleCompactView() {
   _compactMode = !_compactMode;
   const body = document.getElementById('panel-ally-body');
-  const btn = document.getElementById('btn-compact');
+  const btn = document.querySelector('#panel-ally #btn-compact');
   
   if (body) {
     // CSS의 compact-mode 클래스를 끄고 켭니다.
@@ -23481,6 +24077,9 @@ function loop(gen,rafTs) {
     else if(f&&Number.isFinite(f.x)&&Number.isFinite(f.y)){ hx=f.x; hy=f.y; }
     updateHubStandbyWanderers(hx,hy,Math.min(3,Math.max(0,Number(civPhase)||0)));
   }
+  if(_settlementHubCeremonyActive && _settlementHubPhase==='hub' && typeof syncSettlementHubMapBottomHint==='function'){
+    syncSettlementHubMapBottomHint();
+  }
   if(_settlementHubCeremonyActive && _settlementHubPhase==='hub' && _settlementHubAutoTimerStart && !_settlementHubIdlePaused){
     const cEl=document.getElementById('settlement-hub-idle-countdown');
     if(cEl){
@@ -23494,6 +24093,10 @@ function loop(gen,rafTs) {
     _mapScreenDimAlpha=Math.max(0,(_mapScreenDimAlpha||0)-0.044);
     if(_mapScreenDimAlpha<=0.02){ _mapScreenDimAlpha=0; _mapScreenDimFadeIn=false; }
     if(typeof markDirty==='function') markDirty();
+  }
+  if(_settlementHubCeremonyActive && _settlementHubPhase==='hub' && (_settlementHubEntranceAlpha|0)<0.999){
+    _settlementHubEntranceAlpha=Math.min(1, Number(_settlementHubEntranceAlpha||0)+0.05);
+    if(typeof syncSettlementHubEntranceOverlays==='function') syncSettlementHubEntranceOverlays();
   }
   // 1. 물리 엔진: 유닛 간 겹침 방지 (전투 과밀 시 주기 더 완화)
   const overlapInterval=crowdedBattle?10:5;
@@ -23817,6 +24420,7 @@ window.onload = function() {
   window.openSettlementHubCeremony = openSettlementHubCeremony;
   window.finishSettlementHubToGarrison = finishSettlementHubToGarrison;
   if(typeof updateHubDisplay==='function') window.updateHubDisplay = updateHubDisplay;
+  if(typeof syncSettlementHubMapBottomHint==='function') window.syncSettlementHubMapBottomHint = syncSettlementHubMapBottomHint;
   window.openHubGarrisonPeekFromSettlement = openHubGarrisonPeekFromSettlement;
   window.setStandbyListSort = setStandbyListSort;
   window.openHubStandbyGarrisonModal = openHubStandbyGarrisonModal;
