@@ -21,12 +21,11 @@
     justify-content: center;
     align-items: center;
     gap: 8px 12px;
-    
-    /* [핵심] 모바일에서 겹침 방지 */
-    position: sticky;
-    top: 0;
-    z-index: 1000; /* 최상단 유지 */
-    box-shadow: 0 4px 10px rgba(0,0,0,0.5); /* 경계 구분 */
+    /* 흐름에 포함 — sticky 금지(아이패드·넓은 태블릿에서 스크롤 시 지도를 가리지 않음) */
+    position: relative;
+    top: auto;
+    z-index: 2;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
 }
 
 .top-info-group {
@@ -45,7 +44,7 @@
 
 .logo { color:#f1c40f; font-weight:bold; font-size: calc(0.95em * 1.5 * 1.2); line-height: 1.3; }
 
-/* 집합소(비전투) 연출 중: 상단 자원바(sticky z-index 1000)가 아래로 스크롤된 동료 툴바와 겹쳐 클릭을 가로채지 않도록 — 스티키만 해제 */
+/* 집합소(비전투) 연출: 상·하 히트/쌓임 (상단은 기본 relative) */
 body.settlement-hub-ceremony #top {
   position: relative;
   z-index: auto;
@@ -129,7 +128,7 @@ body {
 /* [수정] 컨트롤 바 - 상단바에 가려지지 않게 설정 */
 #ctrl {
     position: relative;
-    z-index: 1; /* 파티 열(#party-stack)과 겹칠 때 전투줄이 클릭을 가로채지 않게 — 상단 #top(1000)은 형제라 무관 */
+    z-index: 1; /* 파티 열(#party-stack)과 겹칠 때 전투줄이 클릭을 가로채지 않게 */
     flex: 0 0 auto;
     display: flex;
     flex-direction: column;
@@ -7513,6 +7512,7 @@ function finalizeRoadWatcherEventJoin(u,displayName){
   u._roadWatcherDraft=false;
   u.name=displayName||u.name||'외로운 기사';
   allies.push(u);
+  if(!u._statColorLock) initAllyStatColorLockAtRecruitment(u);
   u.inStandby=false; u.isDeployed=false; u.wx=null; u.wy=null; u.x=-300; u.y=-300;
   if(typeof _settlementHubCeremonyActive!=='undefined'&&_settlementHubCeremonyActive&&typeof _settlementHubPhase==='string'&&_settlementHubPhase==='hub'){
     u._settlementHubSnap={x:-300,y:-300,isDeployed:false,inStandby:false,wx:null,wy:null,retreating:false,onHold:false};
@@ -9437,6 +9437,7 @@ window.quickStartFromPhase=function(phaseKey){
   ];
   allies=roster.map((r,i)=>createPresetCombatUnit(r.name,r.classKey,p>=2?r.class10Key:null,baseLv+i*2));
   uid=Math.max(1,...allies.map(a=>Number(a.id)||0))+1;
+  allies.forEach(a=>{initAllyStatColorLockAtRecruitment(a);});
   isBattle=false; isPaused=false; isPlacing=true;
   applyPhaseSettings(false);
   buildMap();
@@ -9595,7 +9596,7 @@ function init(){
     const moveDist=Math.hypot(x-dragSX,y-dragSY);
     // 실제로 드래그가 있었으면 탭 처리 건너뜀
     if(hadDragUnit) return;
-    if(wasMapPan) return;
+    if(wasMapPan && _mapPanMoved) return;
     if(moveDist>15) return;
     try{ e.preventDefault(); }catch(_){}
     
@@ -9619,26 +9620,6 @@ function init(){
     } else {
       if(typeof onMapEmptyClick==='function'){
         onMapEmptyClick({_fromTouch:true,clientX:t.clientX,clientY:t.clientY,button:0,preventDefault:function(){}});
-      }
-      // 빈 땅 탭 — 유닛 더블탭과 동일한 방식으로 직접 카운트
-      const nowM=Date.now();
-      const dx=x-_mapTapLastX, dy=y-_mapTapLastY;
-      const sameSpot=Math.hypot(dx,dy)<=70;
-      const inTime=(nowM-_mapTapLastT)<420;
-      if(sameSpot&&inTime){
-        _mapTapCount++;
-      } else {
-        _mapTapCount=1;
-      }
-      _mapTapLastX=x; _mapTapLastY=y; _mapTapLastT=nowM;
-      // 더블탭: 단체 이동 (즉시 실행, count 유지 → 세 번째 탭 감지 가능)
-      if(_mapTapCount===2){
-        moveAllDeployedAlliesTo(x,y);
-      }
-      // 트리플탭: 단체 홀드 (즉시 실행 후 리셋)
-      else if(_mapTapCount>=3){
-        _mapTapCount=0;
-        toggleAllPartyHoldOnMap();
       }
     }
   },{passive:false});
@@ -13127,13 +13108,13 @@ function getActivePartyPoolForStatColorAvg(){
   if(p.length>PARTY_LIMIT) p=p.slice(0,PARTY_LIMIT);
   return p.length?p:allies.filter(x=>!x.permanentlyDead);
 }
-/** 갱신(레벨/강화) 후에도 색이 변하지 않도록, 최초 1회만 파티 평균 대비 색을 고정 */
-function ensureAllyStatColorLock(a){
-  if(!a||a._statColorLock) return;
-  const v=getAllyStatColorInputs(a);
+/** 대원이 명단에 합류(또는 UI상 첫 표시)한 시점 스탯·당시 파티 평균으로 빨/파/회 — 이후 능력치 변해도 갱신하지 않음(세이브에 포함) */
+function initAllyStatColorLockAtRecruitment(u){
+  if(!u||u._statColorLock) return;
+  const v=getAllyStatColorInputs(u);
   if(!v) return;
   const avgs=computePartyStatAvgs(getActivePartyPoolForStatColorAvg());
-  a._statColorLock={
+  u._statColorLock={
     hp:relStatColor(v.hp,avgs.hp,'hp'),
     def:relStatColor(v.def,avgs.def,'def'),
     atk:relStatColor(v.atk,avgs.atk,'atk'),
@@ -13141,6 +13122,9 @@ function ensureAllyStatColorLock(a){
     mag:relStatColor(v.mag,avgs.mag,'mag'),
     mov:relStatColor(v.mov,avgs.mov,'mov')
   };
+}
+function ensureAllyStatColorLock(a){
+  initAllyStatColorLockAtRecruitment(a);
 }
 
 function rnd(min,max){return min+Math.floor(Math.random()*(max-min+1));}
@@ -13209,6 +13193,7 @@ function spawnAllies(){
   // 모두 미배치 상태로 시작 (배치 단계에서 클릭으로 배치)
   allies.forEach(a=>{a.isDeployed=false;a.x=-300;a.y=-300;});
   savedPositions={}; initialPositions={};
+  allies.forEach(a=>{initAllyStatColorLockAtRecruitment(a);});
 }
 
 function resetDeployment() {
@@ -14217,18 +14202,18 @@ function resetAllyMoveIntent(u){
 }
 
 function moveAllDeployedAlliesTo(x,y){
-  const units=allies.filter(a=>a&&a.isDeployed&&!a.dead&&!a.permanentlyDead&&!a.garrisoned&&!a.inStandby&&!a.onHold)
-    .sort((a,b)=>(a.id||0)-(b.id||0));
-    
+  const inSettlementHubHub=
+    typeof _settlementHubCeremonyActive!=='undefined'&&_settlementHubCeremonyActive&&_settlementHubPhase==='hub';
+  const units=allies.filter(a=>{
+    if(!a||!a.isDeployed||a.dead||a.permanentlyDead||a.garrisoned||a.onHold) return false;
+    if(inSettlementHubHub && a._settlementHubSnap) return !a._settlementHubSnap.inStandby;
+    return !a.inStandby;
+  }).sort((a,b)=>(a.id||0)-(b.id||0));
   if(!units.length){
     alog('⚠️ 이동할 아군이 없습니다. (홀드 중이거나 배치된 유닛 없음)');
     return;
   }
-  
   const targets=computeFormationAnchorTargets(x,y,units);
-
-  const inSettlementHubHub=
-    typeof _settlementHubCeremonyActive!=='undefined'&&_settlementHubCeremonyActive&&_settlementHubPhase==='hub';
   if(inSettlementHubHub){
     let ok=0;
     for(let i=0;i<units.length;i++){
@@ -14314,7 +14299,6 @@ function moveAllDeployedAlliesTo(x,y){
 let _mapEmptyClickBuf=[];
 let _mapEmptyClickTimer=null;
 let _lastCanvasDragEndTs=0;
-let _mapTapCount=0,_mapTapLastX=0,_mapTapLastY=0,_mapTapLastT=0;
 /** 터치 touchend에서 onMapEmptyClick을 이미 보낸 뒤 늦게 오는 click 중복 스킵(ms) */
 let _lastMapEmptyFromTouch=0;
 let _defeatGraceTimer=null;
@@ -14326,7 +14310,12 @@ const MAP_EMPTY_CLICK_IDLE_MS=420;
 
 const MAP_EMPTY_CLICK_IDLE_AFTER_DOUBLE_MS=200;
 function toggleAllPartyHoldOnMap(){
-  const pool=allies.filter(a=>a&&a.isDeployed&&!a.dead&&!a.permanentlyDead&&!a.garrisoned&&!a.inStandby);
+  const inHub=typeof _settlementHubCeremonyActive!=='undefined'&&_settlementHubCeremonyActive&&_settlementHubPhase==='hub';
+  const pool=allies.filter(a=>{
+    if(!a||!a.isDeployed||a.dead||a.permanentlyDead||a.garrisoned) return false;
+    if(inHub&&a._settlementHubSnap) return !a._settlementHubSnap.inStandby;
+    return !a.inStandby;
+  });
   if(!pool.length){
     alog('⚠️ 지도에 통솔 아군이 없습니다.');
     return;
@@ -15109,31 +15098,18 @@ function showClassModal(unit){
   const uHp=unit.maxHp;
   const uMag=unit.bonusMagic||0;
 
-  const pool=allies.filter(a=>!a.permanentlyDead);
-  const n=Math.max(pool.length,1);
-  const avgAtk=pool.reduce((s,a)=>{const r=a.classKey||a.baseRole;return s+(BASE_ROLES[r]?.atk||22)+a.bonusAtk;},0)/n;
-  const avgDef=pool.reduce((s,a)=>s+allyDefStatForUi(a),0)/n;
-  const avgAtkSpd=pool.reduce((s,a)=>{
-    const r=a.classKey||a.baseRole;
-    const rr=BASE_ROLES[r];
-    return s+((rr?.atkSpd||0.8)*(a.atkSpd||1)*(a.atkSpdMul||1)*(1+(a.bonusCDR||0)));
-  },0)/n;
-  const avgHp =pool.reduce((s,a)=>s+a.maxHp,0)/n;
-  const avgMag=pool.reduce((s,a)=>s+Math.floor(Number(a.bonusMagic)||0),0)/n;
-  const avgMov=pool.reduce((s,a)=>s+(Number(a.spd)||0),0)/n;
-
-  function sc(label,val,avg,suffix=''){
-    const ratio=avg>0?val/avg:1;
-    const c=ratio>1.15?'#ff6b6b':ratio<0.85?'#60a5fa':'#9ca3af';
-    return `<span style="color:${c};font-size:10px">${label}<b>${val}${suffix}</b></span>`;
+  initAllyStatColorLockAtRecruitment(unit);
+  const d=unit._statColorLock||{hp:'#9ca3af',def:'#9ca3af',atk:'#9ca3af',spd:'#9ca3af',mag:'#9ca3af',mov:'#9ca3af'};
+  function stLineSpan(label,val,col){
+    return `<span style="color:${col};font-size:10px">${label}<b>${val}</b></span>`;
   }
   const statLine=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
-    ${sc('HP:',uHp,avgHp)}
-    ${sc('DEF:',uDef,avgDef,'')}
-    ${sc('ATK:',uAtk,avgAtk)}
-    ${sc('SPD:',uAtkSpd,avgAtkSpd)}
-    ${sc('MAG:',uMag,avgMag)}
-    ${sc('MOV:',uMov,avgMov)}
+    ${stLineSpan('HP:',uHp,d.hp)}
+    ${stLineSpan('DEF:',uDef,d.def)}
+    ${stLineSpan('ATK:',uAtk,d.atk)}
+    ${stLineSpan('SPD:',uAtkSpd,d.spd)}
+    ${stLineSpan('MAG:',uMag,d.mag)}
+    ${stLineSpan('MOV:',uMov,d.mov)}
   </div>`;
 
   // canUnitPromote와 동일: 정확히 10·30이 아니어도 (만찬 등으로 레벨만 넘긴 경우) 전직 가능하면 모달 표시
@@ -15786,6 +15762,7 @@ function _spawnMercenaryHired(silent){
   u.lv=FIRST_PROMOTION_LV;
   u.fromMercHire=true;
   allies.push(u);
+  initAllyStatColorLockAtRecruitment(u);
   if(!isBattle&&!silent) alog('💰 새로운 지원자가 도착했습니다! 보직을 결정하세요.');
   return u;
 }
@@ -15970,6 +15947,7 @@ function spawnRefugee(opts={}) {
     if(typeof _settlementHubCeremonyActive!=='undefined'&&_settlementHubCeremonyActive&&_settlementHubPhase==='hub'&&typeof beginSettlementHubStandbyRecruitEntrance==='function'){
       beginSettlementHubStandbyRecruitEntrance(u);
     }
+    initAllyStatColorLockAtRecruitment(u);
     markDirty();
     renderGarrisonBar();
     return;
@@ -16014,6 +15992,7 @@ function spawnRefugee(opts={}) {
     beginSettlementHubStandbyRecruitEntrance(u);
   }
 
+  initAllyStatColorLockAtRecruitment(u);
   markDirty(); // 파티창 갱신
   renderGarrisonBar(); // 하단 거점/대기 바 갱신
 }
@@ -18509,6 +18488,7 @@ function confirmGarrison() {
     newUnit.inStandby = false;
     newUnit.x = -300; newUnit.y = -300;
     allies.push(newUnit);
+    initAllyStatColorLockAtRecruitment(newUnit);
     rec.garrison.push({ id: newUnit.id, name: newUnit.name, lv: newUnit.lv, classKey: newUnit.classKey, baseRole: newUnit.baseRole });
     rec.lastTick = Date.now();
     placed++;
@@ -18826,6 +18806,7 @@ function applyAutoGarrisonHireForConquestHub(zid){
     newUnit.inStandby=false;
     newUnit.x=-300; newUnit.y=-300;
     allies.push(newUnit);
+    initAllyStatColorLockAtRecruitment(newUnit);
     rec.garrison.push({id:newUnit.id,name:newUnit.name,lv:newUnit.lv,classKey:newUnit.classKey,baseRole:newUnit.baseRole});
     rec.lastTick=Date.now();
     res.food-=30;
@@ -18863,7 +18844,7 @@ function tryFlushHubFirstGarrisonGuideWhenPartyAtFire(){
 window.dismissHubFirstGarrisonGuide=function(){
   _hubPendingFirstFireGuideZid=null;
   try{ localStorage.setItem(HUB_FIRST_GARRISON_GUIDE_LS,'1'); }catch(_e){}
-  if(typeof hideHubGarrisonHint==='function') hideHubGarrisonHint();
+  if(typeof _settlementHubConquestZid!=='undefined'&&_settlementHubConquestZid&&typeof showHubGarrisonHintAndAutoPlace==='function') showHubGarrisonHintAndAutoPlace(String(_settlementHubConquestZid));
   if(window._hubFirstGuideModalOpen){
     window._hubFirstGuideModalOpen=false;
     const gm=document.getElementById('garrison-modal');
@@ -18907,10 +18888,7 @@ function showHubGarrisonHintAndAutoPlace(zid){
   hideHubGarrisonHint();
   let firstGuide=false;
   try{ firstGuide=!localStorage.getItem(HUB_FIRST_GARRISON_GUIDE_LS); }catch(_e){ firstGuide=true; }
-  if(firstGuide){
-    _hubPendingFirstFireGuideZid=String(zid||'');
-    return;
-  }
+  if(firstGuide) _hubPendingFirstFireGuideZid=String(zid||'');
   const el=document.getElementById('hub-garrison-hint');
   if(!el) return;
   const zn=(ZONES&&ZONES[zid]&&ZONES[zid].name)?String(ZONES[zid].name):String(zid||'');
@@ -21714,6 +21692,7 @@ function tryHireAndAssignRefugeeToGarrison(zid){
   const newUnit=mkAlly(name);
   newUnit.activeSkills=['Arrow'];
   allies.push(newUnit);
+  initAllyStatColorLockAtRecruitment(newUnit);
   newUnit.garrisoned=zid;
   newUnit.isDeployed=false;
   newUnit.inStandby=false;
