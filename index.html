@@ -8541,31 +8541,21 @@ const HUB_KIND_TO_TYPE={grave:'hub_grave',garrison:'hub_garrison',standby:'hub_s
 let _hubRelocateFinishTimers=Object.create(null);
 let _mapPanMode=false,_mapPanMoved=false,_mapPanLastClientX=0,_mapPanLastClientY=0,_mapPanStartClientX=0,_mapPanStartClientY=0;
 const DRAG_T=7;
-/** 맵 유닛 탭/드래그 시작(세계 좌표 px). 모바일 지문 보정 */
-const ALLY_MAP_TAP_PICK_R=48;
-/** ‘대원 말고 지도만 움직임’: 모든 배치 유닛보다 이만큼 멀리 있어야 함 — 탭 반경과 겹치면 스크롤 직후 오탐으로 팬만 됨 */
-const ALLY_MAP_PAN_MIN_R=64;
 function pickAllyForMapInput(x,y, pickR){
-  const r=pickR!=null&&Number.isFinite(pickR)?Math.max(10,pickR):ALLY_MAP_TAP_PICK_R;
-  const r2=r*r;
-  let best=null,bd2=r2;
+  const useFix=(pickR!=null&&Number.isFinite(pickR));
+  let best=null,bd2=Infinity;
   for(let i=0;i<allies.length;i++){
     const a=allies[i];
     if(!a||!a.isDeployed||a.dead) continue;
-    const dx=a.x-x,dy=a.y-y;
-    const d2=dx*dx+dy*dy;
-    if(d2<=r2&&d2<bd2){ best=a; bd2=d2; }
+    const r=useFix?Math.max(8, Number(pickR)):(function(){
+      const br=typeof getUnitBodyRadius==='function'?getUnitBodyRadius(a):13;
+      return Math.max(8, Math.min(22, br+3));
+    })();
+    const d2=((a.x-x)**2+(a.y-y)**2);
+    if(d2>r*r) continue;
+    if(d2<bd2){ best=a; bd2=d2; }
   }
   return best;
-}
-function isFarFromActionUnitPoint(x,y){
-  const minPanDist=Math.max(ALLY_MAP_PAN_MIN_R, Math.ceil(ALLY_MAP_TAP_PICK_R*2.25));
-  const liveAllies=allies.filter(a=>a&&a.isDeployed&&!a.dead&&!a.permanentlyDead&&!a.garrisoned&&!a.inStandby);
-  if(!liveAllies.length) return true;
-  for(let i=0;i<liveAllies.length;i++){
-    if(dist(liveAllies[i],{x,y})<minPanDist) return false;
-  }
-  return true;
 }
 let PARTY_LIMIT=6; // 파티 최대 대원(Phase별 동적)
 let uid=1,pendingClass=null;
@@ -9399,7 +9389,7 @@ function init(){
     
     // 모바일 더블/트리플 탭: touchend 기준으로 탭 카운트
     const nowT=Date.now();
-    const clickedA=typeof pickAllyForMapInput==='function'?pickAllyForMapInput(x,y):allies.find(a=>a.isDeployed&&!a.dead&&dist(a,{x,y})<25);
+    const clickedA=typeof pickAllyForMapInput==='function'?pickAllyForMapInput(x,y):null;
     if(clickedA){
       if(lastClickUnit===clickedA&&(nowT-lastClickTime)<320){
         // 더블탭: hold 토글 (onDown에서 이미 처리하지만 모바일 타이밍 보완)
@@ -11140,6 +11130,69 @@ function getHexNeighborCells(r,c){
     if(cell) out.push({nr,nc,cell,d:cell&&hexMap[r][c]?Math.hypot(cell.x-hexMap[r][c].x,cell.y-hexMap[r][c].y):0});
   }
   return out;
+}
+/** 육각 텍스처 경계에 가깝게 — 중심거리만 쓰면 인접 칸으로 오인됨 */
+function _pointInPolygon2(px,py,verts){
+  if(!verts||verts.length<3) return false;
+  let c=false, n=verts.length;
+  for(let i=0,j=n-1;i<n;j=i++){
+    const vi=verts[i],vj=verts[j];
+    const inter=((vi.y>py)!==(vj.y>py)) && (px<((vj.x-vi.x)*(py-vi.y))/(vj.y-vi.y+1e-14)+vi.x);
+    if(inter) c=!c;
+  }
+  return c;
+}
+/** pointy-top: hexCenter 행간=1.5·HR → 꼭짓점 반경≈HR */
+function _pointInPointyTopHexagon(px,py,cx,cy,vertexR){
+  const R=Number.isFinite(vertexR)?vertexR:(typeof HR!=='undefined'?HR:18);
+  const corners=new Array(6);
+  for(let k=0;k<6;k++){
+    const a=-Math.PI/2+k*(Math.PI/3);
+    corners[k]={x:cx+Math.cos(a)*R, y:cy+Math.sin(a)*R};
+  }
+  return _pointInPolygon2(px,py,corners);
+}
+function nearestHexCellStrictTap(x,y){
+  if(!ensureHexMapReady()) return null;
+  const Rv=Number(typeof HR!=='undefined'?HR:18);
+  const near=nearestCell(x,y);
+  if(near && _pointInPointyTopHexagon(x,y,near.x,near.y,Rv)) return near;
+  if(!near||!Number.isFinite(near.r)||!Number.isFinite(near.c)) return null;
+  const nbs=getHexNeighborCells(near.r,near.c);
+  for(let i=0;i<nbs.length;i++){
+    const h=nbs[i]&&nbs[i].cell;
+    if(h && _pointInPointyTopHexagon(x,y,h.x,h.y,Rv)) return h;
+  }
+  return null;
+}
+function _cellTypeBlocksMapEdgeScrollPan(t){
+  if(!t) return false;
+  if(t==='hub_grave'||t==='hub_garrison'||t==='hub_standby'||t==='hub_reloc') return true;
+  if(t==='civ_reloc'||t==='civ_memorial'||t==='civ_bastion'||t==='civ_lodge') return true;
+  return false;
+}
+/** 좌/우 5육각 가로칸(≈5*HW) 내만, 유닛·기능타일·적·배치 아군 없을 때 팬 */
+function isMapEdgeScrollPanAt(wx,wy){
+  const w=typeof CW!=='number'?800:Number(CW);
+  const hw=typeof HW!=='number'?(Math.sqrt(3)*21):Number(HW);
+  const strip=Math.max(5*hw, 120);
+  if(wx<0||wx>w) return false;
+  const inL=wx<strip, inR=wx>w-strip;
+  if(!inL&&!inR) return false;
+  if(pickAllyForMapInput(wx,wy)) return false;
+  if(isBattle && typeof enemies!=='undefined' && Array.isArray(enemies)){
+    const re=20, re2=re*re;
+    for(let i=0;i<enemies.length;i++){
+      const e=enemies[i];
+      if(!e||e.dead||((e.hp|0)<=0)) continue;
+      const dx=wx-e.x,dy=wy-e.y;
+      if(dx*dx+dy*dy<=re2) return false;
+    }
+  }
+  const cell=typeof nearestHexCellStrictTap==='function'?nearestHexCellStrictTap(wx,wy):null;
+  if(!cell) return true;
+  if(_cellTypeBlocksMapEdgeScrollPan(cell.type)) return false;
+  return true;
 }
 function getHexNeighbors(r,c){
   return getHexNeighborCells(r,c).map(o=>[o.nr,o.nc]);
@@ -14072,7 +14125,7 @@ function onMapEmptyClick(e){
   if(_settlementHubCeremonyActive && typeof onSettlementHubWorldClick==='function' && onSettlementHubWorldClick(x,y)) return;
   if(typeof onCivSettlementWorldClick==='function' && onCivSettlementWorldClick(x,y)) return;
   if(hexMap && currentZone && Number(currentZone.unlockPhase || 0) < 1 && !document.getElementById('hub-tile-garrison-pop') && !document.getElementById('hub-tile-standby-pop')){
-    const cell0=typeof nearestCell==='function'?nearestCell(x,y):null;
+    const cell0=typeof nearestHexCellStrictTap==='function'?nearestHexCellStrictTap(x,y):null;
     if(cell0 && cell0.type==='hub_reloc' && typeof _floatHubOrCivRelocRemain==='function'){
       const hz=String(currentZone.id || 'hunt');
       _floatHubOrCivRelocRemain(cell0, hz, false);
@@ -14093,12 +14146,13 @@ function onDown(e){
   // 전투 중 신규 고용 유닛 배치는 유닛 선택보다 우선 처리합니다.
   // (상단처럼 아군이 겹친 구간에서 클릭이 선택으로 흡수되어 배치가 막히는 현상 방지)
   const pendingUd=getSortedUd();
-  const pendingCell=nearestCell(x,y);
+  const strictC=typeof nearestHexCellStrictTap==='function'?nearestHexCellStrictTap(x,y):null;
+  const pendingCell=strictC||nearestCell(x,y);
   const pendingPurple=isDeployZoneCell(pendingCell);
   if(pendingUd.length>0&&pendingPurple){
     // 전투 중: 클릭 위치에 기존 배치 아군이 있으면 드래그 우선
     if(isBattle){
-      const existingAlly=typeof pickAllyForMapInput==='function'?pickAllyForMapInput(x,y):allies.find(a=>a.isDeployed&&!a.dead&&dist(a,{x,y})<25);
+      const existingAlly=typeof pickAllyForMapInput==='function'?pickAllyForMapInput(x,y):null;
       if(!existingAlly){
         let finalCell=pendingCell;
         if(isDeployCellOccupied(finalCell,null)){
@@ -14145,17 +14199,12 @@ function onDown(e){
       return;
     }
   }
-  if(!isBattle && isPlacing && currentZone && Number(currentZone.unlockPhase||0)<1 && pendingCell && pendingCell.type==='hub_reloc'){
+  if(!isBattle && isPlacing && currentZone && Number(currentZone.unlockPhase||0)<1 && strictC && strictC.type==='hub_reloc'){
     return;
   }
 
-  // [1] 지도 위 아군 유닛 클릭 — 엄격 반경 먼저, 실패 시 넉넉 반경(스크롤 직후·가장자리 터치 → 지도 팬으로 오가는 것 방지)
+  // [1] 지도 위 아군 유닛 클릭 — 본체만(동적 pick 반경)
   let clickedAlly=typeof pickAllyForMapInput==='function'?pickAllyForMapInput(x,y):null;
-  if(!clickedAlly&&typeof pickAllyForMapInput==='function'){
-    const loose=Math.max(64, Math.round(ALLY_MAP_TAP_PICK_R*1.65));
-    clickedAlly=pickAllyForMapInput(x,y,loose);
-  }
-  if(!clickedAlly) clickedAlly=allies.find(a=>a.isDeployed&&!a.dead&&dist(a,{x,y})<28);
   if (clickedAlly) {
     // 전문직업 궁극기 아이콘(유닛 중앙)을 직접 탭하면 즉시 발동
     const hasUnitUlt=clickedAlly.activeSkills&&clickedAlly.activeSkills.some(s=>CLASS10_SKILLS[s]);
@@ -14202,7 +14251,7 @@ function onDown(e){
 
   // [2] 새 유닛 배치 로직 (삭제되었던 부분 복구 + 지능형 탐색 추가)
   const ud = getSortedUd();
-  const targetCell = nearestCell(x, y);
+  const targetCell = pendingCell;
   const isPurpleZone = isDeployZoneCell(targetCell);
 
   if(ud.length > 0 && isPurpleZone){
@@ -14238,7 +14287,7 @@ function onDown(e){
   }
 
   if(typeof _settlementHubCeremonyActive!=='undefined'&&_settlementHubCeremonyActive&&_settlementHubPhase==='hub'){
-    const hCell=nearestCell(x,y);
+    const hCell=pendingCell;
     if(hCell&&typeof _hubTripletPickKindAtCell==='function'){
       const pk=_hubTripletPickKindAtCell(hCell);
       if(pk){
@@ -14256,7 +14305,7 @@ function onDown(e){
   }
 
   if(!isBattle&&isPlacing&&typeof _settlementHubCeremonyActive!=='undefined'&&!_settlementHubCeremonyActive&&currentZone&&Number(currentZone.unlockPhase||0)>=1){
-    const hCiv=nearestCell(x,y);
+    const hCiv=pendingCell;
     if(hCiv&&typeof _civTripletPickKindAtCell==='function'){
       const pkc=_civTripletPickKindAtCell(hCiv);
       if(pkc){
@@ -14273,8 +14322,8 @@ function onDown(e){
     }
   }
 
-  // [4] 유닛에서 충분히 먼 지점에서 시작한 드래그는 화면 스크롤(팬)로 처리
-  if(isFarFromActionUnitPoint(x,y)){
+  // [4] 좌·우 끝만: 빈/비기능 띠에서만 지도 팬(스크롤)
+  if(isMapEdgeScrollPanAt(x,y)){
     _mapPanMode=true;
     _mapPanLastClientX=e.clientX;
     _mapPanLastClientY=e.clientY;
@@ -14378,8 +14427,8 @@ function onUp(e){
         return;
       }
       if(!isBattle){
-        // 1. 배치 단계: 지능형 빈자리 탐색 (기존 로직 유지)
-        const dropCell = nearestCell(x, y);
+        // 1. 배치 단계: 육각 내부 히트 우선, 지능형 빈자리 탐색
+        const dropCell = (typeof nearestHexCellStrictTap==='function'?nearestHexCellStrictTap(x,y):null)||nearestCell(x, y);
         let finalDropCell = dropCell;
         if(!isDeployZoneCell(dropCell) || isDeployCellOccupied(dropCell,dragUnit.id)) {
           const bestEmpty = findNearestEmptyDeployCell(x,y,dragUnit.id);
@@ -14733,7 +14782,7 @@ function applyBattleUnitSeparation(){
 }
 function handlePlacementDrop(u, x, y){
   if(!u) return;
-  const dropCell=nearestCell(x,y);
+  const dropCell=(typeof nearestHexCellStrictTap==='function'?nearestHexCellStrictTap(x,y):null)||nearestCell(x,y);
   let finalDropCell=dropCell;
   if(!isDeployZoneCell(dropCell)||isDeployCellOccupied(dropCell,u.id)){
     const bestEmpty=findNearestEmptyDeployCell(x,y,u.id);
