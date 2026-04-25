@@ -826,7 +826,8 @@ body {
   color: #fde047;
   border-bottom-color: rgba(250, 204, 21, 0.45);
 }
-.hub-garrison-hint {
+.hub-garrison-hint,
+.hub-standby-hint {
   position: absolute;
   z-index: 1610;
   left: 8px;
@@ -849,6 +850,9 @@ body {
   touch-action: none;
   user-select: none;
 }
+.hub-standby-hint {
+  z-index: 1611;
+}
 .hub-sg-action-btn.hub-sg-action-btn--pulse {
   animation: hubSgBtnPulse 1.05s ease-in-out infinite;
   box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.95), 0 0 18px rgba(251, 191, 36, 0.55) !important;
@@ -859,6 +863,12 @@ body {
 @keyframes hubSgBtnPulse {
   0%, 100% { transform: scale(1); filter: brightness(1); }
   50% { transform: scale(1.04); filter: brightness(1.12); }
+}
+.hub-sg-action-btn.hub-sg-action-btn--emph {
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.88), 0 0 14px rgba(251, 191, 36, 0.42) !important;
+  border-color: #fbbf24 !important;
+  color: #fff !important;
+  background: linear-gradient(180deg, #1e4a78 0%, #3a2810 100%) !important;
 }
 .hub-grave-hint {
   position: absolute;
@@ -2389,13 +2399,27 @@ html.shop-modal-open body {
 .hub-sg-pop .standby-list-grid,
 .hub-sg-pop .hub-sg-zone-drop {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(var(--hub-sg-unit-col-min, 154px), max-content));
-  gap: var(--hub-sg-unit-gap, 5px);
+  grid-template-columns: repeat(5, max-content);
+  column-gap: var(--hub-sg-unit-gap, 3px);
+  row-gap: 4px;
   width: 100%;
   box-sizing: border-box;
   align-items: start;
   justify-items: start;
   justify-content: start;
+}
+@media (max-width: 620px) {
+  .hub-sg-pop .standby-list-grid,
+  .hub-sg-pop .hub-sg-zone-drop {
+    grid-template-columns: repeat(3, max-content);
+    column-gap: 3px;
+  }
+}
+@media (max-width: 400px) {
+  .hub-sg-pop .standby-list-grid,
+  .hub-sg-pop .hub-sg-zone-drop {
+    grid-template-columns: repeat(2, max-content);
+  }
 }
 .standby-list-pop .unit-list-frame,
 .integrated-members-pop .unit-list-frame {
@@ -2405,10 +2429,10 @@ html.shop-modal-open body {
 }
 /* 전체 대원(허브): 주소창/노치/홈 인디케이터에 가리지 않도록 + 본문만 스크롤(닫기·정렬 고정) */
 .hub-sg-pop {
-  --hub-sg-unit-col-min: 154px;
-  --hub-sg-unit-gap: 5px;
+  --hub-sg-unit-gap: 3px;
   --hub-sg-cols-max: 5;
-  --hub-sg-grid-max-w: calc(var(--hub-sg-unit-col-min) * var(--hub-sg-cols-max) + var(--hub-sg-unit-gap) * (var(--hub-sg-cols-max) - 1));
+  /* 5열·좁은 column-gap 기준 상한(카드·이름 폭 여유) — 프레임 max-width에 사용 */
+  --hub-sg-grid-max-w: calc(172px * var(--hub-sg-cols-max) + var(--hub-sg-unit-gap) * (var(--hub-sg-cols-max) - 1));
   position: fixed;
   inset: 0;
   z-index: 12042;
@@ -2430,7 +2454,7 @@ html.shop-modal-open body {
 }
 .hub-sg-pop .unit-list-frame {
   width: min(100%, max-content);
-  max-width: min(98vw, calc(var(--hub-sg-grid-max-w) + 120px));
+  max-width: min(98vw, calc(var(--hub-sg-grid-max-w) + 108px));
   box-sizing: border-box;
   max-height: min(90vh, 860px, calc(100vh - 24px));
   max-height: min(90dvh, 860px, calc(100dvh - max(0px, env(safe-area-inset-top, 0px)) - max(0px, env(safe-area-inset-bottom, 0px)) - 24px));
@@ -2503,6 +2527,9 @@ html.shop-modal-open body {
   padding: 10px;
   margin-bottom: 12px;
   background: rgba(0,0,0,0.2);
+}
+.hub-sg-pop .hub-sg-section {
+  padding: 8px 6px 10px;
 }
 .hub-sg-pop .hub-sg-section-title,
 .standby-list-pop .hub-sg-section-title {
@@ -2956,12 +2983,16 @@ html.shop-modal-open body {
   }
 }
 
-/* (B) 1000px 이상: 컨트롤 패딩만 확대 */
+/* (B) 1000px 이상: 컨트롤 줄·동료 패널(.sp 9px + .pt 9px) 좌우 안쪽선 맞춤 — 출발↔함께하는 동료, 전체 대원↔간략히 */
 @media (min-width: 1000px) {
   #ctrl {
     flex-direction: column;
     justify-content: flex-start;
-    padding: 8px 20px;
+    padding: 8px 9px;
+  }
+  .ctrl-row.ctrl-main {
+    padding-left: 0;
+    padding-right: 0;
   }
   .ctrl-row {
     width: 100%;
@@ -3301,6 +3332,7 @@ html.shop-modal-open body {
         </div>
         <div id="pg">배치 중</div>
         <div id="hub-garrison-hint" class="hub-garrison-hint" style="display:none" role="status" aria-live="polite"></div>
+        <div id="hub-standby-hint" class="hub-standby-hint" style="display:none" role="status" aria-live="polite"></div>
         <div id="hub-grave-hint" class="hub-grave-hint" style="display:none" role="region" aria-label="무덤"></div>
       </div>
     </div>
@@ -3316,7 +3348,7 @@ html.shop-modal-open body {
       <div class="garrison-header-recruit">
         <span id="shop-btn" style="display:none" aria-live="polite"></span>
         <button type="button" class="cb cb-recruit-main" onclick="event.stopPropagation(); showRecruitChoiceModal()">👷‍♂️대원 영입</button>
-        <button type="button" class="btn-hub-all-units" id="btn-hub-sg-list" onclick="event.stopPropagation();if(typeof window.openHubStandbyGarrisonModal==='function')window.openHubStandbyGarrisonModal();" title="통솔·회의실·거점 주둔 전체 목록">전체 대원</button>
+        <button type="button" class="btn-hub-all-units" id="btn-hub-sg-list" onclick="event.stopPropagation();if(typeof window.openHubStandbyGarrisonModal==='function')window.openHubStandbyGarrisonModal();" title="통솔·대기실·거점 주둔 전체 목록">전체 대원</button>
       </div>
     </div>
     <div id="battle-potion-row" style="display:none;flex-wrap:wrap;gap:5px;align-items:center;width:100%;padding:4px 0 0 0;margin-top:2px;border-top:1px solid #1e293b;box-sizing:border-box"></div>
@@ -4103,8 +4135,8 @@ function refreshStandbyListModal(){
   const title=root.querySelector('[data-standby-modal-title]');
   if(title){
     title.textContent=standbyOnly
-      ?`유닛 목록 (회의실 ${standby.length}/${cap})`
-      :`전체 유닛 목록 (통솔 ${party.length}/${PARTY_LIMIT} · 회의실 ${standby.length}/${cap} · 거점 ${garrisonCt})`;
+      ?`대원 목록 (회의실 ${standby.length}/${cap})`
+      :`전체 목록 (통솔 ${party.length}/${PARTY_LIMIT} · 대기실 ${standby.length}/${cap} · 거점 ${garrisonCt})`;
   }
   const partyTitle=root.querySelector('[data-unit-list-party-title]');
   if(partyTitle) partyTitle.textContent=`⚔️ 통솔 파티 · ${party.length}/${PARTY_LIMIT}`;
@@ -4114,7 +4146,7 @@ function refreshStandbyListModal(){
   }
   {
     const standbyTitle=root.querySelector('[data-unit-list-standby-title]');
-    if(standbyTitle) standbyTitle.textContent=`⏳ 회의실 · ${standby.length}/${cap}`;
+    if(standbyTitle) standbyTitle.textContent=`⏳ 대기실 · ${standby.length}/${cap}`;
     const grid=root.querySelector('[data-unit-list-standby-grid]');
     if(grid) grid.innerHTML=sorted.map(a=>buildStandbyUnitCardHtml(a,{statCardClick:true,useStandbyMoveMenu:true,hubCardDragUi:true})).join('')||'<span style="font-size:10px;color:#6b7280">없음</span>';
   }
@@ -4175,13 +4207,13 @@ function refreshHubStandbyGarrisonModal(){
   const party=getPartyMembersForUnitListView();
   const partySorted=sortStandbyListForModal(party,_hubSgSortMode);
   const title=root.querySelector('[data-hub-sg-title]');
-  if(title) title.textContent=`전체 유닛 목록 (통솔 ${party.length}/${PARTY_LIMIT} · 회의실 ${standby.length}/${cap} · 거점 ${garrisonCt})`;
+  if(title) title.textContent=`전체 유닛 목록 (통솔 ${party.length}/${PARTY_LIMIT} · 대기실 ${standby.length}/${cap} · 거점 ${garrisonCt})`;
   const partySec=root.querySelector('[data-hub-sg-party-section-title]');
   if(partySec) partySec.textContent=`⚔️ 통솔 파티 · ${party.length}/${PARTY_LIMIT}`;
   const pg=root.querySelector('[data-hub-sg-party-grid]');
   if(pg) pg.innerHTML=partySorted.map(a=>buildStandbyUnitCardHtml(a,{statCardClick:true,usePartyOrderMenu:true,hubCardDragUi:true,hubPartyDraggable:true})).join('')||'<span style="font-size:10px;color:#6b7280">없음</span>';
   const st=root.querySelector('[data-hub-sg-standby-section-title]');
-  if(st) st.textContent=`⏳ 회의실 · ${standby.length}/${cap}`;
+  if(st) st.textContent=`⏳ 대기실 · ${standby.length}/${cap}`;
   const sbg=root.querySelector('[data-hub-sg-standby-grid]');
   if(sbg){
     const sSorted=sortStandbyListForModal(standby,_hubSgSortMode);
@@ -4210,9 +4242,30 @@ function refreshHubStandbyGarrisonModal(){
   if(typeof _renderCemeteryInHubUnitList==='function') _renderCemeteryInHubUnitList();
   if(_hubSgPulseFromFirstGuide){
     _hubSgPulseFromFirstGuide=false;
-    if(typeof scheduleHubSgFirstGuideButtonHighlights==='function'){
-      requestAnimationFrame(function(){ requestAnimationFrame(function(){ scheduleHubSgFirstGuideButtonHighlights(); }); });
-    }
+    if(typeof clearHubSgFirstGuidePulseTimers==='function') clearHubSgFirstGuidePulseTimers();
+  }
+  if(typeof syncHubSgRecruitDispatchButtonEmphasis==='function') syncHubSgRecruitDispatchButtonEmphasis();
+}
+function syncHubSgRecruitDispatchButtonEmphasis(){
+  const root=document.getElementById('hub-sg-modal');
+  if(!root) return;
+  const recruit=root.querySelector('[data-hub-sg-recruit-btn]');
+  const dispatch=root.querySelector('[data-hub-sg-dispatch-btn]');
+  if(recruit){
+    recruit.classList.remove('hub-sg-action-btn--pulse');
+    recruit.classList.remove('hub-sg-action-btn--emph');
+  }
+  if(dispatch){
+    dispatch.classList.remove('hub-sg-action-btn--pulse');
+    dispatch.classList.remove('hub-sg-action-btn--emph');
+  }
+  const sb=typeof getStandbyMembersForUnitListView==='function'?getStandbyMembersForUnitListView():[];
+  const n=Array.isArray(sb)?sb.length:0;
+  if(n<=6){
+    if(recruit) recruit.classList.add('hub-sg-action-btn--emph');
+  }
+  if(n>=6){
+    if(dispatch) dispatch.classList.add('hub-sg-action-btn--emph');
   }
 }
 function clearHubSgFirstGuidePulseTimers(){
@@ -4222,40 +4275,7 @@ function clearHubSgFirstGuidePulseTimers(){
   }
 }
 function scheduleHubSgFirstGuideButtonHighlights(){
-  clearHubSgFirstGuidePulseTimers();
-  const root=document.getElementById('hub-sg-modal');
-  if(!root) return;
-  const recruit=root.querySelector('[data-hub-sg-recruit-btn]');
-  const dispatch=root.querySelector('[data-hub-sg-dispatch-btn]');
-  if(recruit) recruit.classList.remove('hub-sg-action-btn--pulse');
-  if(dispatch) dispatch.classList.remove('hub-sg-action-btn--pulse');
-  const sb=typeof getStandbyMembersForUnitListView==='function'?getStandbyMembersForUnitListView():[];
-  const n=Array.isArray(sb)?sb.length:0;
-  const endPulse=function(){
-    clearHubSgFirstGuidePulseTimers();
-    if(recruit) recruit.classList.remove('hub-sg-action-btn--pulse');
-    if(dispatch) dispatch.classList.remove('hub-sg-action-btn--pulse');
-  };
-  if(n>=6){
-    if(dispatch){
-      dispatch.classList.add('hub-sg-action-btn--pulse');
-      _hubSgPulseTimerIds.push(setTimeout(endPulse,5200));
-    }
-  }else{
-    if(recruit){
-      recruit.classList.add('hub-sg-action-btn--pulse');
-      _hubSgPulseTimerIds.push(setTimeout(function(){
-        if(recruit) recruit.classList.remove('hub-sg-action-btn--pulse');
-        if(dispatch){
-          dispatch.classList.add('hub-sg-action-btn--pulse');
-          _hubSgPulseTimerIds.push(setTimeout(endPulse,3800));
-        }else endPulse();
-      },1500));
-    }else if(dispatch){
-      dispatch.classList.add('hub-sg-action-btn--pulse');
-      _hubSgPulseTimerIds.push(setTimeout(endPulse,5200));
-    }
-  }
+  if(typeof syncHubSgRecruitDispatchButtonEmphasis==='function') syncHubSgRecruitDispatchButtonEmphasis();
 }
 window.openHubStandbyGarrisonModal=function(){
   closeHubStandbyGarrisonModal();
@@ -4275,7 +4295,7 @@ window.openHubStandbyGarrisonModal=function(){
           ${mkBtn('tier','등급별 정렬')}
           ${mkBtn('lv','레벨별 정렬')}
         </div>
-        <div style="font-size:9px;color:#64748b;margin-top:8px;margin-bottom:2px;line-height:1.45">통솔·<b>회의실</b>·거점 카드를 드래그해 <b>통솔 ↔ 회의실 ↔ 거점</b>으로 옮깁니다. 카드를 서로 겹쳐 놓으면 <b>순서 변경·교체(예약)</b>됩니다. (전투 중 <b>교체 예약</b> 가능)</div>
+        <div style="font-size:9px;color:#64748b;margin-top:8px;margin-bottom:2px;line-height:1.45">통솔·<b>대기실</b>·거점 카드를 드래그해 <b>통솔 ↔ 대기실 ↔ 거점</b>으로 옮깁니다.</div>
       </div>
       <div class="hub-sg-pop__body">
         <div class="hub-sg-section" ondragover="event.preventDefault()" ondrop="hubModalStandbyDrop(event)">
@@ -4284,7 +4304,7 @@ window.openHubStandbyGarrisonModal=function(){
         </div>
         <div class="hub-sg-section" ondragover="event.preventDefault()" ondrop="hubModalStandbyDrop(event)">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:4px">
-            <div class="hub-sg-section-title" data-hub-sg-standby-section-title style="color:#a78bfa;margin:0">⏳ 회의실</div>
+            <div class="hub-sg-section-title" data-hub-sg-standby-section-title style="color:#a78bfa;margin:0">⏳ 대기실</div>
             <button type="button" class="cb hub-sg-action-btn" data-hub-sg-recruit-btn style="padding:3px 10px;font-size:10px;background:#1e3a5f;border:1px solid #334155;color:#e2e8f0;touch-action:manipulation;flex-shrink:0" onclick="event.stopPropagation();if(typeof showRecruitChoiceModal==='function')showRecruitChoiceModal();">대원 영입</button>
           </div>
           <div class="standby-list-grid" data-hub-sg-standby-grid style="min-height:40px"></div>
@@ -4363,7 +4383,7 @@ window.hubDispatchStandbyToGarrison=function(){
     if(typeof markDirty==='function') markDirty();
     if(typeof refreshOpenUnitListModalsAfterRosterChange==='function') refreshOpenUnitListModalsAfterRosterChange();
   }else{
-    alog('ℹ️ 빈 거점 슬롯이 없거나 회의실에 파견할 대원이 없습니다.');
+    alog('ℹ️ 빈 거점 슬롯이 없거나 대기실에 파견할 대원이 없습니다.');
   }
 };
 
@@ -4431,6 +4451,15 @@ function hubCrossSwapStandbyGarrison(standbyId,gzid,garrisonUid){
   if(_hHub){
     if(gu._settlementHubSnap){ gu._settlementHubSnap.inStandby=true; gu._hubAsStandby=true; }
     if(su._settlementHubSnap){ su._settlementHubSnap.inStandby=false; su._hubAsStandby=false; }
+    if(su._settlementHubWander){
+      if(typeof clearAllyHexPath==='function') clearAllyHexPath(su);
+      su._settlementHubWander=false;
+    }
+    if(typeof placeSettlementHubStandbyEmergingFromGarrison==='function') placeSettlementHubStandbyEmergingFromGarrison(gu);
+    if(gu._settlementHubSnap){
+      gu._settlementHubSnap.x=gu.x; gu._settlementHubSnap.y=gu.y;
+      gu._settlementHubSnap.wx=gu.wx; gu._settlementHubSnap.wy=gu.wy;
+    }
   }
   alog(`🔀 ${su.name} ↔ ${gu.name} (대기 ↔ ${ZONES[gzid]?.name||gzid})`);
   markDirty(); renderGarrisonBar();
@@ -4657,7 +4686,7 @@ window.openStandbyListModal=function(standbyOnly){
         <div class="standby-list-grid" data-unit-list-party-grid style="min-height:36px"></div>
       </div>
       <div class="hub-sg-section" data-unit-list-section="standby" ondragover="event.preventDefault()" ondrop="hubModalStandbyDrop(event)">
-        <div data-unit-list-standby-title class="hub-sg-section-title" style="color:#a855f7">⏳ 회의실</div>
+        <div data-unit-list-standby-title class="hub-sg-section-title" style="color:#a855f7">⏳ 대기실</div>
         <div class="standby-list-grid" data-unit-list-standby-grid style="min-height:40px"></div>
       </div>
       <div class="hub-sg-section" data-unit-list-section="garrison" style="${only?'display:none':''}">
@@ -5911,6 +5940,207 @@ function beginSettlementHubStandbyRecruitEntrance(u){
   u._nextHubSpchF=8+((u.id||0)*17)%28;
   if(typeof markDirty==='function') markDirty();
 }
+/** 집합소: 거점(회의실 옆) 3칸 허브 타일의 월드 좌표 중심 — 주둔 ↔ 맵 교체 시 출현 위치 */
+function getSettlementHubGarrisonTripletCenterXY(){
+  if(typeof hexMap==='undefined'||!hexMap||typeof ROWS==='undefined'||typeof COLS==='undefined') return null;
+  let sx=0,sy=0,n=0;
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const h=hexMap[r]&&hexMap[r][c];
+      if(h&&h.type==='hub_garrison'&&Number.isFinite(h.x)&&Number.isFinite(h.y)){
+        sx+=h.x; sy+=h.y; n++;
+      }
+    }
+  }
+  if(!n) return null;
+  return{x:sx/n,y:sy/n};
+}
+function captureSettlementHubWanderMotion(u){
+  if(!u) return null;
+  return{
+    x:u.x,y:u.y,wx:u.wx,wy:u.wy,
+    _hubAsStandby:!!u._hubAsStandby,
+    _hubRoamInCamp:!!u._hubRoamInCamp,
+    _hubMarchToFire:!!u._hubMarchToFire,
+    _hubAtFire:!!u._hubAtFire,
+    _hubRoamTgtX:u._hubRoamTgtX,_hubRoamTgtY:u._hubRoamTgtY,
+    _hubPaceMul:u._hubPaceMul,
+    _nextHubSpchF:u._nextHubSpchF,
+    _settlementHubManualMove:!!u._settlementHubManualMove,
+  };
+}
+function applySettlementHubWanderMotion(u,cap){
+  if(!u||!cap) return;
+  u._settlementHubWander=true;
+  u.isDeployed=true;
+  u.inStandby=false;
+  u.garrisoned=null;
+  u.onHold=false;
+  u.retreatingToStandby=false;
+  u.x=cap.x; u.y=cap.y;
+  u.wx=cap.wx; u.wy=cap.wy;
+  u._hubAsStandby=!!cap._hubAsStandby;
+  u._hubRoamInCamp=!!cap._hubRoamInCamp;
+  u._hubMarchToFire=!!cap._hubMarchToFire;
+  u._hubAtFire=!!cap._hubAtFire;
+  u._hubRoamTgtX=cap._hubRoamTgtX; u._hubRoamTgtY=cap._hubRoamTgtY;
+  if(Number.isFinite(cap._hubPaceMul)) u._hubPaceMul=cap._hubPaceMul;
+  if(cap._nextHubSpchF!=null) u._nextHubSpchF=cap._nextHubSpchF;
+  u._settlementHubManualMove=!!cap._settlementHubManualMove;
+}
+/** 통솔로 전환: 기존 대기 배회 위치에서 모닥불 쪽으로 행군(좌표 유지) */
+function applyHubPartyMarchFromStandbySpot(u, capStandby){
+  if(!u||!capStandby) return;
+  const hr=Number(typeof HR!=='undefined'?HR:18);
+  const f=Array.isArray(worldTiles)?worldTiles.find(t=>t&&t.type==='big_campfire'&&t.isHubObject):null;
+  const fcx=f?f.x:((typeof CW!=='undefined'?CW:800)*0.5);
+  const fcy=f?f.y:((typeof CH!=='undefined'?CH:600)*0.5);
+  u._settlementHubWander=true;
+  u.isDeployed=true;
+  u.inStandby=false;
+  u.garrisoned=null;
+  u.onHold=false;
+  u.retreatingToStandby=false;
+  u.x=capStandby.x; u.y=capStandby.y;
+  if(typeof clampToMap==='function') clampToMap(u);
+  u._hubAsStandby=false;
+  u._hubRoamInCamp=false;
+  u._hubMarchToFire=true;
+  u._hubAtFire=false;
+  u._hubRoamTgtX=null;
+  u._hubRoamTgtY=null;
+  const tgx=fcx+Math.cos(Number(u.id||0)*1.1)*14;
+  const tgy=fcy+Math.sin(Number(u.id||0)*0.73)*11;
+  u.wx=tgx; u.wy=tgy;
+  if(typeof clearAllyHexPath==='function') clearAllyHexPath(u);
+  if(typeof applyWaypointPath==='function'){
+    const wp=typeof resolveMoveCommandPoint==='function'?resolveMoveCommandPoint(u,tgx,tgy):null;
+    if(wp) applyWaypointPath(u,wp,{});
+  }
+  if(u.wx==null||u.wy==null){ u.wx=tgx; u.wy=tgy; }
+  const spdN=Math.max(0.65, Math.min(3.4, Number(u.spd)||1.15));
+  u._hubPaceMul=0.42+((u.id||0)%7)*0.08;
+  u._nextHubSpchF=8+(((u.id||0)*17)%28);
+}
+/** 거점 주둔 → 통솔: 거점 타일 근처에서 등장 후 모닥불로 행군 */
+function placeSettlementHubPartyEmergingFromGarrison(u){
+  if(!u) return;
+  const hr=Number(typeof HR!=='undefined'?HR:18);
+  const gc=getSettlementHubGarrisonTripletCenterXY();
+  const f=Array.isArray(worldTiles)?worldTiles.find(t=>t&&t.type==='big_campfire'&&t.isHubObject):null;
+  const fcx=f?f.x:((typeof CW!=='undefined'?CW:800)*0.5);
+  const fcy=f?f.y:((typeof CH!=='undefined'?CH:600)*0.5);
+  u._settlementHubWander=true;
+  u._hubAsStandby=false;
+  u._hubRoamInCamp=false;
+  u.isDeployed=true;
+  u.inStandby=false;
+  u.garrisoned=null;
+  if(gc&&Number.isFinite(gc.x)&&Number.isFinite(gc.y)){
+    u.x=gc.x;
+    u.y=gc.y-hr*0.35;
+  }else{
+    u.x=fcx-40; u.y=fcy;
+  }
+  if(typeof clampToMap==='function') clampToMap(u);
+  u._hubMarchToFire=true;
+  u._hubAtFire=false;
+  const tgx=fcx+Math.cos(Number(u.id||0)*1.1)*14;
+  const tgy=fcy+Math.sin(Number(u.id||0)*0.73)*11;
+  u.wx=tgx; u.wy=tgy;
+  if(typeof clearAllyHexPath==='function') clearAllyHexPath(u);
+  if(typeof applyWaypointPath==='function'){
+    const wp=typeof resolveMoveCommandPoint==='function'?resolveMoveCommandPoint(u,tgx,tgy):null;
+    if(wp) applyWaypointPath(u,wp,{});
+  }
+  if(u.wx==null||u.wy==null){ u.wx=tgx; u.wy=tgy; }
+  u._hubPaceMul=0.42+((u.id||0)%7)*0.08;
+  u._nextHubSpchF=8+(((u.id||0)*17)%28);
+}
+/** 거점 → 대기실: 거점 타일 근처에서 캠프 배회 시작 */
+function placeSettlementHubStandbyEmergingFromGarrison(u){
+  if(!u) return;
+  const hr=Number(typeof HR!=='undefined'?HR:18);
+  const gc=getSettlementHubGarrisonTripletCenterXY();
+  const f=Array.isArray(worldTiles)?worldTiles.find(t=>t&&t.type==='big_campfire'&&t.isHubObject):null;
+  const fcx=f?f.x:((typeof CW!=='undefined'?CW:800)*0.5);
+  const fcy=f?f.y:((typeof CH!=='undefined'?CH:600)*0.5);
+  const B=typeof getSettlementHubCampWorldBounds==='function'?getSettlementHubCampWorldBounds():null;
+  u._settlementHubWander=true;
+  u._hubAsStandby=true;
+  u.isDeployed=true;
+  u.inStandby=false;
+  u.garrisoned=null;
+  if(gc&&Number.isFinite(gc.x)&&Number.isFinite(gc.y)){
+    u.x=gc.x+(Number(u.id||0)%3-1)*6;
+    u.y=gc.y-hr*0.2;
+  }else if(B&&Number.isFinite(B.minX)){
+    const pt=typeof randomPointInHubCampBounds==='function'?randomPointInHubCampBounds(B,fcx,fcy,40):{x:fcx,y:fcy};
+    u.x=pt.x; u.y=pt.y;
+  }else{
+    u.x=fcx+(Math.random()-0.5)*100; u.y=fcy+(Math.random()-0.5)*70;
+  }
+  if(typeof clampToMap==='function') clampToMap(u);
+  u._hubRoamInCamp=true;
+  u._hubMarchToFire=false;
+  u._hubAtFire=true;
+  u.wx=null; u.wy=null;
+  u._hubRoamTgtX=null; u._hubRoamTgtY=null;
+  if(typeof assignNextHubRoamTarget==='function') assignNextHubRoamTarget(u,B,fcx,fcy,34);
+  const spdN=Math.max(0.65, Math.min(3.4, Number(u.spd)||1.15));
+  u._hubPaceMul=0.18+(spdN/3.4)*0.52+((u.id||0)%5)*0.04+Math.random()*0.12;
+  u._nextHubSpchF=8+(((u.id||0)*17)%28);
+}
+/** 식량보내기: 영입과 같은 북쪽(맵 위) 방향으로 이탈 */
+function beginSettlementHubDismissExitNorth(u){
+  if(!u||typeof hexMap==='undefined'||!hexMap) return false;
+  const R=window._settlementHubHubRect||(window._settlementHubGateMeta&&{rMin:window._settlementHubGateMeta.rMin,rMax:window._settlementHubGateMeta.rMax,cMin:window._settlementHubGateMeta.cMin,cMax:window._settlementHubGateMeta.cMax});
+  if(!R||typeof ROWS==='undefined') return false;
+  const hr=Number(typeof HR!=='undefined'?HR:18);
+  openHubRecruitFenceGap('top',4);
+  const rEdge=R.rMin;
+  if(rEdge<0||rEdge>=ROWS) return false;
+  const c0=Math.floor((R.cMin+R.cMax)/2);
+  let cell=null;
+  for(const dc of[0,-1,1,-2,2]){
+    const c=Math.max(R.cMin,Math.min(R.cMax,c0+dc));
+    const h=hexMap[rEdge]&&hexMap[rEdge][c];
+    if(h&&Number.isFinite(h.x)) { cell=h; break; }
+  }
+  if(!cell) return false;
+  const ty=cell.y-hr*4.2;
+  const tx=cell.x;
+  u._hubFoodDismissMarch=true;
+  u._settlementHubWander=true;
+  u.isDeployed=true;
+  u.inStandby=false;
+  u._hubAsStandby=false;
+  u._hubRoamInCamp=false;
+  u._hubMarchToFire=false;
+  u._hubAtFire=false;
+  u.wx=tx; u.wy=ty;
+  if(typeof clearAllyHexPath==='function') clearAllyHexPath(u);
+  if(typeof applyWaypointPath==='function'){
+    const wp=typeof resolveMoveCommandPoint==='function'?resolveMoveCommandPoint(u,tx,ty):null;
+    if(wp) applyWaypointPath(u,wp,{});
+  }
+  if(u.wx==null||u.wy==null){ u.wx=tx; u.wy=ty; }
+  u._hubPaceMul=Math.max(0.55,Math.min(1.15,Number(u._hubPaceMul)||0.72));
+  return true;
+}
+function finalizeHubFoodDismissUnit(u){
+  if(!u||!u.id) return;
+  const uid=u.id;
+  const nm=u.name||'';
+  try{ delete u._hubFoodDismissMarch; }catch(_e){}
+  if(dragUnit&&dragUnit.id===uid)dragUnit=null;
+  if(typeof _selectedUnitId!=='undefined'&&_selectedUnitId===uid)_selectedUnitId=null;
+  allies=allies.filter(a=>a.id!==uid);
+  applySorrowDebuff(`${nm}\u0020\uB0B4\uBCF4\uB0B4\uAE30`);
+  if(typeof sanitizePartyGroups==='function') sanitizePartyGroups();
+  markDirty();renderGarrisonBar();
+  if(typeof refreshOpenUnitListModalsAfterRosterChange==='function') refreshOpenUnitListModalsAfterRosterChange();
+}
 function clampWorldHubTilesToCampBounds(){
   if(typeof _settlementHubCeremonyActive!=='undefined'&& !_settlementHubCeremonyActive) return;
   if(!Array.isArray(worldTiles)) return;
@@ -6125,7 +6355,7 @@ function syncSettlementHubMapBottomHint(){
   }
   const civLab=getSettlementHubCivStageLabel();
   const conqueredName=getSettlementHubConqueredBattleDisplayName();
-  const leadText=`집합소(${civLab}): ${conqueredName} 을 정복했습니다.`;
+  const leadText=`${civLab}: ${conqueredName} 을 정복했습니다.`;
   if(lead.textContent!==leadText) lead.textContent=leadText;
   wrap.style.display='block';
   const blockCd=settlementHubBannerOtherMenuBlocksCountdown();
@@ -6573,7 +6803,7 @@ function openHubGarrisonFromTileClick(zid){
   _settlementHubInteraction=true;
   if(typeof pauseSettlementHubIdleCountdown==='function') pauseSettlementHubIdleCountdown();
 }
-/** 집합소 맵: 회의실(⛺) 3칸 터치 — 전체 대원(통솔·회의실·거점) 창 */
+/** 집합소 맵: 회의실(⛺) 3칸 터치 — 전체 대원(통솔·대기실·거점) 창 */
 function openHubStandbyFromTileClick(){
   _settlementHubInteraction=true;
   if(typeof pauseSettlementHubIdleCountdown==='function') pauseSettlementHubIdleCountdown();
@@ -15976,7 +16206,7 @@ function spawnRefugee(opts={}) {
       u.inStandby = true;
       u.isDeployed = false;
       u.x = -300; u.y = -300;
-      if(!silent) alog(`⏳ 파티가 가득 차 ${u.name}이(가) 회의실에서 대기합니다.`);
+      if(!silent) alog(`⏳ 파티가 가득 차 ${u.name}이(가) 대기실에서 대기합니다.`);
     }else if(tryAssignExistingUnitToAnyGarrison(u)){
       if(!silent) alog(`🏰 파티·대기가 가득 차 ${u.name}을(를) 거점 주둔에 배치했습니다.`);
     }else{
@@ -18247,6 +18477,10 @@ function moveAlly(a,ae,aa,baseTerrSpd){
 }
 
 function _settlementHubPathCompleteToFire(a){
+  if(a&&a._hubFoodDismissMarch){
+    if(typeof finalizeHubFoodDismissUnit==='function') finalizeHubFoodDismissUnit(a);
+    return;
+  }
   const f=worldTiles.find(t=>t&&t.type==='big_campfire'&&t.isHubObject);
   const fcx=f?f.x:0, fcy=f?f.y:0;
   const B=typeof getSettlementHubCampWorldBounds==='function'?getSettlementHubCampWorldBounds():null;
@@ -18729,6 +18963,37 @@ function layoutSettlementHubTileHints(){
         gar.style.bottom='12px';
       }
     }
+    const stb=document.getElementById('hub-standby-hint');
+    if(stb&&stb.style.display!=='none'){
+      let minLX=Infinity,maxRX=-Infinity,minTopY=Infinity,maxBotY=-Infinity,anyS=false;
+      for(let r=0;r<(typeof ROWS!=='undefined'?ROWS:0);r++){
+        for(let c=0;c<(typeof COLS!=='undefined'?COLS:0);c++){
+          const h=hexMap[r]&&hexMap[r][c];
+          if(h&&h.type==='hub_standby'&&Number.isFinite(h.x)&&Number.isFinite(h.y)){
+            anyS=true;
+            minLX=Math.min(minLX,h.x-hw*0.5);
+            maxRX=Math.max(maxRX,h.x+hw*0.5);
+            minTopY=Math.min(minTopY,h.y-hr);
+            maxBotY=Math.max(maxBotY,h.y+hr);
+          }
+        }
+      }
+      stb.style.right='auto';
+      stb.style.bottom='auto';
+      stb.style.transform='none';
+      if(anyS&&Number.isFinite(minLX)&&minLX<maxRX+1){
+        const midY=(minTopY+maxBotY)*0.5;
+        const p=hubCanvasPointToMwLocal(minLX,midY);
+        if(p){
+          const w=stb.offsetWidth||0, hgt=stb.offsetHeight||0;
+          clampBox(stb,w,hgt,p.x-w-gap,p.y-hgt*0.5);
+        }
+      }else{
+        stb.style.left='8px';
+        stb.style.top='auto';
+        stb.style.bottom='12px';
+      }
+    }
   };
   requestAnimationFrame(function(){ requestAnimationFrame(run); });
 }
@@ -18754,10 +19019,25 @@ function hideHubGraveHint(){
   const gh=document.getElementById('hub-grave-hint');
   if(gh){ gh.style.display='none'; gh.innerHTML=''; }
 }
+function hideHubStandbyHint(){
+  const el=document.getElementById('hub-standby-hint');
+  if(el){ el.style.display='none'; el.innerHTML=''; }
+}
+function showHubStandbyHint(){
+  const el=document.getElementById('hub-standby-hint');
+  if(!el) return;
+  el.style.display='block';
+  el.style.right='auto';
+  el.style.bottom='auto';
+  el.style.transform='none';
+  el.style.maxWidth='min(300px, calc(100% - 16px))';
+  el.innerHTML='<div style="font-weight:700;color:#fbbf24;margin-bottom:4px">⛺ 회의실</div><div style="color:#cbd5e1;font-size:9px;line-height:1.45">대원의 역할을 배정하세요.</div>';
+}
 function hideHubGarrisonHint(){
   const el=document.getElementById('hub-garrison-hint');
   if(el){ el.style.display='none'; el.innerHTML=''; }
   if(_settlementHubGarrisonHintTimer){ try{ clearTimeout(_settlementHubGarrisonHintTimer);}catch(e){} _settlementHubGarrisonHintTimer=null; }
+  if(typeof hideHubStandbyHint==='function') hideHubStandbyHint();
 }
 function hideAllHubTileHints(){
   hideHubGarrisonHint();
@@ -18783,44 +19063,6 @@ function showHubGraveHint(){
   <div class="hub-grave-hint-body">잠든 이들을 추모합니다.</div>`;
   if(typeof layoutSettlementHubTileHints==='function') layoutSettlementHubTileHints();
 }
-function applyAutoGarrisonHireForConquestHub(zid){
-  if(!zid||typeof zoneRecords==='undefined'||!zoneRecords[zid]||typeof ZONES==='undefined') return;
-  const _gr=zoneRecords[zid];
-  if(!_gr||!_gr.cleared) return;
-  const famKey=(_gr.family)||getZoneFamily(zid, ZONES[zid]||{});
-  const famEmptyCap=Math.max(0,Number(getIntegratedFamilyEmptySlotCount(zid))||0);
-  let finalCnt=Math.min(famEmptyCap, Math.floor((res.food||0)/30));
-  if(finalCnt<1) return;
-  let placed=0;
-  for(let i=0;i<finalCnt;i++){
-    const targetZid=pickNextGarrisonZoneInFamily(famKey, zid);
-    if(!targetZid) break;
-    const rec=zoneRecords[targetZid];
-    if(!rec) break;
-    ensureGarrisonRecMeta(rec, targetZid);
-    const name='피난민'+ALP[allies.length%26];
-    const newUnit=mkAlly(name);
-    newUnit.activeSkills=['Arrow'];
-    newUnit.garrisoned=targetZid;
-    newUnit.isDeployed=false;
-    newUnit.inStandby=false;
-    newUnit.x=-300; newUnit.y=-300;
-    allies.push(newUnit);
-    initAllyStatColorLockAtRecruitment(newUnit);
-    rec.garrison.push({id:newUnit.id,name:newUnit.name,lv:newUnit.lv,classKey:newUnit.classKey,baseRole:newUnit.baseRole});
-    rec.lastTick=Date.now();
-    res.food-=30;
-    placed++;
-  }
-  food=res.food;
-  if(placed>0&&typeof startGarrisonTick==='function') startGarrisonTick();
-  if(placed>0&&typeof alog==='function') alog(`🚩 거점에 피난민 ${placed}명이 자동 배치되었습니다.`);
-  if(placed>0){
-    if(typeof renderGarrisonBar==='function') renderGarrisonBar();
-    if(typeof markDirty==='function') markDirty();
-    if(typeof saveGameState==='function') saveGameState(true);
-  }
-}
 const HUB_FIRST_GARRISON_GUIDE_LS='kingdom_hubFirstGarrisonGuide_v1';
 window._hubFirstGuideModalOpen=false;
 function tryFlushHubFirstGarrisonGuideWhenPartyAtFire(){
@@ -18831,14 +19073,12 @@ function tryFlushHubFirstGarrisonGuideWhenPartyAtFire(){
   const partyPool=(allies||[]).filter(u=>u&&u._settlementHubWander&&!u._hubAsStandby);
   if(!partyPool.length){
     _hubPendingFirstFireGuideZid=null;
-    if(typeof applyAutoGarrisonHireForConquestHub==='function') applyAutoGarrisonHireForConquestHub(zid);
     if(typeof showHubFirstGarrisonGuideModal==='function') showHubFirstGarrisonGuideModal(zid);
     return;
   }
   const allAtFire=partyPool.every(u=>!u._hubMarchToFire&&!!u._hubAtFire);
   if(!allAtFire) return;
   _hubPendingFirstFireGuideZid=null;
-  if(typeof applyAutoGarrisonHireForConquestHub==='function') applyAutoGarrisonHireForConquestHub(zid);
   if(typeof showHubFirstGarrisonGuideModal==='function') showHubFirstGarrisonGuideModal(zid);
 }
 window.dismissHubFirstGarrisonGuide=function(){
@@ -18900,6 +19140,7 @@ function showHubGarrisonHintAndAutoPlace(zid){
   el.style.maxWidth='min(300px, calc(100% - 16px))';
   el.innerHTML=`<div style="font-weight:700;color:#fbbf24;margin-bottom:4px">🚩 거점 안내</div>
   <div style="color:#cbd5e1;font-size:9px;line-height:1.45">정복한 <b>${zEsc}</b>이 거점 되었습니다.</div>`;
+  if(typeof showHubStandbyHint==='function') showHubStandbyHint();
   if(typeof layoutSettlementHubTileHints==='function') layoutSettlementHubTileHints();
 }
 function computeDefaultNextStepPreview(clearedZid){
@@ -25440,6 +25681,22 @@ window.grantFoodAndDismissUnit=function(uid,amount){
   const gain=Math.max(1,Number(amount)||100);
   res.food=(res.food||0)+gain;
   food=res.food;
+  const _hubDismiss=typeof isSettlementHubUnitListModalPhase==='function'&&isSettlementHubUnitListModalPhase()
+    &&!isBattle&&u._settlementHubWander&&!u.garrisoned;
+  if(_hubDismiss&&typeof beginSettlementHubDismissExitNorth==='function'&&beginSettlementHubDismissExitNorth(u)){
+    Object.values(zoneRecords).forEach(rec=>{
+      if(rec.garrison)rec.garrison=rec.garrison.filter(g=>Number(g.id)!==Number(uid));
+    });
+    [1,2].forEach(id=>{
+      if(typeof _partyGroups!=='undefined'&&_partyGroups[id]) _partyGroups[id]=(_partyGroups[id]||[]).filter(x=>Number(x)!==Number(uid));
+    });
+    u.garrisoned=null;
+    if(typeof sanitizePartyGroups==='function') sanitizePartyGroups();
+    alog(`🍖 ${u.name} 식량 ${gain} 지급 후 북쪽(영입 방향)으로 떠납니다`);
+    markDirty();renderGarrisonBar();
+    if(typeof refreshOpenUnitListModalsAfterRosterChange==='function') refreshOpenUnitListModalsAfterRosterChange();
+    return;
+  }
   removeUnitFromAllGroups(uid);
   allies=allies.filter(a=>a.id!==uid);
   if(dragUnit&&dragUnit.id===uid)dragUnit=null;
@@ -25686,6 +25943,12 @@ window.swapStandbyWithPartyMember=function(standbyUid, partyUid, ev, hubGarrison
   if(typeof sanitizePartyGroups==='function')sanitizePartyGroups();
 
   const garrisonZid=resolvedGz;
+  const sWasGarrisonedBefore=!!s.garrisoned;
+  let _hubSwapCapS=null,_hubSwapCapP=null;
+  if(_hubUL){
+    _hubSwapCapS=captureSettlementHubWanderMotion(s);
+    _hubSwapCapP=captureSettlementHubWanderMotion(p);
+  }
 
   Object.values(zoneRecords).forEach(rec=>{
     if(rec.garrison)rec.garrison=rec.garrison.filter(g=>g.id!==standbyUid&&g.id!==partyUid);
@@ -25766,14 +26029,45 @@ window.swapStandbyWithPartyMember=function(standbyUid, partyUid, ev, hubGarrison
     s._hubAsStandby=!!sa.inStandby; p._hubAsStandby=!!pa.inStandby;
   }
 
+  if(_hubUL){
+    const zGar=garrisonZid&&zoneRecords[garrisonZid];
+    const pInGarrison=!!(zGar&&String(p.garrisoned||'')===String(garrisonZid));
+    if(pInGarrison){
+      if(sWasGarrisonedBefore){
+        if(typeof placeSettlementHubPartyEmergingFromGarrison==='function') placeSettlementHubPartyEmergingFromGarrison(s);
+      }else if(_hubSwapCapS&&typeof applyHubPartyMarchFromStandbySpot==='function'){
+        applyHubPartyMarchFromStandbySpot(s,_hubSwapCapS);
+      }
+      if(p&&p._settlementHubWander){
+        if(typeof clearAllyHexPath==='function') clearAllyHexPath(p);
+        p._settlementHubWander=false;
+      }
+    }else if(_hubSwapCapS&&_hubSwapCapP&&typeof applySettlementHubWanderMotion==='function'){
+      applySettlementHubWanderMotion(s,_hubSwapCapP);
+      applySettlementHubWanderMotion(p,_hubSwapCapS);
+    }
+    if(s._settlementHubSnap){
+      s._settlementHubSnap.x=s.x; s._settlementHubSnap.y=s.y;
+      s._settlementHubSnap.wx=s.wx; s._settlementHubSnap.wy=s.wy;
+    }
+    if(p._settlementHubSnap){
+      p._settlementHubSnap.x=p.x; p._settlementHubSnap.y=p.y;
+      p._settlementHubSnap.wx=p.wx; p._settlementHubSnap.wy=p.wy;
+    }
+    s._hubAsStandby=!!(s._settlementHubSnap&&s._settlementHubSnap.inStandby);
+    p._hubAsStandby=!!(p._settlementHubSnap&&p._settlementHubSnap.inStandby);
+  }
+
   if(typeof sanitizePartyGroups==='function')sanitizePartyGroups();
   if(typeof sanitizeKingdomUnitPlacement==='function')sanitizeKingdomUnitPlacement();
 
   if(garrisonZid&&zoneRecords[garrisonZid]){
     const zn=(ZONES[garrisonZid]&&ZONES[garrisonZid].name)||garrisonZid;
     alog(`🏰 [${zn}] ${p.name} 주둔 ↔ ${s.name} 통솔 (보라 영역에 배치)`);
-  }else{
+  }else if(!_hubUL){
     alog(`🔁 ${s.name} ↔ ${p.name} 통솔 교체 (새 대원 재배치 필요)`);
+  }else{
+    alog(`🔁 ${s.name} ↔ ${p.name} 통솔 ↔ 대기 (거처 맵에서 즉시 반영)`);
   }
   if(!_hubUL){
     isPlacing=true;
