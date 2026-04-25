@@ -1787,6 +1787,7 @@ html.shop-modal-open body {
 /* 거점 모달·스토리 인트로 등: .map-hud-stack(11800) 아래·모달(12k+) 위 */
 #garrison-modal.overlay,
 #intro-modal.overlay,
+#road-watcher-modal.overlay,
 #next-chapter-modal.overlay,
 #zone-modal.overlay,
 #refugee-modal.overlay {
@@ -1840,8 +1841,8 @@ html.shop-modal-open body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: min(92%, 28rem);
-  max-width: min(96vw, 28rem);
+  width: min(88vw, 20rem);
+  max-width: min(92vw, 20rem);
   min-width: 0;
   box-sizing: border-box;
   opacity: 0;
@@ -1899,7 +1900,9 @@ html.shop-modal-open body {
   word-break: keep-all;
 }
 @media (max-width: 480px) {
-  #day-start-banner.day-start-banner { width: min(94%, 100%); max-width: 100%; }
+  #day-start-banner.day-start-banner { width: min(84vw, 17rem); max-width: min(90vw, 18rem); }
+  .day-start-banner__title { font-size: clamp(0.78rem, 3.8vw, 1.15rem); }
+  .day-start-banner__day { font-size: clamp(0.7rem, 3.2vw, 0.95rem); }
 }
 /* body에 동적으로 붙는 전투 안내: .overlay만 쓰면 display:none·pointer-events 규칙이 남을 수 있음 */
 #low-hp-safety-modal.overlay,
@@ -3361,6 +3364,16 @@ html.shop-modal-open body {
   </div>
 </div>
 
+<!-- 길 위의 목격자 (근처 들판 I 최초 정복 후, 집합소에서 1회) -->
+<div id="road-watcher-modal" class="overlay" style="z-index:19500" aria-hidden="true">
+  <div class="modal-box" style="max-width:420px" onclick="event.stopPropagation()">
+    <div id="road-watcher-dots" style="text-align:center;font-size:10px;color:#64748b;letter-spacing:0.2em;margin-bottom:6px">●○○</div>
+    <div id="road-watcher-title" style="font-size:1.05em;font-weight:bold;color:#f1c40f;text-align:center;margin-bottom:10px">길 위의 목격자</div>
+    <div id="road-watcher-body" style="font-size:0.86em;color:#d1d5db;line-height:1.75;min-height:100px"></div>
+    <div id="road-watcher-actions" style="display:flex;flex-direction:column;gap:8px;margin-top:14px"></div>
+  </div>
+</div>
+
 <!-- 전직 모달 -->
 <div id="modal" class="overlay">
   <div class="modal-box" style="position:relative">
@@ -3487,7 +3500,7 @@ html.shop-modal-open body {
         <button type="button" class="cb" id="recruit-unified-ref-max" style="background:#5b21b6;font-size:11px;padding:6px 10px" onclick="unifiedRecruitSetMax()">최대</button>
       </div>
     </div>
-    <div class="recruit-unified-section" style="margin-top:12px">
+    <div class="recruit-unified-section" id="recruit-unified-merc-section" style="margin-top:12px">
       <div class="recruit-unified-label">💰 용병 <span style="font-weight:600;color:#93c5fd">(대원당 금화 100 · 전직 레벨 지원자)</span></div>
       <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap">
         <button type="button" class="cb" style="background:#374151;font-size:1.2em;padding:6px 16px" onclick="unifiedRecruitChangeMerc(-1)">−</button>
@@ -4180,6 +4193,11 @@ window.setHubSgSort=function(mode){
   refreshHubStandbyGarrisonModal();
 };
 
+/** 집합소(거처) 맵: 실제 a.inStandby 는 배회용으로 false 덮어써짐 — UI·드래그는 _settlementHubSnap 으로 구분 */
+function isSettlementHubUnitListModalPhase(){
+  return typeof _settlementHubCeremonyActive!=='undefined' && _settlementHubCeremonyActive && _settlementHubPhase==='hub';
+}
+
 function hubModalReadDragPayload(e){
   try{
     const standbyId=parseInt(e.dataTransfer.getData('standby-uid'),10);
@@ -4216,7 +4234,10 @@ function hubCrossSwapStandbyGarrison(standbyId,gzid,garrisonUid){
   if(!rec) return false;
   const su=allies.find(a=>a.id===standbyId);
   const gu=allies.find(a=>a.id===garrisonUid);
-  if(!su||!gu||!su.inStandby||su.garrisoned) return false;
+  if(!su||!gu||su.garrisoned) return false;
+  const _hHub=isSettlementHubUnitListModalPhase();
+  const okAsStandby=_hHub ? (!!su._settlementHubSnap && !!su._settlementHubSnap.inStandby) : !!su.inStandby;
+  if(!okAsStandby) return false;
   if(!gu.garrisoned||String(gu.garrisoned)!==String(gzid)) return false;
   rec.garrison=(rec.garrison||[]).filter(g=>g.id!==garrisonUid);
   su.inStandby=false;
@@ -4229,6 +4250,10 @@ function hubCrossSwapStandbyGarrison(standbyId,gzid,garrisonUid){
   gu.isDeployed=false;
   gu.x=-300; gu.y=-300;
   rec.lastTick=Date.now();
+  if(_hHub){
+    if(gu._settlementHubSnap){ gu._settlementHubSnap.inStandby=true; gu._hubAsStandby=true; }
+    if(su._settlementHubSnap){ su._settlementHubSnap.inStandby=false; su._hubAsStandby=false; }
+  }
   alog(`🔀 ${su.name} ↔ ${gu.name} (대기 ↔ ${ZONES[gzid]?.name||gzid})`);
   markDirty(); renderGarrisonBar();
   if(typeof refreshOpenUnitListModalsAfterRosterChange==='function') refreshOpenUnitListModalsAfterRosterChange();
@@ -4278,9 +4303,11 @@ function hubTryHubCardSwap(e,tgtCard){
     alog('⏳ 이 대원은 교체 처리 중입니다. 완료 후 다시 시도하세요.');
     return false;
   }
+  const hubUL=isSettlementHubUnitListModalPhase();
   const tgtIsG=!!(tGz&&String(tGz).length&&tu.garrisoned&&String(tu.garrisoned)===String(tGz));
-  const tgtIsS=!!(tu.inStandby&&!tu.garrisoned);
-  const tgtIsParty=!!(!tu.dead&&!tu.permanentlyDead&&!tu.garrisoned&&!tu.inStandby);
+  const tgtIsS=hubUL?!!(tu._settlementHubSnap&&tu._settlementHubSnap.inStandby):!!(tu.inStandby&&!tu.garrisoned);
+  const tgtIsParty=hubUL?!!(tu._settlementHubSnap&&!tu._settlementHubSnap.inStandby&&!tu.garrisoned&&!tu.dead&&!tu.permanentlyDead):
+    !!(!tu.dead&&!tu.permanentlyDead&&!tu.garrisoned&&!tu.inStandby);
   if(pl.type==='party'){
     if(pl.id===tid) return false;
     if(tgtIsParty){
@@ -4302,7 +4329,9 @@ function hubTryHubCardSwap(e,tgtCard){
     const su=allies.find(a=>a.id===pl.id);
     if(!su) return false;
     const pendAsParty=getPendingSwapJobForParty(pl.id);
-    const allowStandbyPayload=(su.inStandby&&!su.garrisoned)||(pendAsParty&&Number(pendAsParty.partyUid)===pl.id);
+    const allowStandbyPayload=(su.inStandby&&!su.garrisoned)
+      ||(hubUL&&su._settlementHubSnap&&su._settlementHubSnap.inStandby&&!su.garrisoned)
+      ||(pendAsParty&&Number(pendAsParty.partyUid)===pl.id);
     if(!allowStandbyPayload) return false;
     if(tgtIsParty){
       if(typeof swapStandbyWithPartyMember==='function') swapStandbyWithPartyMember(pl.id,tid,e);
@@ -4655,7 +4684,7 @@ function _updateConquestVictorySummaryOverlayCountdown(){
   }
   const leftMs=Math.max(0,(seq.tMarchEnd|0)-Date.now());
   const left=Math.max(0,Math.ceil(leftMs/1000));
-  el.textContent=left>0?`집합소에 ${left}초 후 도착합니다…`:'집합소에 도착하는 중…';
+  el.textContent=left>0?`집합소에 ${left}초 후 도착합니다…`:'집합소에 다가가는 중…';
 }
 function _mountConquestVictorySummaryOverlay(seq){
   if(!seq) return;
@@ -5212,14 +5241,68 @@ function _civStandbyTripletFitsOnPlaza(anchorR,anchorC){
   }
   return seen.size>=3;
 }
+/** 전투지(상한)·문명(실제 거처 단계) 중 낮은 쪽 — 집합소(0)→마을(1)→도시(2)→왕국(3) */
+function getCivResidenceVisualTier(){
+  if(!currentZone) return 0;
+  const cap=Math.max(0,Math.min(3,Number(currentZone.unlockPhase)||0));
+  const cp=Math.max(0,Math.min(3,typeof civPhase!=='undefined'?Number(civPhase):0));
+  return Math.min(cp,cap);
+}
+/** zid·문명 티어: 거처 육각 안의 캠프(광장+성벽) 크기/위치 — 집합소(구 hub) 복붙 느낌 완화 */
+function getCivSettlementCampRectSpec(zid,rows,cols,visTier){
+  const t=Math.max(0,Math.min(3,visTier|0));
+  const z=String(zid||'');
+  let cMin=Math.max(8,Math.floor(cols*0.2));
+  let cMax=Math.min(cols-2,cols-1-Math.floor(cols*0.06));
+  let rMin=Math.max(1,Math.floor(rows*0.14));
+  let rMax=Math.min(rows-2,rows-1-Math.floor(rows*0.12));
+  const zh=z.split('').reduce((a,ch)=>a+ch.charCodeAt(0),2166136261)>>>0;
+  const b=(i,m)=>((zh>>i)&m);
+  if(z==='river'||z==='wilds'||z==='hunt') cMin=Math.max(7,cMin+(b(2,1)?0:0)+(b(3,1)?1:0));
+  if(z==='bandit'||z==='ruins'||z==='mine'){ cMax=Math.max(cMin+4,cMax-(b(4,1)?1:0)); rMin=Math.min(rMax-3,Math.max(1,rMin+(b(5,1)?1:0))); }
+  if(z==='raider'||z==='castle'||z==='crystal'){ rMax=Math.max(rMin+3,rMax-(b(6,1)?1:0)); cMin=Math.min(cMax-4,cMin+(b(7,1)?1:0)); }
+  if(z==='warzone'||z==='citadel'||z==='void'){ cMax=Math.max(cMin+4,cMax-1); rMin=Math.max(1,rMin+(b(8,1)?1:0)); }
+  if(t>=1) rMax=Math.min(rows-2,rMax+1);
+  if(t>=2) cMax=Math.min(cols-2,cMax+1);
+  if(t>=3){ rMin=Math.max(1,rMin-1); cMax=Math.min(cols-2,cMax+1); rMax=Math.min(rows-2,rMax+1); }
+  return{cMin,cMax,rMin,rMax};
+}
+function getCivRampartGlyphForZone(zid){
+  const z=String(zid||'');
+  if(z==='river') return'〰';
+  if(z==='wilds') return'🌲';
+  if(z==='hunt') return'🌾';
+  if(z==='bandit') return'🗡';
+  if(z==='mine') return'⛏';
+  if(z==='ruins') return'🏚';
+  if(z==='raider'||z==='warzone') return'⚔';
+  if(z==='castle'||z==='crystal'||z==='citadel') return'🏰';
+  if(z==='void') return'🌌';
+  return'🧱';
+}
+/** 도시(2) 이상: 광장 내 고정 셀에 대장간·공학소 배치 예정(비용/시간 경제 TODO) */
+function getCivFacilityPlazaHintSlots(R,zid,visTier){
+  if(visTier<2||!R) return [];
+  const zh=String(zid).split('').reduce((a,ch)=>(a*31+ch.charCodeAt(0))>>>0,2166136261);
+  const b=i=>(zh>>i)&1;
+  const mr=Math.floor((R.rMin+R.rMax)/2), mc=Math.floor((R.cMin+R.cMax)/2);
+  const a={r:Math.min(R.rMax-1,Math.max(R.rMin+1,mr+b(2))),c:Math.min(R.cMax-1,Math.max(R.cMin+1,mc+1-b(3))),g:'⚒',kind:'blacksmith'};
+  const w={r:Math.min(R.rMax-1,Math.max(R.rMin+1,mr-1-b(4))),c:Math.max(R.cMin+1,Math.min(R.cMax-1,mc-1+b(5))),g:'🔧',kind:'workshop'};
+  return visTier>=3?[a,w]:[a];
+}
 function _paintCivSettlementTownVillage(){
   if(!hexMap||typeof ROWS==='undefined'||typeof COLS==='undefined') return;
   const rows=ROWS, cols=COLS;
   if(rows<4||cols<4) return;
-  const cMin=Math.max(8,Math.floor(cols*0.2));
-  const cMax=Math.min(cols-2,cols-1-Math.floor(cols*0.06));
-  const rMin=Math.max(1,Math.floor(rows*0.14));
-  const rMax=Math.min(rows-2,rows-1-Math.floor(rows*0.12));
+  const zid0=currentZone&&currentZone.id?String(currentZone.id):'';
+  const vTier=typeof getCivResidenceVisualTier==='function'?getCivResidenceVisualTier():0;
+  const S=(typeof getCivSettlementCampRectSpec==='function')
+    ?getCivSettlementCampRectSpec(zid0,rows,cols,vTier)
+    :null;
+  const cMin=S?S.cMin:Math.max(8,Math.floor(cols*0.2));
+  const cMax=S?S.cMax:Math.min(cols-2,cols-1-Math.floor(cols*0.06));
+  const rMin=S?S.rMin:Math.max(1,Math.floor(rows*0.14));
+  const rMax=S?S.rMax:Math.min(rows-2,rows-1-Math.floor(rows*0.12));
   if(cMax<=cMin+3||rMax<=rMin+2){ window._civSettlementHubRect=null; return; }
   const rMid=Math.floor((rMin+rMax)/2);
   const gateR=[];
@@ -5801,7 +5884,7 @@ function getSettlementHubAutoAdvanceMs(_zid){
 function settlementHubBannerOtherMenuBlocksCountdown(){
   if(typeof document==='undefined') return false;
   const shown=(id)=>{ const n=document.getElementById(id); return !!(n&&n.classList&&n.classList.contains('show')); };
-  if(shown('zone-modal')||shown('game-help-modal')||shown('garrison-summary-modal')||shown('garrison-modal')||shown('shop-modal')||shown('refugee-modal')||shown('recruit-choice-modal')||shown('next-chapter-modal')||shown('modal')||shown('rename-modal')||shown('intro-modal')||shown('facility-shop-hub-modal')) return true;
+  if(shown('zone-modal')||shown('game-help-modal')||shown('garrison-summary-modal')||shown('garrison-modal')||shown('shop-modal')||shown('refugee-modal')||shown('recruit-choice-modal')||shown('next-chapter-modal')||shown('modal')||shown('rename-modal')||shown('intro-modal')||shown('road-watcher-modal')||shown('facility-shop-hub-modal')) return true;
   if(document.getElementById('hub-triplet-reloc-pop')) return true;
   if(typeof document.querySelector==='function' && document.querySelector('.civ-popup')) return true;
   const api=document.getElementById('apikey-modal');
@@ -6129,6 +6212,7 @@ function updateHubStandbyWanderers(cx,cy,phase){
 function beginHubScreenAutoExit(){
   if(!_settlementHubCeremonyActive) return;
   if(_settlementHubPhase!=='hub') return;
+  if(typeof tryStartRoadWatcherBeforeHubExit==='function' && tryStartRoadWatcherBeforeHubExit()) return;
   _settlementHubIdlePaused=false;
   const _bGo=document.getElementById('settlement-hub-idle-go-btn');
   if(_bGo) _bGo.style.display='none';
@@ -7069,6 +7153,190 @@ function isFixedHuntTemplateZone(zone){
   // 근처 들판 I(초기 상태)만 고정 템플릿 사용
   return zid==='hunt'&&seq===0;
 }
+/** 이벤트·밸런스: 근처 들판 I = 통솔 5 / 영입은 피난민만(용병 비활성). II·다른 전투지 = 기본(6) + 용병 허용 ※ 이벤트.ini */
+function isHuntPlainIFieldRestrictionActive(){
+  return typeof isFixedHuntTemplateZone==='function'&&isFixedHuntTemplateZone();
+}
+
+const ROAD_WATCHER_LS='kingdom_event_roadWatcher_done';
+function isRoadWatcherEventComplete(){
+  try{ return localStorage.getItem(ROAD_WATCHER_LS)==='1'; }catch(e){ return false; }
+}
+function isRoadWatcherHubSealed(){
+  try{ const v=localStorage.getItem(ROAD_WATCHER_LS); return v==='1'||v==='skipped'; }catch(e){ return false; }
+}
+let _roadWatcherHubFlowActive=false;
+let _skipRoadWatcherHubInterceptionOnce=false;
+function canOfferRoadWatcherInSettlementHub(){
+  if(isRoadWatcherHubSealed()) return false;
+  if(String(_settlementHubConquestZid||'')!=='hunt') return false;
+  if(Number((typeof _autoZoneSeq!=='undefined'&&_autoZoneSeq&&_autoZoneSeq.hunt)||0)!==1) return false;
+  return true;
+}
+function abandonRoadWatcherEvent(reason){
+  try{ localStorage.setItem(ROAD_WATCHER_LS,'skipped'); }catch(e){}
+  _roadWatcherHubFlowActive=false;
+  if(typeof alog==='function') alog('길 위의 목격자 이벤트를 생략했습니다.'+(reason?' ('+reason+')':''));
+  _skipRoadWatcherHubInterceptionOnce=true;
+  setTimeout(function(){
+    if(typeof beginHubScreenAutoExit==='function') beginHubScreenAutoExit();
+  },180);
+}
+function buildRoadWatcherDraftUnit(){
+  const u=mkAlly('새벽');
+  const tr=typeof TIERS!=='undefined'?(TIERS.find(t=>t.name==='Trained')||TIERS[2]):{name:'Trained',mult:0.96};
+  u.tierName=tr.name; u.tierColor=tr.color; u.tierMult=tr.mult; u.tierMaxLv=tr.maxLv;
+  const sto=(typeof PERSONALITIES!=='undefined'?(PERSONALITIES.find(p=>p.name==='강철의 의지')||PERSONALITIES[4]):null);
+  if(sto){ u.personalityName=sto.name; u.personalityEffect=sto.effect; }
+  u.origin='mercenary';
+  u._roadWatcherDraft=true;
+  u.fromMercHire=true;
+  let steps=0;
+  while((u.lv|0)<(FIRST_PROMOTION_LV|0)&&steps++<240){
+    gainExp(u,80000,{
+      suppressPromotionModal:true,feastSilent:true,skipZoneLevelTune:true,skipEnemyDiffTune:true
+    });
+  }
+  if(Array.isArray(_classPromoQueue)) _classPromoQueue=_classPromoQueue.filter(x=>x&&x!==u);
+  u.lv=Math.max(u.lv|0,FIRST_PROMOTION_LV|0);
+  u.exp=0; u.maxExp=typeof getNeedExpForLv==='function'?getNeedExpForLv(u.lv):u.maxExp;
+  return u;
+}
+function closeRoadWatcherModalBox(){
+  const w=document.getElementById('road-watcher-modal');
+  if(w){ w.classList.remove('show'); w.setAttribute('aria-hidden','true'); }
+}
+function startRoadWatcherHubNarrative(){
+  if(typeof pauseSettlementHubIdleCountdown==='function') pauseSettlementHubIdleCountdown();
+  const w=document.getElementById('road-watcher-modal');
+  const b=document.getElementById('road-watcher-body');
+  const a=document.getElementById('road-watcher-actions');
+  const d=document.getElementById('road-watcher-dots');
+  if(!w||!b||!a) { _roadWatcherHubFlowActive=false; return; }
+  const dots=['●○○','●●○','●●●'];
+  function goClassPick(){
+    closeRoadWatcherModalBox();
+    if(typeof markDirty==='function') markDirty();
+    setTimeout(function(){
+      const u=buildRoadWatcherDraftUnit();
+      pendingClass=u;
+      if(typeof showClassModal==='function') showClassModal(u);
+      const mt=document.getElementById('modal-title');
+      const ms=document.getElementById('modal-sub');
+      if(mt) mt.textContent='오랜 세월 혼자 싸워온 용병';
+      if(ms) ms.textContent='어떤 길을 걸어왔는지 선택해주세요. (이벤트: 길 위의 목격자)';
+    },320);
+  }
+  function goScene2(){
+    if(d) d.textContent=dots[1]||'●●○';
+    b.innerHTML=`<p style="color:#94a3b8;margin-bottom:8px">용병: "싸울 줄은 알더군.<br>근데 이렇게 싸우다가는 약탈자 무리에게 당하고 말 거야."</p>
+      <p style="color:#7dd3fc;margin-bottom:8px">피난민 대표: "그럼 당신이 도와주실 건가요?"</p>
+      <p style="color:#94a3b8">용병: "...같이 가는 거지.<br>갈 곳도 없고, 딱히 할 일도 없어서."</p>`;
+    a.innerHTML='<button type="button" class="cb" style="background:#1a5c32" id="road-watcher-btn-next2">다음 →</button>';
+    const b2=a.querySelector('#road-watcher-btn-next2');
+    if(b2) b2.addEventListener('click', function(e){ e.stopPropagation(); e.preventDefault(); goScene3(); }, {passive:false});
+  }
+  function goScene3(){
+    if(d) d.textContent=dots[2]||'●●●';
+    b.innerHTML=`<p style="color:#fde68a">피난민 대표: "왜 갑자기 저희와 함께 하려는 건가요?"</p>
+      <p style="color:#9ca3af;font-size:0.95em">길가의 인영이 응답을 기다린다.</p>`;
+    a.innerHTML='<button type="button" class="cb" style="background:#1a5c32" id="road-watcher-btn-pa">"환영합니다"</button><button type="button" class="cb" style="background:#1e3a5f" id="road-watcher-btn-pb">"왜 갑자기요?"</button>';
+    const pa=a.querySelector('#road-watcher-btn-pa');
+    const pb=a.querySelector('#road-watcher-btn-pb');
+    if(pa) pa.addEventListener('click', function(e){ e.stopPropagation(); e.preventDefault(); goClassPick(); }, {passive:false});
+    if(pb) pb.addEventListener('click', function(e){ e.stopPropagation(); e.preventDefault(); goPathB(); }, {passive:false});
+  }
+  function goPathB(){
+    b.innerHTML=`<p style="color:#94a3b8">용병: "이유? 필요해?"<br><br>"...약탈자 무리로부터 가족과 클랜을 지키지 못했어."<br><br>"그 이후로는 혼자 다녔는데."<br><br><em style="color:#64748b">(잠시 침묵)</em><br><br>"당신들 싸우는 거 보니까... 생각나는 게 있더라고."</p>`;
+    a.innerHTML='<button type="button" class="cb" style="background:#1a5c32" id="road-watcher-btn-go">함께 가죠 →</button>';
+    const go=a.querySelector('#road-watcher-btn-go');
+    if(go) go.addEventListener('click', function(e){ e.stopPropagation(); e.preventDefault(); goClassPick(); }, {passive:false});
+  }
+  window._rwGoClassPick=goClassPick;
+  w.classList.add('show');
+  w.setAttribute('aria-hidden','false');
+  if(d) d.textContent=dots[0];
+  b.innerHTML=`<p style="color:#94a3b8">저 멀리 길가에 홀로 앉아 있던 인영이 천천히 일어선다.</p>
+    <p style="color:#f1c40f;font-weight:600;margin:10px 0 6px 0">용병: "...봤어. 다 봤다고."</p>
+    <p style="color:#9ca3af">낡은 갑옷을 걸친 용병이 무기를 어깨에 올리며 다가온다. 끝까지 싸움을 지켜본 눈빛이다.</p>`;
+  a.innerHTML='<button type="button" class="cb" style="background:#1a5c32" id="road-watcher-btn-next1">다음 →</button>';
+  const b0=a.querySelector('#road-watcher-btn-next1');
+  if(b0) b0.addEventListener('click', function(e){ e.stopPropagation(); e.preventDefault(); goScene2(); }, {passive:false});
+}
+function tryStartRoadWatcherBeforeHubExit(){
+  if(typeof _skipRoadWatcherHubInterceptionOnce!=='undefined'&&_skipRoadWatcherHubInterceptionOnce){
+    _skipRoadWatcherHubInterceptionOnce=false;
+    return false;
+  }
+  if(_roadWatcherHubFlowActive) return true;
+  if(!canOfferRoadWatcherInSettlementHub()) return false;
+  _roadWatcherHubFlowActive=true;
+  if(typeof startRoadWatcherHubNarrative==='function') startRoadWatcherHubNarrative();
+  return true;
+}
+function finalizeRoadWatcherEventJoin(u,displayName){
+  if(!u) return;
+  if((allies||[]).indexOf(u)>=0){
+    u._roadWatcherDraft=false;
+    return;
+  }
+  if(!u._roadWatcherDraft) return;
+  u._roadWatcherDraft=false;
+  u.name=displayName||u.name||'외로운 기사';
+  allies.push(u);
+  u.inStandby=false; u.isDeployed=false; u.wx=null; u.wy=null; u.x=-300; u.y=-300;
+  if(typeof alog==='function'){
+    alog(`🌙 ${u.name}이(가) 무리에 합류했습니다. "잘 부탁해. 오래 못 사귄 이름이야."`);
+    alog('🎖️ Lv.10 · '+((u.classKey&&typeof BASE_ROLES!=='undefined'&&BASE_ROLES[u.classKey])?BASE_ROLES[u.classKey].name:u.classKey||''));
+    alog('📌 이벤트: 통솔 한도가 6명(근처 들판 I 포함)에 맞춰 열렸습니다. (길 위의 목격자 완료)');
+  }
+  try{ localStorage.setItem(ROAD_WATCHER_LS,'1'); }catch(e){}
+  if(typeof res!=='undefined') res.partyLimitOverride=6;
+  if(typeof refreshPartyLimitFromZoneContext==='function') refreshPartyLimitFromZoneContext();
+  if(typeof renderGarrisonBar==='function') renderGarrisonBar();
+  if(typeof saveGameState==='function') saveGameState(true);
+  _roadWatcherHubFlowActive=false;
+  _skipRoadWatcherHubInterceptionOnce=true;
+  setTimeout(function(){
+    if(typeof beginHubScreenAutoExit==='function') beginHubScreenAutoExit();
+  },280);
+}
+
+function ensureExcessAlliesToStandbyForPartyLimit(){
+  if(typeof allies==='undefined'||!allies) return;
+  if(typeof isHuntPlainIFieldRestrictionActive!=='function' || !isHuntPlainIFieldRestrictionActive()) return;
+  const cap=Math.max(0,PARTY_LIMIT|0);
+  const pool=allies.filter(a=>a&&!a.dead&&!a.permanentlyDead&&!a.garrisoned&&!a.inStandby);
+  if(pool.length<=cap) return;
+  const sorted=pool.slice().sort((a,b)=>(a.id|0)-(b.id|0));
+  let moved=0;
+  for(let i=cap;i<sorted.length;i++){
+    const u=sorted[i];
+    if(typeof canAddToStandby==='function' && canAddToStandby()){
+      u.inStandby=true;
+      u.isDeployed=false;
+      u.wx=null;u.wy=null;
+      if(typeof clearAllyHexPath==='function') try{ clearAllyHexPath(u); }catch(_e){}
+      u.x=-300;u.y=-300;
+      moved++;
+    }else if(typeof alog==='function'){
+      alog('⚠️ 대기 병력 공간이 부족해 통솔 '+cap+'명(근처 들판 I)에 맞출 수 없습니다. 대기·거점을 정리하세요.');
+      break;
+    }
+  }
+  if(moved>0 && typeof alog==='function') alog('ℹ️ 통솔 상한 '+cap+'명(근처 들판 I) — 초과 '+moved+'명을 대기로 보냈습니다.');
+  if(moved>0 && typeof renderGarrisonBar==='function') renderGarrisonBar();
+  if(moved>0 && typeof markDirty==='function') markDirty();
+}
+function refreshPartyLimitFromZoneContext(){
+  const cfg=getCurrentPhaseCfg();
+  let lim=cfg.partyLimit;
+  if(civPhase===2) lim=_cityDuelUnlocked?2:1;
+  else if(typeof res!=='undefined'&&res.partyLimitOverride===6) lim=6;
+  else if(isHuntPlainIFieldRestrictionActive()) lim=5;
+  PARTY_LIMIT=lim;
+  if(typeof ensureExcessAlliesToStandbyForPartyLimit==='function') ensureExcessAlliesToStandbyForPartyLimit();
+}
 function getZoneMapStage(zone){
   const z=zone||currentZone||ZONES.hunt;
   // 맵 크기는 전투지 컨셉(집합소/마을/도시/왕국) 기준으로만 고정
@@ -7093,10 +7361,10 @@ function applyZoneMapSize(zone,rebuildMap=false){
 }
 function applyPhaseSettings(rebuildMap=false){
   const cfg=getCurrentPhaseCfg();
-  PARTY_LIMIT=cfg.partyLimit;
-  // 도시 단계: 1:1 듀오 라인전 → 해금 후 2:2
-  if(civPhase===2){
-    PARTY_LIMIT=_cityDuelUnlocked?2:1;
+  if(typeof refreshPartyLimitFromZoneContext==='function') refreshPartyLimitFromZoneContext();
+  else{
+    PARTY_LIMIT=cfg.partyLimit;
+    if(civPhase===2) PARTY_LIMIT=_cityDuelUnlocked?2:1;
   }
   sanitizePartyGroups();
   // 맵 크기는 문명 단계가 아니라 지역 단계(I/II/III) 기준으로 적용
@@ -7669,6 +7937,7 @@ function clearOneTimeBattleHelpFlags(){
     localStorage.removeItem(LOW_HP_SAFETY_TIP_KEY);
     localStorage.removeItem('kingdom_wandering_merchant_intro_done');
     localStorage.removeItem('kingdom_facility_shop_intro_done');
+    if(typeof ROAD_WATCHER_LS!=='undefined'){ try{ localStorage.removeItem(ROAD_WATCHER_LS);}catch(_e2){} }
     const wEl=document.getElementById('merchant-wandering-intro-pop');
     if(wEl) wEl.remove();
     const sEl=document.getElementById('shop-first-intro-pop');
@@ -8250,12 +8519,25 @@ const HUB_KIND_TO_TYPE={grave:'hub_grave',garrison:'hub_garrison',standby:'hub_s
 let _hubRelocateFinishTimers=Object.create(null);
 let _mapPanMode=false,_mapPanMoved=false,_mapPanLastClientX=0,_mapPanLastClientY=0,_mapPanStartClientX=0,_mapPanStartClientY=0;
 const DRAG_T=7;
+const ALLY_MAP_TAP_PICK_R=40;
+const ALLY_MAP_PAN_MIN_R=58;
+function pickAllyForMapInput(x,y){
+  const r2=ALLY_MAP_TAP_PICK_R*ALLY_MAP_TAP_PICK_R;
+  let best=null,bd2=r2;
+  for(let i=0;i<allies.length;i++){
+    const a=allies[i];
+    if(!a||!a.isDeployed||a.dead) continue;
+    const dx=a.x-x,dy=a.y-y;
+    const d2=dx*dx+dy*dy;
+    if(d2<=r2&&d2<bd2){ best=a; bd2=d2; }
+  }
+  return best;
+}
 function isFarFromActionUnitPoint(x,y){
   const liveAllies=allies.filter(a=>a&&a.isDeployed&&!a.dead&&!a.permanentlyDead&&!a.garrisoned&&!a.inStandby);
   if(!liveAllies.length) return true;
-  const nearR=Math.max(72,HW*1.25);
   for(let i=0;i<liveAllies.length;i++){
-    if(dist(liveAllies[i],{x,y})<=nearR) return false;
+    if(dist(liveAllies[i],{x,y})<ALLY_MAP_PAN_MIN_R) return false;
   }
   return true;
 }
@@ -8275,6 +8557,8 @@ let _battleStartTime=0;
 /** 전날 → 다음날: 중앙 일차·거점 배너를 3초 뒤 제거(전투 시작 기준) */
 let _nextDayBannerDismissTimer=null;
 let _dayStartBannerPlaceHandler=null;
+/** 익일 진입 직후 배치 중이면 가리지 않도록, 실제 전투 시작(출발) 시에만 일차 배너 표시 */
+let _pendingDayArrivalBannerForBattle=false;
 function positionDayStartBannerOnMap(){
   const el=document.getElementById('day-start-banner');
   if(!el) return;
@@ -8821,6 +9105,7 @@ window.restartFromFirstScreen=function(){
     for(let s=1;s<=SAVE_SLOT_COUNT;s++) localStorage.removeItem(saveKeyForSlot(s));
     if(typeof HUB_TRIPLET_LAYOUT_LS!=='undefined') localStorage.removeItem(HUB_TRIPLET_LAYOUT_LS);
     if(typeof CIV_TRIPLET_LAYOUT_LS!=='undefined') localStorage.removeItem(CIV_TRIPLET_LAYOUT_LS);
+    if(typeof ROAD_WATCHER_LS!=='undefined'){ try{ localStorage.removeItem(ROAD_WATCHER_LS);}catch(_e0){} }
     if(typeof _hubRelocateFinishTimers==='object'&&_hubRelocateFinishTimers){
       Object.keys(_hubRelocateFinishTimers).forEach(function(tk){
         try{ clearTimeout(_hubRelocateFinishTimers[tk]); }catch(_e){}
@@ -9006,7 +9291,17 @@ window.debugJumpToZoneDay15=function(){
 // ══════════════════════════════════════════════════════
 function init(){
   canvas = document.getElementById('gc');
+  if(!canvas){
+    console.error('[init] #gc canvas not found');
+    const pg = document.getElementById('pg');
+    if(pg){ pg.textContent = '캔버스(#gc)를 찾을 수 없습니다. HTML이 온전한지 확인하세요.'; pg.style.display = 'block'; }
+    return;
+  }
   ctx = canvas.getContext('2d');
+  if(!ctx){
+    console.error('[init] 2D context not available');
+    return;
+  }
   const loaded=loadGameState();
   syncZoneCatalog();
   // 1. 현재 문명 단계 기준 맵/파티 규칙 적용
@@ -9066,7 +9361,7 @@ function init(){
     
     // 모바일 더블/트리플 탭: touchend 기준으로 탭 카운트
     const nowT=Date.now();
-    const clickedA=allies.find(a=>a.isDeployed&&!a.dead&&dist(a,{x,y})<25);
+    const clickedA=typeof pickAllyForMapInput==='function'?pickAllyForMapInput(x,y):allies.find(a=>a.isDeployed&&!a.dead&&dist(a,{x,y})<25);
     if(clickedA){
       if(lastClickUnit===clickedA&&(nowT-lastClickTime)<320){
         // 더블탭: hold 토글 (onDown에서 이미 처리하지만 모바일 타이밍 보완)
@@ -9340,6 +9635,7 @@ window.selectZone = function(id) {
   buildMap(); 
   spawnEnemies();
   
+  if(typeof refreshPartyLimitFromZoneContext==='function') refreshPartyLimitFromZoneContext();
   // 4. UI 갱신 (상단 새 왕국 스토리: 이모지 제외 지명만)
   setChronicleAreaLabel(currentZone);
   closeZoneModal();
@@ -13696,7 +13992,7 @@ function recordMapEmptyPoint(x,y){
   if(Date.now()-_lastCanvasDragEndTs<200) return;
   
   if(!_mapEmptyClickBuf.length){
-    if(allies.some(a=>a&&a.isDeployed&&!a.dead&&!a.permanentlyDead&&dist(a,{x,y})<25)) return;
+    if(typeof pickAllyForMapInput==='function'&&pickAllyForMapInput(x,y)) return;
   }
   const now=Date.now();
   if(_mapEmptyClickBuf.length){
@@ -13724,6 +14020,15 @@ function onMapEmptyClick(e){
   const {x,y}=getPos(e);
   if(_settlementHubCeremonyActive && typeof onSettlementHubWorldClick==='function' && onSettlementHubWorldClick(x,y)) return;
   if(typeof onCivSettlementWorldClick==='function' && onCivSettlementWorldClick(x,y)) return;
+  if(hexMap && currentZone && Number(currentZone.unlockPhase || 0) < 1 && !document.getElementById('hub-tile-garrison-pop') && !document.getElementById('hub-tile-standby-pop')){
+    const cell0=typeof nearestCell==='function'?nearestCell(x,y):null;
+    if(cell0 && cell0.type==='hub_reloc' && typeof _floatHubOrCivRelocRemain==='function'){
+      const hz=String(currentZone.id || 'hunt');
+      _floatHubOrCivRelocRemain(cell0, hz, false);
+      if(typeof pauseSettlementHubIdleCountdown==='function') pauseSettlementHubIdleCountdown();
+      return;
+    }
+  }
   recordMapEmptyPoint(x,y);
 }
 
@@ -13742,7 +14047,7 @@ function onDown(e){
   if(pendingUd.length>0&&pendingPurple){
     // 전투 중: 클릭 위치에 기존 배치 아군이 있으면 드래그 우선
     if(isBattle){
-      const existingAlly=allies.find(a=>a.isDeployed&&!a.dead&&dist(a,{x,y})<25);
+      const existingAlly=typeof pickAllyForMapInput==='function'?pickAllyForMapInput(x,y):allies.find(a=>a.isDeployed&&!a.dead&&dist(a,{x,y})<25);
       if(!existingAlly){
         let finalCell=pendingCell;
         if(isDeployCellOccupied(finalCell,null)){
@@ -13789,9 +14094,12 @@ function onDown(e){
       return;
     }
   }
+  if(!isBattle && isPlacing && currentZone && Number(currentZone.unlockPhase||0)<1 && pendingCell && pendingCell.type==='hub_reloc'){
+    return;
+  }
 
-  // [1] 지도 위 아군 유닛 클릭 판정
-  const clickedAlly = allies.find(a => a.isDeployed && !a.dead && dist(a, {x,y}) < 25);
+  // [1] 지도 위 아군 유닛 클릭 판정 (겹침: 터치에 더 가까운 대원, 반경 ALLY_MAP_TAP_PICK_R)
+  const clickedAlly=typeof pickAllyForMapInput==='function'?pickAllyForMapInput(x,y):allies.find(a=>a.isDeployed&&!a.dead&&dist(a,{x,y})<25);
   
   if (clickedAlly) {
     // 전문직업 궁극기 아이콘(유닛 중앙)을 직접 탭하면 즉시 발동
@@ -14497,18 +14805,15 @@ function showClassModal(unit){
   }).join('');
   document.getElementById('modal').classList.add('show');
 
-  // 15초 타임아웃 — 선택 없으면 '나중에'로 자동 닫기
+  // 15초 타임아웃 — 선택 없으면 '나중에'로 자동 닫기 (이벤트용 용병은 제한 없음)
   if(_classModalTimer)clearTimeout(_classModalTimer);
+  if(!unit._roadWatcherDraft){
   let countdown=20;
-  const closeBtn=document.querySelector('#modal .modal-box button[onclick*="modal"]');
-  
-  // (showClassModal 함수 내부의 tick 함수 부분)
   function tick(){
     const btn = document.querySelector('#modal .modal-box button');
     if(btn && btn.textContent.includes('나중에')) btn.textContent = `나중에 (${countdown}s)`;
     
     if(countdown <= 0){
-      // [수정] 시간이 다 되면 자동으로 취소 함수 호출
       cancelClassModal();
       alog(`⏱ 선택 시간이 초과되어 전직 창을 닫았습니다.`);
       return;
@@ -14517,6 +14822,7 @@ function showClassModal(unit){
     _classModalTimer = setTimeout(tick, 1000);
   }
   _classModalTimer=setTimeout(tick,1000);
+  }
 }
 window.selectClass = function(key) {
   if(_classModalTimer){clearTimeout(_classModalTimer); _classModalTimer=null;}
@@ -14525,6 +14831,11 @@ window.selectClass = function(key) {
     document.getElementById('modal').classList.remove('show');
     const skipped=u;
     pendingClass=null;
+    if(skipped && skipped._roadWatcherDraft && typeof abandonRoadWatcherEvent==='function'){
+      abandonRoadWatcherEvent('보직 창 취소');
+      if(typeof _maybeReopenDefeatPicker==='function') _maybeReopenDefeatPicker();
+      return;
+    }
     if(typeof _maybeReopenDefeatPicker==='function') _maybeReopenDefeatPicker();
     if(Array.isArray(_mercHireSetupQueue)&&skipped&&_mercHireSetupQueue.length&&_mercHireSetupQueue[0]===skipped){
       _mercHireSetupQueue.shift();
@@ -14534,7 +14845,28 @@ window.selectClass = function(key) {
     }else if(typeof drainClassPromoQueueAfterFlow==='function') drainClassPromoQueueAfterFlow();
     return;
   }
-
+  if(u._roadWatcherDraft && u.lv>=FIRST_PROMOTION_LV && !u.classKey && BASE_ROLES[key]){
+    u.classKey = key;
+    u.maxSkillSlots = 2;
+    u.name = '새벽';
+    const ns = BASE_ROLES[key].initSkills || ['Arrow'];
+    const withoutRefugeeBasics=(u.availableSkills||[]).filter(function(sk){
+      return REFUGEE_BASIC_SKILL_KEYS.indexOf(sk)<0;
+    });
+    u.availableSkills=[...new Set([].concat(withoutRefugeeBasics,ns))];
+    u.activeSkills=ns.slice(0,2);
+    if(u.skillLv)REFUGEE_BASIC_SKILL_KEYS.forEach(function(sk){delete u.skillLv[sk];});
+    if(u.skillUse)REFUGEE_BASIC_SKILL_KEYS.forEach(function(sk){delete u.skillUse[sk];});
+    applyClassBonus(u, key, 1);
+    alog('🌟 길 위의 목격자 — 직업이 정해졌습니다. 이름을 지어 주세요.');
+    document.getElementById('modal').classList.remove('show');
+    pendingClass=null;
+    if (typeof updatePG === 'function') updatePG();
+    if(typeof setTimeout!=='undefined') setTimeout(function(){ if(typeof showRenameModal==='function') showRenameModal(u); }, 200);
+    if(typeof _refreshDefeatStandbyRosterIfOpen==='function') _refreshDefeatStandbyRosterIfOpen();
+    markDirty();
+    return;
+  }
   // --- [기존] 10레벨 보직 전직 로직 (canUnitPromote / showClassModal과 동일: 10+이면 미전직일 때 적용) ---
   if(u.lv>=FIRST_PROMOTION_LV&&!u.classKey){
     u.classKey = key;
@@ -14681,10 +15013,13 @@ function showRenameModal(u){
 
   const clsName = u.class10Key ? CLASS10[u.class10Key]?.name : (u.classKey || '피난민');
   
-  document.getElementById('rename-sub').innerText = isSecondPromotion ? 
-    `${u.name}의 ${SECOND_PROMOTION_LV}레벨 전직을 축하합니다! 이름 앞에 붙일 멋진 별명을 선택하세요.` : 
-    `${clsName} 전직을 축하합니다! 이 영웅의 이름을 정해주세요.`;
-  
+  if(u._roadWatcherDraft && !isSecondPromotion){
+    document.getElementById('rename-sub').innerText = '피난민 대표: "이름을 알 수 있을까요?"\n\n이 용병의 이름을 지어주세요. (기본: 새벽)';
+  }else{
+    document.getElementById('rename-sub').innerText = isSecondPromotion ? 
+      `${u.name}의 ${SECOND_PROMOTION_LV}레벨 전직을 축하합니다! 이름 앞에 붙일 멋진 별명을 선택하세요.` : 
+      `${clsName} 전직을 축하합니다! 이 영웅의 이름을 정해주세요.`;
+  }
   document.getElementById('rename-input').value = u.name;
   
   // 4. 추천 버튼 생성
@@ -14717,6 +15052,17 @@ window.applyRename = function(val) {
 function confirmRename(){
   if(!_renameUnit) return;
   const finished=_renameUnit;
+  if(finished._roadWatcherDraft){
+    const v = document.getElementById('rename-input').value.trim();
+    if(v) finished.name = v;
+    else if(!finished.name) finished.name = '새벽';
+    document.getElementById('rename-modal').classList.remove('show');
+    _renameUnit = null;
+    if(typeof finalizeRoadWatcherEventJoin==='function') finalizeRoadWatcherEventJoin(finished, finished.name);
+    if (typeof updatePG === 'function') updatePG();
+    markDirty();
+    return;
+  }
   const v = document.getElementById('rename-input').value.trim();
   if(v) finished.name = v;
   document.getElementById('rename-modal').classList.remove('show');
@@ -14734,6 +15080,13 @@ function confirmRename(){
 
 function skipRename(){
   const sk=_renameUnit;
+  if(sk&&sk._roadWatcherDraft && typeof abandonRoadWatcherEvent==='function'){
+    document.getElementById('rename-modal').classList.remove('show');
+    _renameUnit = null;
+    if (typeof updatePG === 'function') updatePG();
+    abandonRoadWatcherEvent('이름 창 취소');
+    return;
+  }
   document.getElementById('rename-modal').classList.remove('show');
   _renameUnit = null;
   if (typeof updatePG === 'function') updatePG();
@@ -14909,6 +15262,7 @@ function showRecruitChoiceModal(ctx){
   const mx=getUnifiedMaxRefugees(0);
   _unifiedRefCount=mx>=1?1:0;
   _unifiedMercCount=0;
+  if(typeof isHuntPlainIFieldRestrictionActive==='function'&&isHuntPlainIFieldRestrictionActive()) _unifiedMercCount=0;
   updateUnifiedRecruitModal();
   const el=document.getElementById('recruit-choice-modal');
   if(el) el.classList.add('show');
@@ -14918,12 +15272,14 @@ function closeRecruitChoiceModal(){
   if(el) el.classList.remove('show');
 }
 function updateUnifiedRecruitModal(){
+  const refOnly=typeof isHuntPlainIFieldRestrictionActive==='function' && isHuntPlainIFieldRestrictionActive();
+  if(refOnly) _unifiedMercCount=0;
   let maxRef=getUnifiedMaxRefugees(_unifiedMercCount);
-  let maxMerc=getUnifiedMaxMercs(_unifiedRefCount);
+  let maxMerc=refOnly?0:getUnifiedMaxMercs(_unifiedRefCount);
   if(_unifiedRefCount>maxRef) _unifiedRefCount=maxRef;
   if(_unifiedMercCount>maxMerc) _unifiedMercCount=maxMerc;
   maxRef=getUnifiedMaxRefugees(_unifiedMercCount);
-  maxMerc=getUnifiedMaxMercs(_unifiedRefCount);
+  maxMerc=refOnly?0:getUnifiedMaxMercs(_unifiedRefCount);
   if(_unifiedRefCount>maxRef) _unifiedRefCount=maxRef;
   if(_unifiedMercCount>maxMerc) _unifiedMercCount=maxMerc;
   if(maxRef<1) _unifiedRefCount=0;
@@ -14936,7 +15292,9 @@ function updateUnifiedRecruitModal(){
   const line1=document.getElementById('recruit-unified-sub-line1');
   const line2=document.getElementById('recruit-unified-sub-line2');
   if(line1) line1.textContent=`보유 🍖${f} · 💰${g}`;
-  if(line2) line2.textContent=`빈자리 통솔 ${pr} · 대기 ${sr} · 거점 ${gr} → 피난민 최대 ${maxRef}명 · 용병 최대 ${maxMerc}명`;
+  if(line2) line2.textContent=refOnly?`빈자리 통솔 ${pr} · 대기 ${sr} · 거점 ${gr} → 근처 들판 I: 피난민만·통솔5 · 피난민 최대 ${maxRef}명`:`빈자리 통솔 ${pr} · 대기 ${sr} · 거점 ${gr} → 피난민 최대 ${maxRef}명 · 용병 최대 ${maxMerc}명`;
+  const merSec=document.getElementById('recruit-unified-merc-section');
+  if(merSec) merSec.style.display=refOnly?'none':'';
   const cntEl=document.getElementById('recruit-unified-ref-count');
   if(cntEl){
     cntEl.textContent=String(_unifiedRefCount);
@@ -15008,6 +15366,7 @@ function unifiedRecruitSetMax(){
   updateUnifiedRecruitModal();
 }
 function unifiedRecruitChangeMerc(delta){
+  if(typeof isHuntPlainIFieldRestrictionActive==='function' && isHuntPlainIFieldRestrictionActive()) return;
   const maxM=getUnifiedMaxMercs(_unifiedRefCount);
   if(maxM<1){
     _unifiedMercCount=0;
@@ -15027,6 +15386,7 @@ function unifiedRecruitChangeMerc(delta){
   updateUnifiedRecruitModal();
 }
 function unifiedRecruitSetMercMax(){
+  if(typeof isHuntPlainIFieldRestrictionActive==='function' && isHuntPlainIFieldRestrictionActive()) return;
   const maxM=getUnifiedMaxMercs(_unifiedRefCount);
   if(maxM<1)return;
   _unifiedMercCount=maxM;
@@ -15041,6 +15401,10 @@ window.unifiedRecruitSetMercMax=unifiedRecruitSetMercMax;
 window.updateUnifiedRecruitModal=updateUnifiedRecruitModal;
 
 function _spawnMercenaryHired(silent){
+  if(!silent && typeof isHuntPlainIFieldRestrictionActive==='function' && isHuntPlainIFieldRestrictionActive()){
+    if(typeof alog==='function') alog('ℹ️ 근처 들판 I에서는 용병을 영입할 수 없습니다. (들판 II·다른 전투지에서 해제)');
+    return null;
+  }
   if(res.gold<100){ alog('❌ 금화 부족 (필요: 100G)'); return null; }
   res.gold-=100;
   syncFromRes();
@@ -15057,6 +15421,10 @@ function confirmUnifiedRecruit(){
   updateUnifiedRecruitModal();
   const n=Math.max(0,_unifiedRefCount|0);
   const m=Math.max(0,_unifiedMercCount|0);
+  if(m>0 && typeof isHuntPlainIFieldRestrictionActive==='function' && isHuntPlainIFieldRestrictionActive()){
+    alog('ℹ️ 근처 들판 I에서는 피난민만 영입할 수 있습니다.');
+    return;
+  }
   const maxRef=getUnifiedMaxRefugees(m);
   const maxMerc=getUnifiedMaxMercs(n);
   if(n<1 && m<1){
@@ -15381,6 +15749,10 @@ function toggleBattle(){
   setBadge(`${stage}일차`, 'b-ba');
   alog(`⚔️ 전투 시작! (파티원 ${currentParty.length}명, 식량 -${cost}🍖)`);
   markDirty();
+  if(_pendingDayArrivalBannerForBattle){
+    _pendingDayArrivalBannerForBattle=false;
+    if(typeof showNextDayArrivalBanner==='function') showNextDayArrivalBanner();
+  }
   if(typeof scheduleNextDayArrivalBannerDismissOnBattleStart==='function') scheduleNextDayArrivalBannerDismissOnBattleStart();
 }
 
@@ -16447,6 +16819,7 @@ function battleTick(){
           // 정복 직후 거점 단계·주둔 한도 반영 (모달 표시 전에 시퀀스 증가 — autoStartNextZone에서 중복 증가하지 않음)
           const _gzid=currentZone.id;
           _autoZoneSeq[_gzid]=(_autoZoneSeq[_gzid]||0)+1;
+          if(typeof refreshPartyLimitFromZoneContext==='function') refreshPartyLimitFromZoneContext();
 
           // 도시 1:1 → 2:2 듀오 해금: 도시급 전투지에서 첫 최종일 클리어 시 해금
           const isCityPhase=(civPhase===2);
@@ -16492,11 +16865,9 @@ function battleTick(){
           showDay1Tutorial();
           _tutorialShown = true;
         } else {
+          _pendingDayArrivalBannerForBattle = true;
           enterPlacement();
-          setTimeout(function(){
-            if(typeof showNextDayArrivalBanner==='function') showNextDayArrivalBanner();
-            if(typeof markDirty==='function') markDirty();
-          },30);
+          if(typeof markDirty==='function') markDirty();
           if (autoStart && getSortedUd().length === 0) {
             setTimeout(() => { if (!isBattle && autoStart) toggleBattle(); }, 1200);
           }
@@ -18778,12 +19149,17 @@ function renderTopFacilityButtons(opts={}){
   }
 
   if(civPhase===0){
+    if(typeof isFixedHuntTemplateZone==='function'&&isFixedHuntTemplateZone()){
+      btn.style.display='none';
+      btn.innerHTML='';
+      return;
+    }
     btn.style.display='inline-flex';
     btn.style.alignItems='center';
     btn.style.gap='4px';
     btn.style.flexWrap='wrap';
     if(_merchantPresent){
-      btn.innerHTML=`<button type="button" onclick="openShop(event)" style="${cityBtnStyle}">🛒행상상</button>`;
+      btn.innerHTML=`<button type="button" onclick="openShop(event)" style="${cityBtnStyle}">🛒행상</button>`;
     }else{
       btn.innerHTML='<button type="button" class="collapse-btn panel-ally-toolbar-btn shop-merchant-absent-btn" title="집합소에서는 행상이 가끔 찾아옵니다" onclick="event.stopPropagation();notifyMerchantAbsent(event,this)">🛒행상</button>';
     }
@@ -22625,12 +23001,18 @@ function draw(crowdedBattle){
     }
   }
   if(!(_settlementHubCeremonyActive&&_settlementHubPhase!=='done')&&window._civSettlementHubRect&&currentZone&&Number(currentZone.unlockPhase||0)>=1&&hexMap){
-    const uph=Math.min(3,Math.max(1,Number(currentZone.unlockPhase||0)));
-    const pal=uph<=1
-      ?{settled:'rgba(205,190,155,0.09)',st:'rgba(115,95,72,0.34)',fence:'rgba(140,118,95,0.42)'}
-      :(uph===2
-        ?{settled:'rgba(188,205,225,0.10)',st:'rgba(78,108,138,0.36)',fence:'rgba(98,128,162,0.46)'}
-        :{settled:'rgba(218,200,248,0.10)',st:'rgba(118,88,152,0.36)',fence:'rgba(138,108,172,0.48)'});
+    const visT=typeof getCivResidenceVisualTier==='function'?getCivResidenceVisualTier():Math.min(3,Math.max(0,Number(currentZone.unlockPhase||0)));
+    const gPal=(ti)=>{
+      if(ti<=0) return{settled:'rgba(200,192,170,0.08)',st:'rgba(100,90,75,0.3)',fence:'rgba(120,110,88,0.4)'};
+      if(ti===1) return{settled:'rgba(205,190,155,0.09)',st:'rgba(115,95,72,0.34)',fence:'rgba(140,118,95,0.42)'};
+      if(ti===2) return{settled:'rgba(188,205,225,0.10)',st:'rgba(78,108,138,0.36)',fence:'rgba(98,128,162,0.46)'};
+      return{settled:'rgba(218,200,248,0.10)',st:'rgba(118,88,152,0.36)',fence:'rgba(138,108,172,0.48)'};
+    };
+    const pal=gPal(visT);
+    const Rc=window._civSettlementHubRect;
+    const facHints=(visT>=2&&typeof getCivFacilityPlazaHintSlots==='function'&&Rc)
+      ?getCivFacilityPlazaHintSlots(Rc,currentZone.id,visT):[];
+    const rampG=(typeof getCivRampartGlyphForZone==='function')?getCivRampartGlyphForZone(String(currentZone.id||'')):'🪜';
     const _civFs=Number(typeof HR!=='undefined'?HR:18)*0.42;
     for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
       const h=hexMap[r]&&hexMap[r][c];
@@ -22644,6 +23026,22 @@ function draw(crowdedBattle){
         ctx.lineWidth=0.55;
         ctx.stroke();
         ctx.setLineDash([]);
+        for(let fi=0;fi<facHints.length;fi++){
+          const f=facHints[fi];
+          if(f.r===r&&f.c===c){
+            ctx.save();
+            const hf=Math.round(Math.max(9,Math.min(14,_civFs*0.95)));
+            ctx.font=`${hf}px "Segoe UI Emoji",Segoe UI Symbol,sans-serif`;
+            ctx.textAlign='center';
+            ctx.textBaseline='middle';
+            ctx.fillStyle='rgba(15,23,42,0.4)';
+            ctx.fillText(f.g,h.x+0.45,h.y+1.35+HR*0.18);
+            ctx.fillStyle='rgba(255,250,240,0.9)';
+            ctx.fillText(f.g,h.x-0.05,h.y+HR*0.15);
+            ctx.restore();
+            break;
+          }
+        }
       }else if(h.type==='civ_rampart'){
         drawHexPath(h.x,h.y,HR);
         ctx.setLineDash([2,2]);
@@ -22656,9 +23054,9 @@ function draw(crowdedBattle){
         ctx.textAlign='center';
         ctx.textBaseline='middle';
         ctx.fillStyle='rgba(15,23,42,0.45)';
-        ctx.fillText('🪜',h.x+0.5,h.y+1.5+HR*0.28);
+        ctx.fillText(rampG,h.x+0.5,h.y+1.5+HR*0.28);
         ctx.fillStyle='rgba(248,250,252,0.88)';
-        ctx.fillText('🪜',h.x,h.y+HR*0.28);
+        ctx.fillText(rampG,h.x,h.y+HR*0.28);
         ctx.restore();
       }else if(h.type==='civ_lodge'){
         drawHexPath(h.x,h.y,HR);
@@ -24100,7 +24498,8 @@ function renderGarrisonBar(){
     foodEl.innerHTML='🍖 <span class="garrison-summary-food-battle">-'+battlePart+'</span> <span class="garrison-summary-food-rear">-'+rearPart+'</span>';
   }
   if(typeof syncGarrisonSummaryMetaRowVisibility==='function') syncGarrisonSummaryMetaRowVisibility();
-  if(summaryEl) summaryEl.style.display=showSummary?'flex':'none';
+  const showSummaryPanel=showSummary&&_garrisonBarExpanded;
+  if(summaryEl) summaryEl.style.display=showSummaryPanel?'flex':'none';
   const mainPanel=document.getElementById('garrison-bar-panel-main');
   if(mainPanel) mainPanel.style.display=showSummary?'flex':'none';
   const mainGarrisonEl=document.getElementById('garrison-bar-main');
@@ -24435,7 +24834,15 @@ function getPendingSwapJobForStandby(standbyUid){
 }
 
 function getPartyMembersForUnitListView(){
-  let list=getActivePartyMembersForSwapPick();
+  let list;
+  if(typeof isSettlementHubUnitListModalPhase==='function' && isSettlementHubUnitListModalPhase()){
+    const pLim=typeof PARTY_LIMIT!=='undefined'?PARTY_LIMIT:6;
+    const raw=(allies||[]).filter(a=>a&&!a.dead&&!a.permanentlyDead&&!a.garrisoned&&a._settlementHubSnap);
+    const partyCands=raw.filter(a=>!a._settlementHubSnap.inStandby).sort((x,y)=>(x.id||0)-(y.id||0));
+    list=partyCands.slice(0,pLim);
+  } else {
+    list=getActivePartyMembersForSwapPick();
+  }
   const jobs=Object.values(_pendingBattleSwapByPartyId||{});
   for(let j=0;j<jobs.length;j++){
     const job=jobs[j];
@@ -24892,7 +25299,12 @@ window.swapStandbyWithPartyMember=function(standbyUid, partyUid, ev, hubGarrison
   if(ev){try{ev.stopPropagation();ev.preventDefault();}catch(_e){}}
   const s=allies.find(a=>a.id===standbyUid);
   const p=allies.find(a=>a.id===partyUid);
-  if(!s||!p||p.inStandby||p.garrisoned)return;
+  const _hubUL=typeof isSettlementHubUnitListModalPhase==='function'&&isSettlementHubUnitListModalPhase();
+  if(!s||!p||p.garrisoned)return;
+  if(_hubUL){
+    if(!p._settlementHubSnap||!s._settlementHubSnap) return;
+    if(p._settlementHubSnap.inStandby) return;
+  } else if(p.inStandby) return;
   let resolvedGz=null;
   if(s.garrisoned) resolvedGz=String(s.garrisoned);
   else if(hubGarrisonZidHint!=null&&String(hubGarrisonZidHint).length) resolvedGz=String(hubGarrisonZidHint);
@@ -24906,7 +25318,8 @@ window.swapStandbyWithPartyMember=function(standbyUid, partyUid, ev, hubGarrison
       }
     }
   }
-  if(!(s.inStandby||s.garrisoned||resolvedGz))return;
+  const sOkAsSource=!!(s.inStandby||s.garrisoned||resolvedGz)||(_hubUL&&s._settlementHubSnap&&s._settlementHubSnap.inStandby);
+  if(!sOkAsSource) return;
   if(s.inStandby&&s.garrisoned)return;
   if(s.dead||p.dead||s.permanentlyDead||p.permanentlyDead)return;
   // 전투 중이어도 통솔 대원이 아직 전장에 없으면 후퇴 예약 없이 즉시 교체(아래 공통 블록)
@@ -24949,7 +25362,8 @@ window.swapStandbyWithPartyMember=function(standbyUid, partyUid, ev, hubGarrison
   }
 
   // 배치 대기·출격 전 등 전투 외: 이미 맵에 둔 통솔은 좌측 경계까지 후퇴한 뒤 교체 (경계 도달 시 finalizeBattleSwapAfterRetreat)
-  if(p.isDeployed){
+  // 집합소: isDeployed 는 배회/행군용으로 켜져 있어 여기로 들어가면 후퇴 루틴이 잘못 뜸 → 즉시 교체로 통과
+  if(p.isDeployed && !_hubUL){
     if(p.retreatingToStandby){alog('⏳ 이미 좌측으로 후퇴 중입니다.');return;}
     const pend0=getPendingSwapJobForParty(partyUid);
     if(pend0){
@@ -25071,6 +25485,13 @@ window.swapStandbyWithPartyMember=function(standbyUid, partyUid, ev, hubGarrison
     allies[si]=p;
     allies[pi]=s;
   }
+  if(_hubUL && s._settlementHubSnap && p._settlementHubSnap){
+    const sa=s._settlementHubSnap, pa=p._settlementHubSnap;
+    const tIn=sa.inStandby, tDep=sa.isDeployed;
+    sa.inStandby=pa.inStandby; sa.isDeployed=pa.isDeployed;
+    pa.inStandby=tIn; pa.isDeployed=tDep;
+    s._hubAsStandby=!!sa.inStandby; p._hubAsStandby=!!pa.inStandby;
+  }
 
   if(typeof sanitizePartyGroups==='function')sanitizePartyGroups();
   if(typeof sanitizeKingdomUnitPlacement==='function')sanitizeKingdomUnitPlacement();
@@ -25081,10 +25502,12 @@ window.swapStandbyWithPartyMember=function(standbyUid, partyUid, ev, hubGarrison
   }else{
     alog(`🔁 ${s.name} ↔ ${p.name} 통솔 교체 (새 대원 재배치 필요)`);
   }
-  isPlacing=true;
-  const pg=document.getElementById('pg');
-  if(pg)pg.style.display='block';
-  updatePG();
+  if(!_hubUL){
+    isPlacing=true;
+    const pg=document.getElementById('pg');
+    if(pg)pg.style.display='block';
+    updatePG();
+  }
   markDirty();
   renderGarrisonBar();
   if(typeof renderAllyPanel==='function')renderAllyPanel();
@@ -25192,6 +25615,11 @@ window.cancelClassModal = function() {
   const wasU=pendingClass;
   document.getElementById('modal').classList.remove('show');
   pendingClass = null;
+  if(wasU && wasU._roadWatcherDraft && typeof abandonRoadWatcherEvent==='function'){
+    abandonRoadWatcherEvent('나중에');
+    if(typeof _maybeReopenDefeatPicker==='function') _maybeReopenDefeatPicker();
+    return;
+  }
   if(typeof _maybeReopenDefeatPicker==='function') _maybeReopenDefeatPicker();
   if(Array.isArray(_mercHireSetupQueue)&&wasU&&_mercHireSetupQueue.length&&_mercHireSetupQueue[0]===wasU){
     _mercHireSetupQueue.shift();
@@ -25812,8 +26240,18 @@ window.onload = function() {
   if ('scrollRestoration' in history) {
     history.scrollRestoration = 'manual';
   }
-  window.scrollTo(0, 0); 
+  window.scrollTo(0, 0);
+  try{
   init();
+  }catch(err){
+    console.error('[onload] init() failed', err);
+    const pg = document.getElementById('pg');
+    if(pg){
+      pg.style.display = 'block';
+      pg.style.color = '#fca5a5';
+      pg.textContent = '초기화 실패: ' + (err && err.message ? err.message : String(err)) + ' (F12 콘솔 참고)';
+    }
+  }
 
   // 모바일 터치 드래그 지원 (handleTouchStart 등 정의는 기존 유지)
 
