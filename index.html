@@ -10428,143 +10428,28 @@ function fillFixedHuntTemplateTypes(types,rows,cols,centerCol,rndFn){
     if((r===Math.floor(rows*0.33)||r===Math.floor(rows*0.58))&&(c===centerCol||c===centerCol+1)) types[r][c]='plain';
   }
 }
-function generateTerrainTypesForZone(zid,tier,fixedHuntTemplate,rows,cols,centerCol,rndFn,civPhase){
-  const types=_terrainMat(rows,cols,'plain');
+/** 문명 단계에 따른 지형 밀도 보정 (공통 후처리) */
+function _applyCivPhaseDensity(types,rows,cols,centerCol,zid,tier,civPhase,rndFn){
   const phaseDensity=[0.00,0.04,0.08,0.12][civPhase]||0;
-
-  if(tier==='hunt'&&fixedHuntTemplate){
-    fillFixedHuntTemplateTypes(types,rows,cols,centerCol,rndFn);
-    return types;
-  }
-
-  if(zid==='hunt'){
-    const H=buildTerrainHeightMap(rows,cols,0.07,2,rndFn);
-    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
-      if(c<4){ types[r][c]='plain'; continue; }
-      const h=H[r][c];
-      if(h<0.52) types[r][c]='plain';
-      else if(h<0.78) types[r][c]=rndFn()<0.55?'forest':'plain';
-      else types[r][c]=rndFn()<0.35?'hill':'plain';
-    }
-    shortRiverSnippets(types,rows,cols,rndFn,1+Math.floor(rndFn()*2),4);
-    forestClusterPass(types,rows,cols,rndFn,2);
-    enforceMinRatio(types,rows,cols,'plain',t=>t==='plain',0.70,rndFn);
-    enforceMaxRatio(types,rows,cols,t=>t==='forest','plain',0.22,rndFn);
-  }else if(zid==='river'){
-    const H=buildTerrainHeightMap(rows,cols,0.11,3,rndFn);
-    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
-      if(c<4) types[r][c]='plain';
-      else if(H[r][c]<0.48) types[r][c]=rndFn()<0.92?'plain':'forest';
-      else types[r][c]=rndFn()<0.55?'hill':'plain';
-    }
-    shortRiverSnippets(types,rows,cols,rndFn,2,4);
-    const rh=carveRiverHorizontal(types,H,rows,cols,rndFn,{safeLeft:4,width:2,stoneBankRatio:0.26,centerCol:centerCol});
-    const lockBridge=(r,c)=>!!rh&&r>=rh.r0&&r<rh.r0+rh.width&&c===rh.bridgeC;
-    enforceMinRatio(types,rows,cols,'river',t=>t==='river',0.18,rndFn,lockBridge);
-  }else if(zid==='wilds'){
-    const H=buildTerrainHeightMap(rows,cols,0.14,4,rndFn);
-    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
-      if(c<=3){ types[r][c]='plain'; continue; }
-      const h=H[r][c];
-      if(h<0.22) types[r][c]='plain';
-      else if(h<0.62) types[r][c]='forest';
-      else if(h<0.82) types[r][c]=rndFn()<0.7?'forest':'hill';
-      else types[r][c]=rndFn()<0.45?'mountain':'hill';
-    }
-    forestClusterPass(types,rows,cols,rndFn,3);
-    enforceMinRatio(types,rows,cols,'forest',t=>t==='forest',0.60,rndFn);
-  }else if(zid==='bandit'){
-    const H=buildTerrainHeightMap(rows,cols,0.12,3,rndFn);
-    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
-      if(c<3) types[r][c]='plain';
-      else{
-        const h=H[r][c];
-        if(h>0.48) types[r][c]=rndFn()<0.88?'hill':'ruins';
-        else if(h>0.32) types[r][c]=rndFn()<0.15?'forest':'plain';
-        else types[r][c]='plain';
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    const v=rndFn(),v2=rndFn();
+    if(civPhase>=1&&c>3&&c<cols-2){
+      const huntStyle=(zid==='hunt'||tier==='hunt')&&zid!=='river';
+      if(huntStyle){
+        if(types[r][c]==='plain'&&v2<phaseDensity*0.45) types[r][c]='forest';
+        if(types[r][c]==='plain'&&v>0.93) types[r][c]='hill';
+        if(civPhase>=2&&types[r][c]==='plain'&&v2>0.975&&Math.abs(c-centerCol)<=3) types[r][c]='river';
+      }else{
+        if(types[r][c]==='plain'&&v2<phaseDensity*0.6) types[r][c]='forest';
+        if((types[r][c]==='plain'||types[r][c]==='hill')&&v<phaseDensity*0.35) types[r][c]='mountain';
+        if(civPhase>=2&&zid!=='river'&&types[r][c]==='plain'&&v2>0.92) types[r][c]='river';
       }
     }
-    enforceMinRatio(types,rows,cols,'hill',t=>t==='hill'||t==='mountain',0.50,rndFn);
-  }else if(zid==='mine'){
-    const H=buildTerrainHeightMap(rows,cols,0.10,2,rndFn);
-    const pathC=Math.max(4,Math.min(cols-5,centerCol+(rndFn()>0.5?1:-1)));
-    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
-      if(c<=2) types[r][c]='plain';
-      else if(c===pathC) types[r][c]=(r+rndFn()*3)%4<1?'cave':'mountain';
-      else if(Math.abs(c-pathC)===1) types[r][c]=H[r][c]>0.55?'mountain':'hill';
-      else if(c<pathC) types[r][c]=rndFn()<0.12?'ruins':'plain';
-      else types[r][c]=H[r][c]>0.5?'mountain':rndFn()<0.2?'ruins':'forest';
-    }
-    types[Math.floor(rows/2)][pathC]='cave';
-  }else if(zid==='ruins'){
-    const H=buildTerrainHeightMap(rows,cols,0.11,3,rndFn);
-    const pc=Math.floor(cols*0.5), pr=Math.floor(rows*0.5);
-    const plazaR=Math.max(2,Math.floor(rows*0.22));
-    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
-      if(c<3) types[r][c]='plain';
-      else if(Math.abs(c-pc)<=2&&Math.abs(r-pr)<=plazaR) types[r][c]='plain';
-      else if(H[r][c]>0.62) types[r][c]=rndFn()<0.55?'ruins':'mountain';
-      else if(H[r][c]>0.38) types[r][c]=rndFn()<0.65?'ruins':(rndFn()<0.35?'forest':'hill');
-      else types[r][c]=rndFn()<0.25?'ruins':'plain';
-    }
-    enforceMinRatio(types,rows,cols,'ruins',t=>t==='ruins',0.28,rndFn);
-  }else if(zid==='raider'){
-    const H=buildTerrainHeightMap(rows,cols,0.13,4,rndFn);
-    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
-      if(c<3) types[r][c]='plain';
-      else if(H[r][c]>0.72) types[r][c]=rndFn()<0.5?'mountain':'cave';
-      else if(H[r][c]>0.48) types[r][c]=rndFn()<0.4?'mountain':'hill';
-      else if(H[r][c]>0.28) types[r][c]=rndFn()<0.35?'ruins':'forest';
-      else types[r][c]='plain';
-    }
-  }else if(zid==='castle'){
-    const H=buildTerrainHeightMap(rows,cols,0.11,3,rndFn);
-    const wallC=[Math.floor(cols*0.35),Math.floor(cols*0.62)];
-    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
-      if(c<3) types[r][c]='plain';
-      else if(wallC.some(w=>Math.abs(c-w)<=1)&&rndFn()<0.62) types[r][c]=rndFn()<0.55?'ruins':'mountain';
-      else if(H[r][c]>0.65) types[r][c]='mountain';
-      else if(H[r][c]>0.4) types[r][c]=rndFn()<0.45?'ruins':'hill';
-      else types[r][c]=rndFn()<0.2?'forest':'plain';
-    }
-    for(const wc of wallC) for(let r=2;r<rows-2;r+=3) if(types[r][wc]) types[r][wc]='plain';
-  }else if(zid==='crystal'){
-    const H=buildTerrainHeightMap(rows,cols,0.10,4,rndFn);
-    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
-      if(c<3) types[r][c]='plain';
-      else if(H[r][c]>0.7) types[r][c]=rndFn()<0.5?'ruins':'mountain';
-      else if(H[r][c]>0.45) types[r][c]=rndFn()<0.4?'ruins':'forest';
-      else types[r][c]=rndFn()<0.15?'hill':'plain';
-    }
-  }else if(zid==='warzone'){
-    const H=buildTerrainHeightMap(rows,cols,0.16,4,rndFn);
-    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
-      if(c<3) types[r][c]='plain';
-      else if(H[r][c]>0.55) types[r][c]=rndFn()<0.55?'forest':'cave';
-      else if(H[r][c]>0.28) types[r][c]=rndFn()<0.7?'forest':'ruins';
-      else types[r][c]=rndFn()<0.25?'cave':'plain';
-    }
-    forestClusterPass(types,rows,cols,rndFn,2);
-  }else if(zid==='citadel'){
-    const H=buildTerrainHeightMap(rows,cols,0.14,4,rndFn);
-    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
-      if(c<3) types[r][c]='plain';
-      else if(H[r][c]>0.68) types[r][c]=rndFn()<0.6?'mountain':'cave';
-      else if(H[r][c]>0.4) types[r][c]=rndFn()<0.55?'ruins':'hill';
-      else types[r][c]=rndFn()<0.22?'ruins':'plain';
-    }
-  }else if(zid==='void'){
-    const H=buildTerrainHeightMap(rows,cols,0.09,2,rndFn);
-    const bands=[Math.floor(rows*0.22),Math.floor(rows*0.78)];
-    const gateC=centerCol;
-    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
-      if(c<3) types[r][c]='plain';
-      else if(bands.some(b=>Math.abs(r-b)<=1)&&c!==gateC) types[r][c]=rndFn()<0.7?'mountain':'ruins';
-      else if(Math.abs(c-gateC)<=2&&r>1&&r<rows-2) types[r][c]='plain';
-      else if(H[r][c]>0.55) types[r][c]=rndFn()<0.45?'ruins':'hill';
-      else types[r][c]='plain';
-    }
-  }else if(tier==='hunt'){
+  }
+}
+/** ZONE_TERRAIN_PROFILE에 없는 존 — tier·열 구획 기반 레거시 폴백 */
+function _applyTierFallbackTerrain(tier,types,rows,cols,centerCol,rndFn){
+  if(tier==='hunt'){
     const H=buildTerrainHeightMap(rows,cols,0.09,2,rndFn);
     for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
       if(c<4) types[r][c]='plain';
@@ -10580,7 +10465,7 @@ function generateTerrainTypesForZone(zid,tier,fixedHuntTemplate,rows,cols,center
     const v=()=>rndFn();
     for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
       let tp='plain';
-      const vv=v(),v2=v();
+      const vv=v();
       if(c>=1&&c<=3) tp='plain';
       else if(c>=4&&c<=7&&vv<0.55) tp='forest';
       else if(c>=8&&c<=11){
@@ -10633,22 +10518,179 @@ function generateTerrainTypesForZone(zid,tier,fixedHuntTemplate,rows,cols,center
       types[r][c]=tp;
     }
   }
-
+}
+function _zoneApplyHunt(types,rows,cols,centerCol,rndFn){
+  const H=buildTerrainHeightMap(rows,cols,0.07,2,rndFn);
   for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
-    const v=rndFn(),v2=rndFn();
-    if(civPhase>=1&&c>3&&c<cols-2){
-      const huntStyle=(zid==='hunt'||tier==='hunt')&&zid!=='river';
-      if(huntStyle){
-        if(types[r][c]==='plain'&&v2<phaseDensity*0.45) types[r][c]='forest';
-        if(types[r][c]==='plain'&&v>0.93) types[r][c]='hill';
-        if(civPhase>=2&&types[r][c]==='plain'&&v2>0.975&&Math.abs(c-centerCol)<=3) types[r][c]='river';
-      }else{
-        if(types[r][c]==='plain'&&v2<phaseDensity*0.6) types[r][c]='forest';
-        if((types[r][c]==='plain'||types[r][c]==='hill')&&v<phaseDensity*0.35) types[r][c]='mountain';
-        if(civPhase>=2&&zid!=='river'&&types[r][c]==='plain'&&v2>0.92) types[r][c]='river';
-      }
+    if(c<4){ types[r][c]='plain'; continue; }
+    const h=H[r][c];
+    if(h<0.52) types[r][c]='plain';
+    else if(h<0.78) types[r][c]=rndFn()<0.55?'forest':'plain';
+    else types[r][c]=rndFn()<0.35?'hill':'plain';
+  }
+  shortRiverSnippets(types,rows,cols,rndFn,1+Math.floor(rndFn()*2),4);
+  forestClusterPass(types,rows,cols,rndFn,2);
+  enforceMinRatio(types,rows,cols,'plain',t=>t==='plain',0.70,rndFn);
+  enforceMaxRatio(types,rows,cols,t=>t==='forest','plain',0.22,rndFn);
+}
+function _zoneApplyRiver(types,rows,cols,centerCol,rndFn){
+  const H=buildTerrainHeightMap(rows,cols,0.11,3,rndFn);
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    if(c<4) types[r][c]='plain';
+    else if(H[r][c]<0.48) types[r][c]=rndFn()<0.92?'plain':'forest';
+    else types[r][c]=rndFn()<0.55?'hill':'plain';
+  }
+  shortRiverSnippets(types,rows,cols,rndFn,2,4);
+  const rh=carveRiverHorizontal(types,H,rows,cols,rndFn,{safeLeft:4,width:2,stoneBankRatio:0.26,centerCol:centerCol});
+  const lockBridge=(r,c)=>!!rh&&r>=rh.r0&&r<rh.r0+rh.width&&c===rh.bridgeC;
+  enforceMinRatio(types,rows,cols,'river',t=>t==='river',0.18,rndFn,lockBridge);
+}
+function _zoneApplyWilds(types,rows,cols,centerCol,rndFn){
+  const H=buildTerrainHeightMap(rows,cols,0.14,4,rndFn);
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    if(c<=3){ types[r][c]='plain'; continue; }
+    const h=H[r][c];
+    if(h<0.22) types[r][c]='plain';
+    else if(h<0.62) types[r][c]='forest';
+    else if(h<0.82) types[r][c]=rndFn()<0.7?'forest':'hill';
+    else types[r][c]=rndFn()<0.45?'mountain':'hill';
+  }
+  forestClusterPass(types,rows,cols,rndFn,3);
+  enforceMinRatio(types,rows,cols,'forest',t=>t==='forest',0.60,rndFn);
+}
+function _zoneApplyBandit(types,rows,cols,centerCol,rndFn){
+  const H=buildTerrainHeightMap(rows,cols,0.12,3,rndFn);
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    if(c<3) types[r][c]='plain';
+    else{
+      const h=H[r][c];
+      if(h>0.48) types[r][c]=rndFn()<0.88?'hill':'ruins';
+      else if(h>0.32) types[r][c]=rndFn()<0.15?'forest':'plain';
+      else types[r][c]='plain';
     }
   }
+  enforceMinRatio(types,rows,cols,'hill',t=>t==='hill'||t==='mountain',0.50,rndFn);
+}
+function _zoneApplyMine(types,rows,cols,centerCol,rndFn){
+  const H=buildTerrainHeightMap(rows,cols,0.10,2,rndFn);
+  const pathC=Math.max(4,Math.min(cols-5,centerCol+(rndFn()>0.5?1:-1)));
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    if(c<=2) types[r][c]='plain';
+    else if(c===pathC) types[r][c]=(r+rndFn()*3)%4<1?'cave':'mountain';
+    else if(Math.abs(c-pathC)===1) types[r][c]=H[r][c]>0.55?'mountain':'hill';
+    else if(c<pathC) types[r][c]=rndFn()<0.12?'ruins':'plain';
+    else types[r][c]=H[r][c]>0.5?'mountain':rndFn()<0.2?'ruins':'forest';
+  }
+  types[Math.floor(rows/2)][pathC]='cave';
+}
+function _zoneApplyRuins(types,rows,cols,centerCol,rndFn){
+  const H=buildTerrainHeightMap(rows,cols,0.11,3,rndFn);
+  const pc=Math.floor(cols*0.5), pr=Math.floor(rows*0.5);
+  const plazaR=Math.max(2,Math.floor(rows*0.22));
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    if(c<3) types[r][c]='plain';
+    else if(Math.abs(c-pc)<=2&&Math.abs(r-pr)<=plazaR) types[r][c]='plain';
+    else if(H[r][c]>0.62) types[r][c]=rndFn()<0.55?'ruins':'mountain';
+    else if(H[r][c]>0.38) types[r][c]=rndFn()<0.65?'ruins':(rndFn()<0.35?'forest':'hill');
+    else types[r][c]=rndFn()<0.25?'ruins':'plain';
+  }
+  enforceMinRatio(types,rows,cols,'ruins',t=>t==='ruins',0.28,rndFn);
+}
+function _zoneApplyRaider(types,rows,cols,centerCol,rndFn){
+  const H=buildTerrainHeightMap(rows,cols,0.13,4,rndFn);
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    if(c<3) types[r][c]='plain';
+    else if(H[r][c]>0.72) types[r][c]=rndFn()<0.5?'mountain':'cave';
+    else if(H[r][c]>0.48) types[r][c]=rndFn()<0.4?'mountain':'hill';
+    else if(H[r][c]>0.28) types[r][c]=rndFn()<0.35?'ruins':'forest';
+    else types[r][c]='plain';
+  }
+}
+function _zoneApplyCastle(types,rows,cols,centerCol,rndFn){
+  const H=buildTerrainHeightMap(rows,cols,0.11,3,rndFn);
+  const wallC=[Math.floor(cols*0.35),Math.floor(cols*0.62)];
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    if(c<3) types[r][c]='plain';
+    else if(wallC.some(w=>Math.abs(c-w)<=1)&&rndFn()<0.62) types[r][c]=rndFn()<0.55?'ruins':'mountain';
+    else if(H[r][c]>0.65) types[r][c]='mountain';
+    else if(H[r][c]>0.4) types[r][c]=rndFn()<0.45?'ruins':'hill';
+    else types[r][c]=rndFn()<0.2?'forest':'plain';
+  }
+  for(const wc of wallC) for(let r=2;r<rows-2;r+=3) if(types[r][wc]) types[r][wc]='plain';
+}
+function _zoneApplyCrystal(types,rows,cols,centerCol,rndFn){
+  const H=buildTerrainHeightMap(rows,cols,0.10,4,rndFn);
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    if(c<3) types[r][c]='plain';
+    else if(H[r][c]>0.7) types[r][c]=rndFn()<0.5?'ruins':'mountain';
+    else if(H[r][c]>0.45) types[r][c]=rndFn()<0.4?'ruins':'forest';
+    else types[r][c]=rndFn()<0.15?'hill':'plain';
+  }
+}
+function _zoneApplyWarzone(types,rows,cols,centerCol,rndFn){
+  const H=buildTerrainHeightMap(rows,cols,0.16,4,rndFn);
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    if(c<3) types[r][c]='plain';
+    else if(H[r][c]>0.55) types[r][c]=rndFn()<0.55?'forest':'cave';
+    else if(H[r][c]>0.28) types[r][c]=rndFn()<0.7?'forest':'ruins';
+    else types[r][c]=rndFn()<0.25?'cave':'plain';
+  }
+  forestClusterPass(types,rows,cols,rndFn,2);
+}
+function _zoneApplyCitadel(types,rows,cols,centerCol,rndFn){
+  const H=buildTerrainHeightMap(rows,cols,0.14,4,rndFn);
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    if(c<3) types[r][c]='plain';
+    else if(H[r][c]>0.68) types[r][c]=rndFn()<0.6?'mountain':'cave';
+    else if(H[r][c]>0.4) types[r][c]=rndFn()<0.55?'ruins':'hill';
+    else types[r][c]=rndFn()<0.22?'ruins':'plain';
+  }
+}
+function _zoneApplyVoid(types,rows,cols,centerCol,rndFn){
+  const H=buildTerrainHeightMap(rows,cols,0.09,2,rndFn);
+  const bands=[Math.floor(rows*0.22),Math.floor(rows*0.78)];
+  const gateC=centerCol;
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    if(c<3) types[r][c]='plain';
+    else if(bands.some(b=>Math.abs(r-b)<=1)&&c!==gateC) types[r][c]=rndFn()<0.7?'mountain':'ruins';
+    else if(Math.abs(c-gateC)<=2&&r>1&&r<rows-2) types[r][c]='plain';
+    else if(H[r][c]>0.55) types[r][c]=rndFn()<0.45?'ruins':'hill';
+    else types[r][c]='plain';
+  }
+}
+/**
+ * 존별 전투 지형 파라미터(전투지 생성.ini 기획과 동기) + apply: 실제 생성기.
+ * 수치·riverStyle 등은 튜닝 시 이 객체와 _zoneApply* 만 보면 됨.
+ */
+const ZONE_TERRAIN_PROFILE={
+  hunt:    { tiles:{plain:0.70,forest:0.20,hill:0.08,river:0.02}, heightNoise:0.07, heightOctave:2, safeLeftCols:4, riverStyle:'snippet', riverCount:2, forestCluster:2, enforce:[{type:'plain',min:0.70},{type:'forest',max:0.22}], apply:_zoneApplyHunt },
+  river:   { tiles:{plain:0.45,hill:0.30,river:0.20,forest:0.05}, heightNoise:0.11, heightOctave:3, safeLeftCols:4, riverStyle:'horizontal', riverWidth:2, stoneBankRatio:0.26, enforce:[{type:'river',min:0.18}], apply:_zoneApplyRiver },
+  wilds:   { tiles:{forest:0.60,hill:0.20,mountain:0.10,plain:0.10}, heightNoise:0.14, heightOctave:4, safeLeftCols:4, riverStyle:'none', forestCluster:3, enforce:[{type:'forest',min:0.60}], apply:_zoneApplyWilds },
+  bandit:  { tiles:{hill:0.50,plain:0.35,forest:0.10,ruins:0.05}, heightNoise:0.12, heightOctave:3, safeLeftCols:3, riverStyle:'none', enforce:[{type:'hill',min:0.50}], apply:_zoneApplyBandit },
+  mine:    { tiles:{mountain:0.40,hill:0.25,plain:0.20,cave:0.10,ruins:0.05}, heightNoise:0.10, heightOctave:2, safeLeftCols:3, riverStyle:'none', centralPath:{type:'cave',widthVariance:1}, enforce:[{type:'cave',min:0.08}], apply:_zoneApplyMine },
+  ruins:   { tiles:{ruins:0.35,plain:0.30,mountain:0.20,forest:0.10,hill:0.05}, heightNoise:0.11, heightOctave:3, safeLeftCols:3, riverStyle:'none', centralPlaza:{widthRatio:0.20,heightRatio:0.22}, enforce:[{type:'ruins',min:0.28}], apply:_zoneApplyRuins },
+  raider:  { tiles:{mountain:0.35,hill:0.30,cave:0.15,ruins:0.10,plain:0.10}, heightNoise:0.13, heightOctave:4, safeLeftCols:3, riverStyle:'none', enforce:[{type:'mountain',min:0.30}], apply:_zoneApplyRaider },
+  castle:  { tiles:{ruins:0.35,mountain:0.25,hill:0.20,forest:0.10,plain:0.10}, heightNoise:0.11, heightOctave:3, safeLeftCols:3, riverStyle:'none', wallLines:[0.35,0.62], wallGapInterval:3, apply:_zoneApplyCastle },
+  crystal: { tiles:{ruins:0.30,forest:0.30,mountain:0.20,hill:0.10,plain:0.10}, heightNoise:0.10, heightOctave:4, safeLeftCols:3, riverStyle:'none', centerMountainRow:true, apply:_zoneApplyCrystal },
+  warzone: { tiles:{forest:0.45,cave:0.20,ruins:0.15,plain:0.15,hill:0.05}, heightNoise:0.16, heightOctave:4, safeLeftCols:3, riverStyle:'none', forestCluster:2, enforce:[{type:'forest',min:0.40}], apply:_zoneApplyWarzone },
+  citadel: { tiles:{mountain:0.35,ruins:0.30,hill:0.20,cave:0.10,plain:0.05}, heightNoise:0.14, heightOctave:4, safeLeftCols:3, riverStyle:'none', enforce:[{type:'mountain',min:0.30},{type:'ruins',min:0.25}], apply:_zoneApplyCitadel },
+  void:    { tiles:{mountain:0.40,ruins:0.25,hill:0.20,plain:0.15}, heightNoise:0.09, heightOctave:2, safeLeftCols:3, riverStyle:'none', horizontalWallBands:[0.22,0.78], centralGate:true, apply:_zoneApplyVoid },
+};
+/** 전투지 생성.ini — 프로필의 apply(존 전용 생성기)만 호출. 범용 CDF 생성은 추후 profile.generator 로 확장 가능 */
+function applyTerrainProfile(profile,types,rows,cols,centerCol,rndFn){
+  if(!profile||typeof profile.apply!=='function') return;
+  profile.apply(types,rows,cols,centerCol,rndFn);
+}
+function generateTerrainTypesForZone(zid,tier,fixedHuntTemplate,rows,cols,centerCol,rndFn,civPhase){
+  const types=_terrainMat(rows,cols,'plain');
+  if(tier==='hunt'&&fixedHuntTemplate){
+    fillFixedHuntTemplateTypes(types,rows,cols,centerCol,rndFn);
+    return types;
+  }
+  const prof=ZONE_TERRAIN_PROFILE[zid];
+  if(prof) applyTerrainProfile(prof,types,rows,cols,centerCol,rndFn);
+  else _applyTierFallbackTerrain(tier,types,rows,cols,centerCol,rndFn);
+  _applyCivPhaseDensity(types,rows,cols,centerCol,zid,tier,civPhase,rndFn);
   return types;
 }
 
