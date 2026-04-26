@@ -8224,12 +8224,26 @@ const ANIMAL_ENEMIES={
   wolf:{id:'wolf',name:'🐺 늑대',role:'Melee',baseHp:220,baseAtk:45,baseSpd:2.2,baseDef:0.08,behavior:'pack_hunt', animalType:'predator', color:'#f87171'},
   wolf_alpha:{id:'wolf_alpha',name:'🐺 알파 늑대',role:'Warrior',baseHp:380,baseAtk:72,baseSpd:2.0,baseDef:0.12,behavior:'pack_hunt', animalType:'predator', color:'#f87171',isAlpha:true},
   bear:{id:'bear',name:'🐻 곰',role:'Tank',baseHp:600,baseAtk:80,baseSpd:1.3,baseDef:0.25,behavior:'territory', animalType:'predator', color:'#f87171',territoryRadius:180},
-  tiger:{id:'tiger',name:'🐯 호랑이',role:'Warrior',baseHp:450,baseAtk:95,baseSpd:2.0,baseDef:0.15,behavior:'ambush', animalType:'predator', color:'#f87171',ambushRange:250},
-  otter:{id:'otter',name:'🦦 수달',role:'Melee',baseHp:160,baseAtk:28,baseSpd:2.0,baseDef:0.05,behavior:'flee', animalType:'herbivore', color:'#4ade80',aquatic:true},
-  heron:{id:'heron',name:'🦢 왜가리',role:'Ranged',baseHp:180,baseAtk:40,baseSpd:1.6,baseDef:0.04,behavior:'retreat', animalType:'herbivore', color:'#86efac'},
+  tiger:{id:'tiger',name:'🐯 호랑이',role:'Warrior',baseHp:450,baseAtk:100,baseSpd:2.0,baseDef:0.15,behavior:'ambush', animalType:'predator', color:'#f87171',ambushRange:250},
+  otter:{id:'otter',name:'🦦 서식지 수달',role:'Melee',baseHp:175,baseAtk:34,baseSpd:2.0,baseDef:0.08,behavior:'pack_hunt', animalType:'predator', color:'#f87171',aquatic:true},
+  heron:{id:'heron',name:'🦢 길든 왜가리',role:'Ranged',baseHp:195,baseAtk:46,baseSpd:1.55,baseDef:0.08,behavior:'territory', animalType:'predator', color:'#f87171',territoryRadius:130},
   crocodile:{id:'crocodile',name:'🐊 악어',role:'Tank',baseHp:550,baseAtk:95,baseSpd:0.9,baseDef:0.28,behavior:'ambush', animalType:'predator', color:'#f87171',ambushRange:220,aquatic:true},
   hippo:{id:'hippo',name:'🦛 하마',role:'Tank',baseHp:900,baseAtk:120,baseSpd:0.8,baseDef:0.32,behavior:'territory', animalType:'predator', color:'#f87171',territoryRadius:200,aquatic:true},
   boar_pack:{id:'boar_pack',name:'🐗 멧돼지 무리',role:'Melee',baseHp:300,baseAtk:55,baseSpd:1.7,baseDef:0.12,behavior:'pack_hunt', animalType:'predator', color:'#f87171'},
+
+  // ── 얕은 강가 추가 5종 ──
+  snapping_turtle:{id:'snapping_turtle',name:'🐢 자라',role:'Tank',baseHp:480,baseAtk:60,baseSpd:0.7,baseDef:0.30,behavior:'territory', animalType:'predator', color:'#f87171',territoryRadius:140,aquatic:true},
+  river_snake:{id:'river_snake',name:'🐍 강뱀',role:'Melee',baseHp:250,baseAtk:70,baseSpd:2.1,baseDef:0.07,behavior:'ambush', animalType:'predator', color:'#f87171',ambushRange:180,aquatic:true},
+  pelican:{id:'pelican',name:'🦩 공격적 사다새',role:'Ranged',baseHp:210,baseAtk:52,baseSpd:1.45,baseDef:0.08,behavior:'territory', animalType:'predator', color:'#f87171',territoryRadius:125},
+  giant_catfish:{id:'giant_catfish',name:'🐟 대형 메기',role:'Warrior',baseHp:420,baseAtk:85,baseSpd:1.2,baseDef:0.14,behavior:'pack_hunt', animalType:'predator', color:'#f87171',aquatic:true},
+  river_boar:{id:'river_boar',name:'🐗 강가 멧돼지',role:'Melee',baseHp:350,baseAtk:65,baseSpd:1.6,baseDef:0.11,behavior:'pack_hunt', animalType:'predator', color:'#f87171'},
+
+  // ── 얕은 숲 추가 5종 ──
+  lynx:{id:'lynx',name:'🐆 스라소니',role:'Warrior',baseHp:340,baseAtk:88,baseSpd:2.3,baseDef:0.10,behavior:'ambush', animalType:'predator', color:'#f87171',ambushRange:210},
+  wild_ox:{id:'wild_ox',name:'🐂 들소',role:'Tank',baseHp:700,baseAtk:75,baseSpd:1.1,baseDef:0.22,behavior:'territory', animalType:'predator', color:'#f87171',territoryRadius:160},
+  wolf_pack:{id:'wolf_pack',name:'🐺 늑대 무리',role:'Melee',baseHp:260,baseAtk:52,baseSpd:2.4,baseDef:0.08,behavior:'pack_hunt', animalType:'predator', color:'#f87171'},
+  forest_viper:{id:'forest_viper',name:'🐍 숲 독사',role:'Ranged',baseHp:190,baseAtk:78,baseSpd:1.8,baseDef:0.06,behavior:'ambush', animalType:'predator', color:'#f87171',ambushRange:160},
+  giant_boar:{id:'giant_boar',name:'🐗 거대 멧돼지',role:'Tank',baseHp:780,baseAtk:95,baseSpd:1.0,baseDef:0.26,behavior:'territory', animalType:'predator', color:'#f87171',territoryRadius:150},
 };
 const HUNT_COMPOSITION={
   1:{herbivore:0.70,predator:0.30},
@@ -8240,8 +8254,8 @@ const HUNT_COMPOSITION={
 };
 const HUNT_HERBIVORE_POOL=['rabbit','deer','boar'];
 const HUNT_PREDATOR_POOL=['wolf','wolf_alpha','bear','tiger'];
-const RIVER_ENEMY_POOL=['otter','heron','crocodile','hippo'];
-const WILDS_ENEMY_POOL=['boar_pack','bear','wolf','tiger'];
+const RIVER_ENEMY_POOL=['otter','heron','crocodile','hippo','snapping_turtle','river_snake','pelican','giant_catfish','river_boar'];
+const WILDS_ENEMY_POOL=['boar_pack','bear','wolf','tiger','lynx','wild_ox','wolf_pack','forest_viper','giant_boar'];
 // ── 전투 장소 ──
 // tier: hunt=초식동물, pred=맹수, bandit=산적/강도, raider=약탈자, army=군대
 const ZONES={
@@ -10200,8 +10214,7 @@ window.selectZone = function(id) {
   closeZoneModal();
   
   // 5. 배치 단계(isPlacing=true)로 진입하여 안내 메시지 출력
-  enterPlacement(); 
-  updatePG(); // <-- 사냥터를 고르면 안내가 다시 나타납니다.
+  enterPlacement();
   if (typeof _mapScreenDimAlpha !== 'undefined' && _mapScreenDimAlpha > 0.2) {
     _mapScreenDimFadeIn = true;
   }
@@ -13967,8 +13980,41 @@ function tickRaidBossPhaseSystem(){
     }
   }
 }
+// ── 단계별 고유 적 이름 DB ──
+// 구조: STAGE_ENEMY_DB[conceptPhase][roleKey] = [이름 배열]
+// conceptPhase: 1=마을, 2=도시, 3=왕국
+const STAGE_ENEMY_DB={
+  // ── 마을 단계 (bandit·ruins·mine) ──
+  1:{
+    tank:   ['산적 방패수','들판 수비대','노상강도 중장','약탈 갑주병','험지 방어병'],
+    warrior:['산적 두목','들판 돌격대','칼잡이 약탈자','노상강도 전사','험지 공격수'],
+    ranged: ['산적 궁수','들판 사수','매복 저격수','도적 투척병','험지 궁병'],
+    mage:   ['부족 주술사','들판 흑마법사','독 주조사','산적 사령사','험지 술사'],
+    heal:   ['산적 치료사','들판 의무병','약초 치료사','부족 치유사','험지 지원사'],
+    prey:   ['야생 떠돌이','들판 방랑자','험지 잡졸'],
+  },
+  // ── 도시 단계 (raider·castle·crystal) ──
+  2:{
+    tank:   ['철갑 선봉대','성채 수문장','마력 방패기사','용병 중장병','약탈군 돌파대'],
+    warrior:['철갑 돌격병','성채 참격대','마력 전사','용병 검객','약탈군 기습대'],
+    ranged: ['철갑 저격수','성채 석궁수','마력 사수','용병 궁병','약탈군 투척병'],
+    mage:   ['강철 주술사','성채 흑마도사','마력 폭파사','용병 파괴술사','약탈군 염술사'],
+    heal:   ['강철 의무관','성채 회복사','마력 치유사','용병 군의관','약탈군 지원사'],
+    prey:   ['성채 잡병','도시 부랑자','약탈군 척후'],
+  },
+  // ── 왕국 단계 (warzone·citadel·void) ──
+  3:{
+    tank:   ['전쟁 선봉기사','저주 중장병','심연 방패대','고대 수호병','공허 철갑대'],
+    warrior:['전쟁 돌격기사','저주 검사','심연 참격병','고대 전사','공허 살육자'],
+    ranged: ['전쟁 원거리대','저주 사수','심연 투사','고대 궁병','공허 관통수'],
+    mage:   ['전쟁 흑마법사','저주 술사','심연 파괴사','고대 마법병','공허 붕괴술사'],
+    heal:   ['전쟁 군의관','저주 흡혈사제','심연 치유술사','고대 지원병','공허 회생사'],
+    prey:   ['전쟁 척후','저주받은 졸병','공허 잡병'],
+  },
+};
+
 const ENEMY_ROLE_BASE={
-  prey:   {name:'야생동물', mark:'🐾', color:'#5d8a3c', role:null,   hp:150, atk:10, range:55, spd:1.8, def:0.00, flees:true},
+  prey:   {name:'야생동물', mark:'🐾', color:'#5d8a3c', role:null,   hp:150, atk:10, range:55, spd:1.8, def:0.00, flees:false},
   bear:   {name:'곰',       mark:'🐻', color:'#7a4e2d', role:'Tank', hp:820, atk:38, range:58, spd:0.72,def:0.28},
   raider: {name:'들개병',   mark:'F',  color:'#b45309', role:'Warrior',hp:330,atk:60, range:68, spd:1.35,def:0.04},
   tank:   {name:'중장병',   mark:'T',  color:'#c0392b', role:'Tank', hp:950, atk:44, range:58, spd:0.65,def:0.35},
@@ -13989,6 +14035,15 @@ function allocRoleCount(total,ratio){
 }
 function themedEnemyName(roleKey,zoneName,idx){
   const z=zoneName||'전투지';
+  // 현재 전투지의 conceptPhase로 단계별 DB 우선 참조
+  const phase=typeof currentZone!=='undefined'&&currentZone?
+    Math.min(3,Math.max(0,Number(currentZone.conceptPhase)||0)):0;
+  if(phase>=1 && typeof STAGE_ENEMY_DB!=='undefined' && STAGE_ENEMY_DB[phase]){
+    const phaseTable=STAGE_ENEMY_DB[phase];
+    const arr=phaseTable[roleKey];
+    if(arr&&arr.length) return arr[idx%arr.length];
+  }
+  // 집합소(0) 또는 폴백: 기존 전투지 이름 기반 생성
   const table={
     prey:['떠돌이 짐승','초원 포식자','강변 야수'],
     bear:['굶주린 곰','초원 갈색곰','강변 흑곰'],
@@ -14047,6 +14102,8 @@ function pickPredatorKey(forDay){
 function getHuntHerbivoreShareForDay(diffTier,day){
   const dt=Math.min(5,Math.max(1,diffTier||1));
   const base=(HUNT_COMPOSITION[dt]||HUNT_COMPOSITION[1]).herbivore;
+  // diffTier 2 이상(II등급~)이고 5일차 이상이면 초식동물 완전 제거
+  if(dt>=2 && day>=5) return 0;
   if(day>=6) return base;
   const floor=[0.86,0.80,0.72,0.64,0.52][day-1]||0.52;
   return Math.max(base, floor);
@@ -14073,6 +14130,13 @@ function buildPhase0AnimalFormation(s,baseZ){
   const pushAnimalFromKey=function(key){
     const a=ANIMAL_ENEMIES[key];
     if(!a) return;
+    let useBeh=(a.behavior==='null'||a.behavior==null)?null:String(a.behavior);
+    // 근처 들판(hunt)만 도망·후퇴형; 강가·숲 등 그 외 phase0 전투지에서는 회피 행동 금지
+    if(baseZ!=='hunt'&&(useBeh==='flee'||useBeh==='retreat')){
+      if(a.role==='Ranged'||a.role==='Mage') useBeh='ambush';
+      else if(a.role==='Tank') useBeh='territory';
+      else useBeh='pack_hunt';
+    }
     const role=a.role||null;
     const yy=H*(0.14 + ((idx%Math.max(1,cnt))*0.72/Math.max(1,cnt-1)));
     const xx=bx-(idx%3)*38;
@@ -14081,7 +14145,7 @@ function buildPhase0AnimalFormation(s,baseZ){
     const spd=Math.max(0.45,a.baseSpd);
     const def=Math.min(0.65,a.baseDef);
     const range=animalDefaultRange(a.role);
-    const flees=a.behavior==='flee'||a.behavior==='retreat';
+    const flees=baseZ==='hunt'&&(a.behavior==='flee'||a.behavior==='retreat');
     const isHerb=HUNT_HERBIVORE_POOL.includes(key);
     const dTier=getZoneStageDifficultyTier(s);
     const famLab=getV10EnemyFamilyLabel(baseZ,s);
@@ -14095,13 +14159,13 @@ function buildPhase0AnimalFormation(s,baseZ){
       hp,atk,range,spd,def,
       flees,
       ambushReady:false,
-      animalAmbushPrimed:a.behavior==='ambush',
+      animalAmbushPrimed:useBeh==='ambush',
       fleeRange:a.fleeRange,
-      territoryRadius:a.territoryRadius,
-      ambushRange:a.ambushRange,
+      territoryRadius:(useBeh==='territory'&&!a.territoryRadius)?140:a.territoryRadius,
+      ambushRange:(useBeh==='ambush'&&!a.ambushRange)?Math.max(140,Number(a.fleeRange)||160):a.ambushRange,
       isAlphaAnimal:!!a.isAlpha,
       elite:(key==='wolf_alpha'||key==='tiger'||key==='hippo')&&Math.random()>0.5,
-      animalBehavior:a.behavior,
+      animalBehavior:useBeh,
       aquatic:!!a.aquatic,
       animalDefKey:key,
       lv:Math.max(1,Math.floor(2+s*0.62+(isHerb?0:2.2)+(a.isAlpha?2:0))),
@@ -14157,9 +14221,17 @@ function buildPhase0AnimalFormation(s,baseZ){
   if(baseZ==='river'){
     let rPool=RIVER_ENEMY_POOL;
     if(s<=2){
-      rPool=['otter','heron','otter','heron'];
+      // 1~2일차: 소형 수역 포식자 위주(도망·후퇴형 없음)
+      rPool=['otter','heron','otter','heron','pelican'];
     }else if(s<=5){
-      rPool=['otter','heron','otter','crocodile','heron'];
+      // 3~5일차: 중간 포식자 추가
+      rPool=['otter','heron','pelican','crocodile','river_snake'];
+    }else if(s<=10){
+      // 6~10일차: 중형 위협 등장
+      rPool=['crocodile','river_snake','snapping_turtle','giant_catfish','river_boar'];
+    }else{
+      // 11~15일차: 강력한 포식자 위주
+      rPool=['crocodile','hippo','snapping_turtle','giant_catfish','river_snake'];
     }
     for(let i=0;i<cnt;i++){
       pushAnimalFromKey(rPool[(Math.random()*rPool.length)|0]);
@@ -14170,9 +14242,17 @@ function buildPhase0AnimalFormation(s,baseZ){
   if(baseZ==='wilds'){
     let wPool=WILDS_ENEMY_POOL;
     if(s<=3){
-      wPool=['wolf','wolf','boar_pack','wolf'];
-    }else if(s<=5){
-      wPool=['wolf','boar_pack','bear','wolf','wolf'];
+      // 1~3일차: 소형 무리 위주
+      wPool=['wolf','wolf_pack','boar_pack','forest_viper'];
+    }else if(s<=6){
+      // 4~6일차: 중형 포식자 합류
+      wPool=['wolf','wolf_pack','boar_pack','lynx','bear'];
+    }else if(s<=10){
+      // 7~10일차: 대형 위협 등장
+      wPool=['bear','lynx','wild_ox','wolf_pack','forest_viper'];
+    }else{
+      // 11~15일차: 최강 포식자
+      wPool=['tiger','giant_boar','wild_ox','bear','lynx'];
     }
     for(let i=0;i<cnt;i++){
       pushAnimalFromKey(wPool[(Math.random()*wPool.length)|0]);
@@ -14423,17 +14503,12 @@ function enterPlacement() {
   document.getElementById('btn-go').style.display = 'inline-block';
   document.getElementById('btn-pa').style.display = 'none';
 
-  // [수정 포인트] 배치할 대원이 없으면 안내창 숨김
-  const pg = document.getElementById('pg');
-  if (pg) {
-    const _ud = getSortedUd();
-    if (_ud.length === 0) {
-      pg.style.display = 'none';
-    } else {
-      pg.style.display = 'block';
-      updatePG();
-    }
+  if (window._autoStartInterval) {
+    clearInterval(window._autoStartInterval);
+    window._autoStartInterval = null;
   }
+  const pg = document.getElementById('pg');
+  if (pg) updatePG();
   
   markDirty();
 }
@@ -14875,13 +14950,7 @@ function onDown(e){
       updatePG();
       renderAllyPanel();
       markDirty();
-      if (autoStart && getSortedUd().length === 0) {
-        if (!isBattle) {
-          setTimeout(() => { if(!isBattle && autoStart) toggleBattle(); }, 800);
-        } else if (isPaused) {
-          togglePause();
-        }
-      }
+      if (isBattle && isPaused && getSortedUd().length === 0) togglePause();
       return;
     }
   }
@@ -14961,14 +15030,7 @@ function onDown(e){
     renderAllyPanel();
     markDirty();
 
-    // [핵심 추가] 배치가 끝났고 자동 시작이 ON이면 즉시 출발! (전투 중 교체 배치는 출발 버튼 불필요)
-    if (autoStart && getSortedUd().length === 0) {
-      if (!isBattle) {
-        updatePG(); // autoStart: 카운트다운 시작
-      } else if (isPaused) {
-        togglePause();
-      }
-    }
+    if (isBattle && isPaused && getSortedUd().length === 0) togglePause();
     return;
   }
 
@@ -15136,11 +15198,7 @@ function onUp(e){
         savedPositions[dragUnit.id] = {x: dragUnit.x, y: dragUnit.y};
         initialPositions[dragUnit.id] = {x: dragUnit.x, y: dragUnit.y};
         
-        updatePG(); 
-
-        if (autoStart && getSortedUd().length === 0) {
-          updatePG(); // autoStart: 카운트다운 시작
-        }
+        updatePG();
       } else {
         // 2. 전투 단계: 이동 명령
         const wp=resolveMoveCommandPoint(dragUnit,x,y);
@@ -15496,9 +15554,6 @@ function handlePlacementDrop(u, x, y){
   savedPositions[u.id]={x:u.x,y:u.y};
   initialPositions[u.id]={x:u.x,y:u.y};
   updatePG();
-  if(autoStart&&getSortedUd().length===0){
-    updatePG(); // autoStart: 카운트다운 시작
-  }
   markDirty();
 }
 // 드래그 이동을 처리하는 별도 함수
@@ -16472,10 +16527,8 @@ function toggleBattle(){
     return;
   }
 
-  // 2. 배치 체크 수정
   const ud = getSortedUd();
-  // 자동 시작이 꺼져 있을 때만 배치를 강제함
-  if (!autoStart && ud.length > 0) {
+  if (ud.length > 0) {
     if (typeof flashPG === 'function') flashPG();
     alog("⚠️ 아직 배치하지 않은 대원이 있습니다! 배치를 먼저 완료하세요.");
     return;
@@ -16623,8 +16676,8 @@ function toggleAutoStart(){
   applyAutoStartButtonUi();
   const ud = getSortedUd();
   alog(autoStart ? '🔄 자동 진행 ON' : '🔄 자동 진행 OFF');
-  if(autoStart && !isBattle && ud.length === 0){
-    setTimeout(() => { if(autoStart && !isBattle) toggleBattle(); }, 500);
+  if (autoStart && !isBattle && getSortedUd().length === 0) {
+    toggleBattle();
   }
 }
 function setBadge(t,cls){
@@ -17706,9 +17759,6 @@ function battleTick(){
           _pendingDayArrivalBannerForBattle = true;
           enterPlacement();
           if(typeof markDirty==='function') markDirty();
-          if (autoStart && getSortedUd().length === 0) {
-            setTimeout(() => { if (!isBattle && autoStart) toggleBattle(); }, 1200);
-          }
         }
         renderGarrisonBar();
       }, tWait);
@@ -20422,19 +20472,14 @@ window.closeTutorialAndResume = function() {
   if (typeof updatePlayGuideChecklistUI === 'function') updatePlayGuideChecklistUI();
   if (typeof saveGameState === 'function') saveGameState(true);
   
-  // 2. 자동 시작 강제 활성화
-  if (typeof autoStart !== 'undefined' && !autoStart) {
-    toggleAutoStart();
-  }
-  
-  // 3. 배치 모드 진입 및 자동 전투 트리거
   enterPlacement();
-  
-  // 배치 완료 상태(ud.length === 0)라면 0.5초 후 즉시 출발 명령 하달
-  if(getSortedUd().length === 0) {
-    setTimeout(() => { 
-      if(!isBattle) toggleBattle(); 
-    }, 500);
+  if (typeof autoStart !== 'undefined' && !autoStart) {
+    autoStart = true;
+    if (typeof applyAutoStartButtonUi === 'function') applyAutoStartButtonUi();
+    if (typeof alog === 'function') alog('🔄 자동 진행 ON');
+    if (typeof updatePG === 'function') updatePG();
+  } else if (getSortedUd().length === 0 && !isBattle) {
+    toggleBattle();
   }
 };
 
@@ -20537,37 +20582,6 @@ function autoStartNextZone(clearedZid) {
   renderGarrisonBar(); 
   markDirty();
 
-  // 6. 카운트다운 제어 (버그 방지 강화)
-  const pg = document.getElementById('pg');
-  if (pg) {
-    pg.style.display = 'block';
-    let sec = 5;
-    
-    // [추가] 안내창에 표시될 이름을 상단 바와 동일한 로직으로 생성
-    const displaySeqName = newName.replace(/\s[IVX]+$/g, '').trim() + " " + toRomanNumeral(seq + 1);
-    
-    if (window._autoStartInterval) clearInterval(window._autoStartInterval);
-    
-    window._autoStartInterval = setInterval(() => {
-      if (isBattle || pg.style.display === 'none') {
-        clearInterval(window._autoStartInterval);
-        return;
-      }
-
-      // [수정] ${newName} 대신 ${displaySeqName}을 사용하여 중복 방지
-      pg.innerHTML = `
-        <div style="color:#fbbf24; font-size:16px; margin-bottom:5px;">⚔️ ${displaySeqName} 준비!</div>
-        <div style="font-size:12px;">${sec}초 후 자동 사냥 시작...</div>
-      `;
-      
-      if (sec <= 0) {
-        clearInterval(window._autoStartInterval);
-        pg.style.display = 'none';
-        if (autoStart && !isBattle) toggleBattle();
-      }
-      sec--;
-    }, 1000);
-  }
   if (typeof _mapScreenDimAlpha !== 'undefined' && _mapScreenDimAlpha > 0.2) {
     _mapScreenDimFadeIn = true;
   }
